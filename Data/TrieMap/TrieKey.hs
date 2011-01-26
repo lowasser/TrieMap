@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections, TypeFamilies, UnboxedTuples, MagicHash #-}
 
-module Data.TrieMap.TrieKey (TrieKey(..), module Data.TrieMap.TrieKey) where
+module Data.TrieMap.TrieKey where
 
 import Data.TrieMap.Sized
 
@@ -14,11 +14,6 @@ import Prelude hiding (foldr, foldl)
 
 import GHC.Exts
 
-type EitherMap k a b c = k -> a -> (# Maybe b, Maybe c #)
-type SplitMap a x = a -> (# Maybe a, Maybe x, Maybe a #)
-type UnionFunc k a = k -> a -> a -> Maybe a
-type IsectFunc k a b c = k -> a -> b -> Maybe c
-type DiffFunc k a b = k -> a -> b -> Maybe a
 type LEq a b = a -> b -> Bool
 type Unified k a = Either (Hole k a) (TrieMap k a)
 

@@ -26,7 +26,7 @@ data Path k a =
 singletonMaybe :: Sized a => k -> Maybe a -> OrdMap k a
 singletonMaybe k = maybe Tip (singleton k)
 
--- | The implementation of @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
+-- | @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
 instance Ord k => TrieKey (Ordered k) where
 	Ord k1 =? Ord k2	= k1 == k2
 	Ord k1 `cmp` Ord k2	= k1 `compare` k2
@@ -135,22 +135,21 @@ mapEither f (Bin _ k a l r) = (# joinMaybe k aL lL rL, joinMaybe k aR lR rR #)
   where !(# aL, aR #) = f a; !(# lL, lR #) = mapEither f l; !(# rL, rR #) = mapEither f r
 mapEither _ _ = (# Tip, Tip #)
 
-splitLookup :: (Ord k, Sized a) => SplitMap a x -> k -> OrdMap k a -> (# OrdMap k a, Maybe x, OrdMap k a #)
-splitLookup  f k m = case m of
+splitLookup :: (Ord k, Sized a) => k -> OrdMap k a -> (# OrdMap k a, Maybe a, OrdMap k a #)
+splitLookup k m = case m of
 	Tip	-> (# Tip, Nothing, Tip #)
 	Bin _ kx x l r -> case compare k kx of
-		LT	-> let !(# lL, ans, lR #) = splitLookup f k l in (# lL, ans, join kx x lR r #)
-		EQ	-> let !(# xL, ans, xR #) = f x in
-			(# maybe l (\ xL -> insertMax kx xL l) xL, ans, maybe r (\ xR -> insertMin kx xR r) xR #)
-		GT	-> let !(# rL, ans, rR #) = splitLookup f k r in (# join kx x l rL, ans, rR #)
+		LT	-> let !(# lL, ans, lR #) = splitLookup k l in (# lL, ans, join kx x lR r #)
+		EQ	-> (# l, Just x, r #)
+		GT	-> let !(# rL, ans, rR #) = splitLookup k r in (# join kx x l rL, ans, rR #)
 
 isSubmap :: (Ord k, Sized a, Sized b) => LEq a b -> LEq (OrdMap k a) (OrdMap k b)
 isSubmap _ Tip _ = True
 isSubmap _ _ Tip = False
 isSubmap (<=) (Bin _ kx x l r) t = case found of
 	  Nothing	-> False
-	  Just (Elem y)	-> x <= y && isSubmap (<=) l lt && isSubmap (<=) r gt
-  where !(# lt, found, gt #) = splitLookup (\ x -> (# Nothing, Just (Elem x), Nothing #)) kx t
+	  Just y	-> x <= y && isSubmap (<=) l lt && isSubmap (<=) r gt
+  where !(# lt, found, gt #) = splitLookup kx t
 
 fromAscList :: (Eq k, Sized a) => (a -> a -> a) -> [(k, a)] -> OrdMap k a
 fromAscList f xs = fromDistinctAscList (combineEq xs) where
