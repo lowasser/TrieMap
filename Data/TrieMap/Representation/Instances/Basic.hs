@@ -10,6 +10,7 @@ import qualified Data.Vector as V
 
 import Language.Haskell.TH
 
+-- | @'Rep' [a] = 'V.Vector' ('Rep' a)@
 instance Repr a => Repr [a] where
 	type Rep [a] = V.Vector (Rep a)
 	toRep = V.map toRep . V.fromList

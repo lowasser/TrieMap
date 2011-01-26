@@ -12,10 +12,12 @@ import qualified Data.ByteString.Lazy as L
 
 import Data.Vector.Storable
 
+-- | @'Rep' 'ByteString' = 'Rep' ('Vector' 'Word8')@
 instance Repr ByteString where
-	type Rep ByteString = (Vector Word, Word)
+	type Rep ByteString = Rep (Vector Word8)
 	toRep (PS fp off len) = toRep (unsafeFromForeignPtr fp off len)
 
+-- | @'Rep' 'L.ByteString' = 'Rep' ('Vector' 'Word8')@
 instance Repr L.ByteString where
-	type Rep L.ByteString = (Vector Word, Word)
+	type Rep L.ByteString = Rep (Vector Word8)
 	toRep = toRep . B.concat . L.toChunks
