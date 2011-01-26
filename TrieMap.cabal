@@ -1,5 +1,5 @@
 name:		     TrieMap
-version:             2.0.2
+version:             2.0.3
 cabal-version:       >= 1.6
 tested-with:	     GHC
 category:            Algorithms
