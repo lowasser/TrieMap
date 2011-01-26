@@ -28,7 +28,7 @@ data Path a = Root
 	| LeftBin !Prefix !Mask !(Path a) !(TrieMap Word a)
 	| RightBin !Prefix !Mask !(TrieMap Word a) !(Path a)
 
--- | The implementation of @'TrieMap' 'Word' a@ is based on "Data.IntMap".
+-- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
 	(=?) = (==)
 	cmp = compare

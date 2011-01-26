@@ -58,8 +58,8 @@ hole2 (Just m1) hole2 = Hole1X m1 hole2
 
 #define UVIEW uView -> UView
 
--- | A @'TrieMap' ('Either' k1 k2) a@ is essentially a @(TrieMap k1 a, TrieMap k2 a)@, but
--- is specialized for the cases where one or both maps are empty.
+-- | @'TrieMap' ('Either' k1 k2) a@ is essentially a @(TrieMap k1 a, TrieMap k2 a)@, but
+-- specialized for the cases where one or both maps are empty.
 instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	{-# SPECIALIZE instance TrieKey (Either () ()) #-}
 	{-# SPECIALIZE instance TrieKey k => TrieKey (Either () k) #-}

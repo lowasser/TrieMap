@@ -14,7 +14,7 @@ import Data.Maybe
 
 import Prelude hiding (foldr, foldl)
 
--- | A @'TrieMap' () a@ is implemented as a @'Maybe' a@.
+-- | @'TrieMap' () a@ is implemented as @'Maybe' a@.
 instance TrieKey () where
 	_ =? _ = True
 	_ `cmp` _ = EQ

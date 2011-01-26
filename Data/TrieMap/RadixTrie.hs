@@ -26,7 +26,7 @@ import Data.TrieMap.RadixTrie.Edge
 
 import Prelude hiding (length, and, zip, zipWith, foldr, foldl)
 
--- | A @'TrieMap' ('Vector' k) a@ is a traditional radix trie.
+-- | @'TrieMap' ('Vector' k) a@ is a traditional radix trie.
 instance TrieKey k => TrieKey (Vector k) where
 	ks =? ls	= length ks == length ls && and (zipWith (=?) ks ls)
 	ks `cmp` ls	= V.foldr (\ (k, l) z -> (k `cmp` l) `mappend` z) (comparing length ks ls) (zip ks ls)
@@ -80,7 +80,7 @@ type WordVec = S.Vector Word
 vZipWith :: (Storable a, Storable b) => (a -> b -> c) -> S.Vector a -> S.Vector b -> Vector c
 vZipWith f xs ys = V.zipWith f (convert xs) (convert ys)
 
--- | A @'TrieMap' ('S.Vector' Word) a@ is a traditional radix trie specialized for word arrays.
+-- | @'TrieMap' ('S.Vector' Word) a@ is a traditional radix trie specialized for word arrays.
 instance TrieKey (S.Vector Word) where
 	ks =? ls	= length ks == length ls && and (vZipWith (=?) ks ls)
 	ks `cmp` ls	= V.foldr (\ (k, l) z -> (k `cmp` l) `mappend` z) (comparing length ks ls) (vZipWith (,) ks ls)

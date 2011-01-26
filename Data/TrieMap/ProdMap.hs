@@ -13,7 +13,7 @@ import Data.Monoid
 import Data.Sequence ((|>))
 import qualified Data.Sequence as Seq
 
--- | A @'TrieMap' (k1, k2) a@ is implemented as a @'TrieMap' k1 ('TrieMap' k2 a)@.
+-- | @'TrieMap' (k1, k2) a@ is implemented as a @'TrieMap' k1 ('TrieMap' k2 a)@.
 instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	(k11, k12) =? (k21, k22) = k11 =? k21 && k12 =? k22
 	(k11, k12) `cmp` (k21, k22) = (k11 `cmp` k21) `mappend` (k12 `cmp` k22)
