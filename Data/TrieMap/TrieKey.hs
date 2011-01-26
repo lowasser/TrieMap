@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections, TypeFamilies, UnboxedTuples, MagicHash #-}
 
-module Data.TrieMap.TrieKey where
+module Data.TrieMap.TrieKey (TrieKey(..), module Data.TrieMap.TrieKey) where
 
 import Data.TrieMap.Sized
 
@@ -48,6 +48,8 @@ instance TrieKey k => Foldable (TrieMap k) where
 	foldr f = flip $ foldrM f
 	foldl f = flip $ foldlM f
 
+-- | A @TrieKey k@ instance implies that @k@ is a standardized representation for which a
+-- generalized trie structure can be derived.
 class TrieKey k where
 	(=?) :: k -> k -> Bool
 	cmp :: k -> k -> Ordering

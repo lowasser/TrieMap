@@ -10,6 +10,7 @@ import Data.TrieMap.Sized
 
 import GHC.Exts
 
+-- | A @'TrieMap' ('Rev' k) a@ is a wrapper around a @'TrieMap' k a@ that reverses the order of the operations.
 instance TrieKey k => TrieKey (Rev k) where
 	newtype TrieMap (Rev k) a = RevMap (TrieMap k a)
 	newtype Hole (Rev k) a = RHole (Hole k a)

@@ -15,6 +15,7 @@ import Data.TrieMap.IntMap()
 import Data.TrieMap.OrdMap()
 import Data.TrieMap.RadixTrie()
 
+-- | A @'TrieMap' ('Key' k) a@ is just a wrapper around a @TrieMap (Rep k) a@.
 instance TKey k => TrieKey (Key k) where
 	Key k1 =? Key k2 = toRep k1 =? toRep k2
 	Key k1 `cmp` Key k2 = toRep k1 `cmp` toRep k2

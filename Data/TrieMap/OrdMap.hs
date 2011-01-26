@@ -26,6 +26,7 @@ data Path k a =
 singletonMaybe :: Sized a => k -> Maybe a -> OrdMap k a
 singletonMaybe k = maybe Tip (singleton k)
 
+-- | The implementation of @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
 instance Ord k => TrieKey (Ordered k) where
 	Ord k1 =? Ord k2	= k1 == k2
 	Ord k1 `cmp` Ord k2	= k1 `compare` k2
