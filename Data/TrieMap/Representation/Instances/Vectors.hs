@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, UndecidableInstances, TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, UndecidableInstances, TemplateHaskell, ScopedTypeVariables #-}
 module Data.TrieMap.Representation.Instances.Vectors () where
 
 import Control.Monad.Primitive
@@ -56,21 +56,10 @@ unsafeToPtr xs = unsafeInlineST $ do
 unsafeFromPtr :: Storable a => Ptr b -> Int -> ForeignPtr b -> S.Vector a
 unsafeFromPtr ptr n fp = unsafeInlineST $ S.unsafeFreeze (S.MVector (castPtr ptr) n (castForeignPtr fp))
 
-#define HANGINSTANCE(wTy)								\
-    instance Repr (S.Vector wTy) where							\
-    	type Rep (S.Vector wTy) = (S.Vector Word, Overhang);				\
-    	{-# NOINLINE toRep #-};								\
-    	toRep !xs0 = let {								\
-	  !b = bitSize (0 :: wTy);							\
-	  !wordSize = bitSize (0 :: Word);						\
-	  !ratio = quoPow wordSize b;							\
-	  !n' = quoPow n0 ratio;							\
-	  !nHang = remPow n0 ratio;							\
-	  !xHang = S.drop (n0 - nHang) xs0;						\
-	  !overhang = (fromIntegral nHang `shiftL` (wordSize - b)) .|.			\
-	  	S.foldl' (\ hang w -> (hang `shiftL` b) .|. fromIntegral w) 0 xHang;	\
-	  !(ptr, !n0, fp) = unsafeToPtr xs0}						\
-	  in (unsafeFromPtr ptr n' fp, overhang)
+#define HANGINSTANCE(wTy)					\
+    instance Repr (S.Vector wTy) where				\
+    	type Rep (S.Vector wTy) = (S.Vector Word);		\
+    	toRep = S.map fromIntegral
 
 HANGINSTANCE(Word8)
 HANGINSTANCE(Word16)
@@ -83,25 +72,43 @@ instance Repr (S.Vector Word32) where
 HANGINSTANCE(Word32)
 #endif
 
+#if WORD_SIZE_IN_BITS == 32
+-- | @'Rep' ('S.Vector' 'Word64') = 'S.Vector' 'Word'@, by viewing each 'Word64' as two 'Word's.
+#else
+-- | @'Rep' ('S.Vector' 'Word64') = 'S.Vector' 'Word'@
+#endif
 instance Repr (S.Vector Word64) where
 	type Rep (S.Vector Word64) = S.Vector Word
 	toRep xs = case unsafeToPtr xs of
 		(p, n, fp) -> unsafeFromPtr p (n * ratio) fp
 		where !wordBits = bitSize (0 :: Word); ratio = quoPow 64 wordBits
 
+#define VEC_WORD_DOC(vec, wTy) {-| @'Rep' ('vec' 'wTy') = 'Rep' ('S.Vector' 'wTy')@ -}
 #define VEC_WORD_INST(vec,wTy)				\
   instance Repr (vec wTy) where {			\
 	type Rep (vec wTy) = Rep (S.Vector wTy);	\
 	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert}
-#define VEC_WORD_INSTANCES(wTy)		\
-	VEC_WORD_INST(U.Vector,wTy);	\
-	VEC_WORD_INST(P.Vector,wTy)
 
-VEC_WORD_INSTANCES(Word8)
-VEC_WORD_INSTANCES(Word16)
-VEC_WORD_INSTANCES(Word32)
-VEC_WORD_INSTANCES(Word64)
-VEC_WORD_INSTANCES(Word)
+VEC_WORD_DOC(U.Vector,Word8)
+VEC_WORD_INST(U.Vector,Word8)
+VEC_WORD_DOC(P.Vector,Word8)
+VEC_WORD_INST(P.Vector,Word8)
+VEC_WORD_DOC(U.Vector,Word16)
+VEC_WORD_INST(U.Vector,Word16)
+VEC_WORD_DOC(P.Vector,Word16)
+VEC_WORD_INST(P.Vector,Word16)
+VEC_WORD_DOC(U.Vector,Word32)
+VEC_WORD_INST(U.Vector,Word32)
+VEC_WORD_DOC(P.Vector,Word32)
+VEC_WORD_INST(P.Vector,Word32)
+VEC_WORD_DOC(U.Vector,Word64)
+VEC_WORD_INST(U.Vector,Word64)
+VEC_WORD_DOC(P.Vector,Word64)
+VEC_WORD_INST(P.Vector,Word64)
+VEC_WORD_DOC(U.Vector,Word)
+VEC_WORD_INST(U.Vector,Word)
+VEC_WORD_DOC(P.Vector,Word)
+VEC_WORD_INST(P.Vector,Word)
 
 #define VEC_INT_INST(vec,iTy,wTy)			\
   instance Repr (vec iTy) where {			\
