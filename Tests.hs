@@ -10,11 +10,15 @@ import qualified Data.TrieMap as T
 import qualified Data.Map as M
 import Test.QuickCheck
 import Prelude hiding (null, lookup)
-
-type Key = Integer
+import Data.ByteString.Char8 (ByteString, pack, unpack, head, length)
+import qualified Data.ByteString.Char8 as BS
+type Key = ByteString
 type Val = [Integer]
 
 main = quickCheckWith stdArgs{maxSize = 300, maxSuccess = 100} (verify M.empty T.empty)
+
+instance Arbitrary ByteString where
+	arbitrary = liftM pack arbitrary
 
 instance Arbitrary Op where
 	arbitrary = oneof [
@@ -73,15 +77,16 @@ data Operation r where
 	ElemAt :: Int -> Operation (Maybe (Key, Val))
 
 mapFunc :: Key -> Val -> Val
-mapFunc = (:)
+mapFunc ks xs = fromIntegral (BS.length ks):xs
 
 mapMaybeFunc :: Key -> Val -> Maybe Val
-mapMaybeFunc k xs
-	| even k	= Just (k:xs)
+mapMaybeFunc ks xs
+	| even k	= Just (fromIntegral k:xs)
+	where k = BS.length ks
 mapMaybeFunc _ _ = Nothing
 
 isectFunc :: Key -> Val -> Val -> Val
-isectFunc ks xs ys = ks:xs ++ ys
+isectFunc ks xs ys = [fromIntegral $ BS.length ks] ++ xs ++ ys
 
 generateMap :: M.Map Key Val -> [Op] -> M.Map Key Val
 generateMap = foldl (\ mm (Op op) -> snd (operateMap mm op))
