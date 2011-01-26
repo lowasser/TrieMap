@@ -32,6 +32,7 @@ exposed-modules:
   Data.TrieMap.Representation,
   Data.TrieMap.Modifiers
 other-modules:
+  Data.TrieMap.TrieKey,
   Data.TrieMap.Utils,
   Data.TrieMap.Sized,
   Data.TrieMap.Applicative,
