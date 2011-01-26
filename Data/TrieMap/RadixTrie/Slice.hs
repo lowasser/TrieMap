@@ -25,7 +25,7 @@ unDropSlice !m (Slice xs i n) = assert (i >= m) $ Slice xs (i-m) (n+m)
 
 {-# INLINE s2V #-}
 s2V :: Vector v a => Slice v a -> v a
-s2V (Slice xs i n) = assert (i >= 0) $ assert (i + n < length xs) $ unsafeSlice i n xs
+s2V (Slice xs i n) = assert (i >= 0) $ assert (i + n <= length xs) $ unsafeSlice i n xs
 
 {-# INLINE v2S #-}
 v2S :: Vector v a => v a -> Slice v a
