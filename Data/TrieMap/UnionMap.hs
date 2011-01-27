@@ -171,9 +171,12 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		(v, h2) <- extractHoleM' m2
 		return (v, hole2 m1 h2))
 	
+	clearM hole = case hView hole of
+		Hole1 h1 m2	-> clearM' h1 ^ m2
+		Hole2 m1 h2	-> m1 ^ clearM' h2
 	assignM v hole = case hView hole of
-		Hole1 h1 m2	-> assignM' v h1 ^ m2
-		Hole2 m1 h2	-> m1 ^ assignM' v h2
+		Hole1 h1 m2	-> Just (assignM v h1) ^ m2
+		Hole2 m1 h2	-> m1 ^ Just (assignM v h2)
 	
 	unifyM (Left k1) a1 (Left k2) a2 = either (Left . HoleX0) (Right . K1) (unifyM k1 a1 k2 a2)
 	unifyM (Left k1) a1 (Right k2) a2 = Right $ singletonM k1 a1 `union` singletonM k2 a2

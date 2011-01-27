@@ -67,8 +67,12 @@ class TrieKey k where
 		(a -> b -> Maybe c) -> TrieMap k a -> TrieMap k b -> TrieMap k c
 	diffM :: Sized a => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> TrieMap k a
 	isSubmapM :: (Sized a, Sized b) => LEq a b -> LEq (TrieMap k a) (TrieMap k b)
+	
 	fromListM, fromAscListM :: Sized a => (a -> a -> a) -> [(k, a)] -> TrieMap k a
 	fromDistAscListM :: Sized a => [(k, a)] -> TrieMap k a
+	fromListM f = foldr (\ (k, a) -> insertWithM f k a) emptyM
+	fromAscListM = fromListM
+	fromDistAscListM = fromAscListM const
 	
 	data Hole k :: * -> *
 	singleHoleM :: k -> Hole k a
@@ -79,11 +83,13 @@ class TrieKey k where
 	{-# SPECIALIZE extractHoleM :: Sized a => TrieMap k a -> First (a, Hole k a) #-}
 	{-# SPECIALIZE extractHoleM :: Sized a => TrieMap k a -> Last (a, Hole k a) #-}
 	extractHoleM :: MonadPlus m => Sized a => TrieMap k a -> m (a, Hole k a)
-	assignM :: Sized a => Maybe a -> Hole k a -> TrieMap k a
-
-	fromListM f = foldr (\ (k, a) -> insertWithM f k a) emptyM
-	fromAscListM = fromListM
-	fromDistAscListM = fromAscListM const
+	
+	fillHoleM :: Sized a => Maybe a -> Hole k a -> TrieMap k a
+	assignM :: Sized a => a -> Hole k a -> TrieMap k a
+	clearM :: Sized a => Hole k a -> TrieMap k a
+	fillHoleM = maybe clearM assignM
+	assignM = fillHoleM . Just
+	clearM = fillHoleM Nothing
 	
 	unifyM :: Sized a => k -> a -> k -> a -> Unified k a
 
@@ -127,18 +133,16 @@ extractHoleM' :: (TrieKey k, MonadPlus m, Sized a) => Maybe (TrieMap k a) -> m (
 extractHoleM' Nothing = mzero
 extractHoleM' (Just m) = extractHoleM m
 
-{-# INLINE assignM' #-}
-assignM' :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> Maybe (TrieMap k a)
-assignM' v@Just{} hole	= Just (assignM v hole)
-assignM' Nothing hole	= guardNullM (assignM Nothing hole)
+clearM' :: (TrieKey k, Sized a) => Hole k a -> Maybe (TrieMap k a)
+clearM' hole = guardNullM (clearM hole)
 
 {-# INLINE alterM #-}
 alterM :: (TrieKey k, Sized a) => (Maybe a -> Maybe a) -> k -> TrieMap k a -> TrieMap k a
 alterM f k m = case searchM k m of
 	(# Nothing, hole #)	-> case f Nothing of
 		Nothing		-> m
-		a		-> assignM a hole
-	(# a, hole #)		-> assignM (f a) hole
+		Just a		-> assignM a hole
+	(# a, hole #)		-> fillHoleM (f a) hole
 
 nullM :: TrieKey k => TrieMap k a -> Bool
 nullM m = case getSimpleM m of
@@ -163,7 +167,7 @@ elemsM m = build (\ f z -> foldrM f m z)
 
 insertWithM :: (TrieKey k, Sized a) => (a -> a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
 insertWithM f k a m = case searchM k m of
-	(# a', hole #)	-> assignM (Just $ maybe a (f a) a') hole
+	(# a', hole #)	-> assignM (maybe a (f a) a') hole
 
 mapEitherMaybe :: (a -> (# Maybe b, Maybe c #)) -> Maybe a -> (# Maybe b, Maybe c #)
 mapEitherMaybe f (Just a) = f a

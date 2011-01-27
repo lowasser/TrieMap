@@ -42,7 +42,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 		[(a, fromDistAscListM ys) | (a, Elem ys) <- breakFst xs])
 
 	singleHoleM (k1, k2) = PHole (singleHoleM k1) (singleHoleM k2)
-	assignM v (PHole hole1 hole2) = PMap (assignM (assignM' v hole2) hole1)
 	beforeM a (PHole hole1 hole2) = PMap (beforeM (beforeM' a hole2) hole1)
 	afterM a (PHole hole1 hole2) = PMap (afterM (afterM' a hole2) hole1)
 	searchM (k1, k2) (PMap m) = onSnd (PHole hole1) (searchM' k2) m'
@@ -54,10 +53,13 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 		(v, hole2) <- extractHoleM m'
 		return (v, PHole hole1 hole2)
 	
+	clearM (PHole hole1 hole2) = PMap (fillHoleM (clearM' hole2) hole1)
+	assignM a (PHole hole1 hole2) = PMap (assignM (assignM a hole2) hole1)
+	
 	unifyM (k11, k12) a1 (k21, k22) a2 = case unifyM k11 (singletonM k12 a1) k21 (singletonM k22 a2) of
 	  Left hole	-> case unifyM k12 a1 k22 a2 of
 	    Left hole'	-> Left (PHole hole hole')
-	    Right m'	-> Right (PMap (assignM (Just m') hole))
+	    Right m'	-> Right (PMap (assignM m' hole))
 	  Right m	-> Right (PMap m)
 
 breakFst :: TrieKey k1 => [((k1, k2), a)] -> [(k1, Elem [(k2, a)])]

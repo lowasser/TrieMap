@@ -54,4 +54,5 @@ instance TrieKey () where
 	extractHoleM (Unit (Just v)) = return (v, Hole)
 	extractHoleM _ = mzero
 	
-	assignM v _ = Unit v
+	clearM _ = Unit Nothing
+	assignM v _ = Unit (Just v)

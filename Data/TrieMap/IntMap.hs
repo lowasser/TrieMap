@@ -88,13 +88,17 @@ instance TrieKey Word where
 		extractHole path (Bin _ p m l r) =
 			extractHole (LeftBin p m path r) l `mplus`
 				extractHole (RightBin p m l path) r
-	assignM v (Hole kx path) = assign (singletonM' kx v) path where
-		assign t Root = t
-		assign t (LeftBin p m path r) = assign (bin p m t r) path
-		assign t (RightBin p m l path) = assign (bin p m l t) path
+	clearM (Hole _ path) = assign Nil path
+	assignM v (Hole kx path) = assign (singletonM kx v) path where
+		
 	
 	{-# INLINE unifyM #-}
 	unifyM = unify
+
+assign :: TrieMap Word a -> Path a -> TrieMap Word a
+assign t Root = t
+assign t (LeftBin p m path r) = assign (bin p m t r) path
+assign t (RightBin p m l path) = assign (bin p m l t) path
 
 branchHole :: Key -> Prefix -> Path a -> TrieMap Word a -> Path a
 branchHole !k !p path t

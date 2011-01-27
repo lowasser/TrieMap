@@ -1015,14 +1015,14 @@ maxLocation = getLast . extract
 -- @'assign' v loc == 'before' loc `union` 'singleton' ('key' loc) v `union` 'after' loc@
 {-# INLINE assign #-}
 assign :: TKey k => a -> TLocation k a -> TMap k a
-assign a (TLoc k hole) = TMap (assignM (Just $ Assoc k a) hole)
+assign a (TLoc k hole) = TMap (assignM (Assoc k a) hole)
 
 -- | Return a map obtained by erasing the location.
 --
 -- @'clear' loc == 'before' loc `union` 'after' loc@
 {-# INLINE clear #-}
 clear :: TKey k => TLocation k a -> TMap k a
-clear (TLoc _ hole) = TMap (assignM Nothing hole)
+clear (TLoc _ hole) = TMap (clearM hole)
 
 {-# INLINE fillHole #-}
 fillHole :: TKey k => Maybe a -> TLocation k a -> TMap k a

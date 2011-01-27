@@ -137,12 +137,17 @@ foldlEdge f = foldlE where
 
 {-# SPECIALIZE rebuild :: Sized a => U(MEdge) a -> U(Path) a -> U(MEdge) a #-}
 rebuild :: (TrieKey k, Sized a) => MEdge v k a -> Path v k a -> MEdge v k a
-rebuild e Root = e
-rebuild e (Deep path ks v tHole) = rebuild (compact $ edge ks v $ assignM e tHole) path
+rebuild !e Root = e
+rebuild Nothing (Deep path ks v tHole) = rebuild (compact $ edge ks v $ clearM tHole) path
+rebuild (Just e) (Deep path ks v tHole) = rebuild (compact $ edge ks v $ assignM e tHole) path
 
-{-# SPECIALIZE fillHoleEdge :: Sized a => Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
-fillHoleEdge :: (TrieKey k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
-fillHoleEdge v (Loc ks ts path) = rebuild (compact (edge ks v ts)) path
+{-# SPECIALIZE assignEdge :: Sized a => a -> U(EdgeLoc) a -> U(MEdge) a #-}
+assignEdge :: (TrieKey k, Sized a) => a -> EdgeLoc v k a -> MEdge v k a
+assignEdge v (Loc ks ts path) = rebuild (Just (edge ks (Just v) ts)) path
+
+{-# SPECIALIZE clearEdge :: Sized a => U(EdgeLoc) a -> U(MEdge) a #-}
+clearEdge :: (TrieKey k, Sized a) => EdgeLoc v k a -> MEdge v k a
+clearEdge (Loc ks ts path) = rebuild (compact (edge ks Nothing ts)) path
 
 {-# SPECIALIZE unionEdge :: (TrieKey k, Sized a) => 
 	(a -> a -> Maybe a) -> V(Edge) a -> V(Edge) a -> V(MEdge) a #-}
@@ -159,10 +164,12 @@ unionEdge f = unionE where
 	    eL' = dropEdge (i+1) eL
     matches kLen lLen = case compare kLen lLen of
       EQ -> compact $ edge ks0 (unionMaybe f vK vL) $ unionM unionE tsK tsL
-      LT -> let eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen; !(# eK', holeKT #) = searchM l tsK
-		in compact $ edge ks0 vK $ assignM (maybe (Just eL') (`unionE` eL') eK') holeKT
-      GT -> let eK' = dropEdge (lLen + 1) eK; k = ks0 !$ lLen; !(# eL', holeLT #) = searchM k tsL
-		in compact $ edge ls0 vL $ assignM (maybe (Just eK') (eK' `unionE`) eL') holeLT
+      LT -> let eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen in case searchM l tsK of
+	(# Nothing, holeKT #)	-> compact $ edge ks0 vK $ assignM eL' holeKT
+	(# Just eK', holeKT #)	-> compact $ edge ks0 vK $ fillHoleM (eK' `unionE` eL') holeKT
+      GT -> let eK' = dropEdge (lLen + 1) eK; k = ks0 !$ lLen in case searchM k tsL of
+      	(# Nothing, holeLT #)	-> compact $ edge ls0 vL $ assignM eK' holeLT
+      	(# Just eL', holeLT #)	-> compact $ edge ls0 vL $ fillHoleM (eK' `unionE` eL') holeLT
 
 {-# SPECIALIZE isectEdge :: (TrieKey k, Sized c) =>
 	(a -> b -> Maybe c) -> V(Edge) a -> V(Edge) b -> V(MEdge) c #-}
@@ -199,7 +206,7 @@ diffEdge f = diffE where
       EQ -> compact $ edge ks0 (diffMaybe f vK vL) $ diffM diffE tsK tsL
       LT -> let l = ls0 !$ kLen; eL' = dropEdge (kLen + 1) eL in case searchM l tsK of
 	(# Nothing, _ #)	-> Just eK
-	(# Just eK', holeKT #)	-> compact $ edge ks0 vK $ assignM (eK' `diffE` eL') holeKT
+	(# Just eK', holeKT #)	-> compact $ edge ks0 vK $ fillHoleM (eK' `diffE` eL') holeKT
       GT -> let k = ks0 !$ lLen; eK' = dropEdge (lLen + 1) eK in case lookupM k tsL of
 	Nothing	  -> Just eK
 	Just eL'  -> fmap (unDropEdge (lLen + 1)) (eK' `diffE` eL')

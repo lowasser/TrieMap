@@ -86,8 +86,11 @@ instance Ord k => TrieKey (Ordered k) where
 			return (x, Full kx path l r) `mplus`
 			extractHole (RightBin kx x l path) r
 		extractHole _ _ = mzero
-	assignM x (Empty k path) = rebuild (maybe Tip (singleton k) x) path
-	assignM x (Full k path l r) = rebuild (joinMaybe k x l r) path
+	
+	clearM (Empty _ path) = rebuild Tip path
+	clearM (Full _ path l r) = rebuild (merge l r) path
+	assignM x (Empty k path) = rebuild (singleton k x) path
+	assignM x (Full k path l r) = rebuild (join k x l r) path
 	
 	unifyM (Ord k1) a1 (Ord k2) a2 = case compare k1 k2 of
 		EQ	-> Left $ Empty k1 Root

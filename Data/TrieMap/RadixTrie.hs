@@ -63,7 +63,8 @@ instance TrieKey k => TrieKey (Vector k) where
 		(# i', a, loc #) -> (# i', a, Hole loc #)
 	indexM _ (Radix Nothing) = indexFail ()
 
-	assignM a (Hole loc) = Radix (fillHoleEdge a loc)
+	clearM (Hole loc) = Radix (clearEdge loc)
+	assignM a (Hole loc) = Radix (assignEdge a loc)
 	
 	extractHoleM (Radix (Just e)) = do
 		(a, loc) <- extractEdgeLoc e Root
@@ -117,7 +118,8 @@ instance TrieKey (S.Vector Word) where
 		(# i', a, loc #) -> (# i', a, WHole loc #)
 	indexM _ (WRadix Nothing) = indexFail ()
 
-	assignM a (WHole loc) = WRadix (fillHoleEdge a loc)
+	clearM (WHole loc) = WRadix (clearEdge loc)
+	assignM a (WHole loc) = WRadix (assignEdge a loc)
 	
 	extractHoleM (WRadix (Just e)) = do
 		(a, loc) <- extractEdgeLoc e Root
