@@ -1,16 +1,11 @@
 {-# LANGUAGE TemplateHaskell, TypeFamilies, GADTs, ExistentialQuantification, CPP, ViewPatterns #-}
--- module Tests where
 
 import Control.Monad
-import Debug.Trace
-import Data.TrieMap.Class
-import Data.TrieMap.TrieKey
-import Data.TrieMap.Sized
 import qualified Data.TrieMap as T
 import qualified Data.Map as M
 import Test.QuickCheck
 import Prelude hiding (null, lookup)
-import Data.ByteString.Char8 (ByteString, pack, unpack, head, length)
+import Data.ByteString.Char8 (ByteString, pack)
 import qualified Data.ByteString.Char8 as BS
 type Key = ByteString
 type Val = [Integer]
