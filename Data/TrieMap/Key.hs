@@ -52,4 +52,4 @@ instance TKey k => TrieKey (Key k) where
 		return (v, KeyHole hole)
 	assignM v (KeyHole hole) = keyMap (assignM v hole)
 	
-	unifyM (Key k1) a1 (Key k2) a2 = either (Left . KeyHole) (Right . keyMap) (unifyM (toRep k1) a1 (toRep k2) a2)
+	unifyM (Key k1) a1 (Key k2) a2 = keyMap <$> unifyM (toRep k1) a1 (toRep k2) a2

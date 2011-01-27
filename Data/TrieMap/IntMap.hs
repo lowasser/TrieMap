@@ -316,8 +316,8 @@ bin p m l r   = Bin (size l +# size r) p m l r
 {-# INLINE unify #-}
 unify :: Sized a => Key -> a -> Key -> a -> Unified Word a
 unify k1 _ k2 _
-    | k1 == k2	= Left (Hole k1 Root)
-unify k1 a1 k2 a2 = Right (if zero k1 m then outBin t1 t2 else outBin t2 t1)
+    | k1 == k2	= Nothing
+unify k1 a1 k2 a2 = Just (if zero k1 m then outBin t1 t2 else outBin t2 t1)
       where !s1# = getSize# a1
 	    !s2# = getSize# a2
 	    t1 = Tip s1# k1 a1

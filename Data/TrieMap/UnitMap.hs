@@ -51,7 +51,7 @@ instance TrieKey () where
 	indexM i (Unit (Just v)) = (# i, v, Hole #)
 	indexM _ _ = indexFail ()
 	
-	unifyM _ _ _ _ = Left Hole
+	unifyM _ _ _ _ = Nothing
 	
 	extractHoleM (Unit (Just v)) = return (v, Hole)
 	extractHoleM _ = mzero

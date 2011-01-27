@@ -68,7 +68,7 @@ instance TrieKey k => TrieKey (Rev k) where
 	fromAscListM f xs = RevMap (fromAscListM (flip f) [(k, a) | (Rev k, a) <- reverse xs])
 	fromDistAscListM xs = RevMap (fromDistAscListM [(k, a) | (Rev k, a) <- reverse xs])
 	
-	unifyM (Rev k1) a1 (Rev k2) a2 = either (Left . RHole) (Right . RevMap) (unifyM k1 a1 k2 a2)
+	unifyM (Rev k1) a1 (Rev k2) a2 = RevMap <$> unifyM k1 a1 k2 a2
 
 revIndex :: Sized a => Int# -> a -> Int#
 revIndex i# a = getSize# a -# 1# -# i#

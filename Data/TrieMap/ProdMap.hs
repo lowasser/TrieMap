@@ -5,6 +5,7 @@ module Data.TrieMap.ProdMap () where
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
 
+import Control.Monad
 import Data.Functor
 import Data.Foldable hiding (foldlM, foldrM)
 import Data.Monoid
@@ -57,11 +58,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	clearM (PHole hole1 hole2) = PMap (fillHoleM (clearM' hole2) hole1)
 	assignM a (PHole hole1 hole2) = PMap (assignM (assignM a hole2) hole1)
 	
-	unifyM (k11, k12) a1 (k21, k22) a2 = case unifyM k11 (singletonM k12 a1) k21 (singletonM k22 a2) of
-	  Left hole	-> case unifyM k12 a1 k22 a2 of
-	    Left hole'	-> Left (PHole hole hole')
-	    Right m'	-> Right (PMap (assignM m' hole))
-	  Right m	-> Right (PMap m)
+	unifyM (k11, k12) a1 (k21, k22) a2 = PMap <$> (match1 `mplus` match2) where
+	  match1 = unifyM k11 (singletonM k12 a1) k21 (singletonM k22 a2)
+	  match2 = singletonM k11 <$> unifyM k12 a1 k22 a2
 
 breakFst :: TrieKey k1 => [((k1, k2), a)] -> [(k1, Elem [(k2, a)])]
 breakFst [] = []

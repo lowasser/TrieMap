@@ -184,10 +184,10 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		Hole1 h1 m2	-> Just (assignM v h1) ^ m2
 		Hole2 m1 h2	-> m1 ^ Just (assignM v h2)
 	
-	unifyM (Left k1) a1 (Left k2) a2 = either (Left . HoleX0) (Right . K1) (unifyM k1 a1 k2 a2)
-	unifyM (Left k1) a1 (Right k2) a2 = Right $ singletonM k1 a1 `union` singletonM k2 a2
-	unifyM (Right k2) a2 (Left k1) a1 = Right $ singletonM k1 a1 `union` singletonM k2 a2
-	unifyM (Right k1) a1 (Right k2) a2 = either (Left . Hole0X) (Right . K2) (unifyM k1 a1 k2 a2)
+	unifyM (Left k1) a1 (Left k2) a2 = K1 <$> unifyM k1 a1 k2 a2
+	unifyM (Left k1) a1 (Right k2) a2 = Just $ singletonM k1 a1 `union` singletonM k2 a2
+	unifyM (Right k2) a2 (Left k1) a1 = Just $ singletonM k1 a1 `union` singletonM k2 a2
+	unifyM (Right k1) a1 (Right k2) a2 = K2 <$> unifyM k1 a1 k2 a2
 
 onPair :: (c -> d -> e) -> (a -> c) -> (b -> d) -> (a, b) -> e
 onPair f g h (a, b) = f (g a) (h b)

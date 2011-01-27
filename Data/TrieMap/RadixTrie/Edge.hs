@@ -157,8 +157,8 @@ unionEdge :: (TrieKey k, Vector v k, Sized a) =>
 unionEdge f = unionE where
   eK@(Edge _ ks0 vK tsK) `unionE` eL@(Edge _ ls0 vL tsL) = iMatchSlice matcher matches ks0 ls0 where
     matcher i k l z = case unifyM k eK' l eL' of
-      Left{}	-> z
-      Right ts	-> Just (edge (takeSlice i ks0) Nothing ts)
+      Nothing	-> z
+      Just ts	-> Just (edge (takeSlice i ks0) Nothing ts)
       where eK' = dropEdge (i+1) eK
 	    eL' = dropEdge (i+1) eL
     matches kLen lLen = case compare kLen lLen of
@@ -259,17 +259,17 @@ indexEdge = indexE where
 			  = indexE i'# e' (Deep path ks Nothing tHole)
 	  where !(# i'#, e', tHole #) = indexM i# ts
 
-{-# SPECIALIZE unifyEdge :: (TrieKey k, Sized a) => V(Slice) -> a -> V(Slice) -> a -> Either (V(EdgeLoc) a) (V(Edge) a) #-}
-{-# SPECIALIZE unifyEdge :: Sized a => U(Slice) -> a -> U(Slice) -> a -> Either (U(EdgeLoc) a) (U(Edge) a) #-}
-unifyEdge :: (Vector v k, TrieKey k, Sized a) => Slice v k -> a -> Slice v k -> a -> Either (EdgeLoc v k a) (Edge v k a)
+{-# SPECIALIZE unifyEdge :: (TrieKey k, Sized a) => V(Slice) -> a -> V(Slice) -> a -> V(MEdge) a #-}
+{-# SPECIALIZE unifyEdge :: Sized a => U(Slice) -> a -> U(Slice) -> a -> U(MEdge) a #-}
+unifyEdge :: (Vector v k, TrieKey k, Sized a) => Slice v k -> a -> Slice v k -> a -> MEdge v k a
 unifyEdge ks1 a1 ks2 a2 = iMatchSlice matcher matches ks1 ks2 where
 	matcher !i k1 k2 z =
 	  case unifyM k1 (singletonEdge (dropSlice (i+1) ks1) a1) k2 (singletonEdge (dropSlice (i+1) ks2) a2) of
-	    Left{}	-> z
-	    Right ts	-> Right (edge (takeSlice i ks1) Nothing ts)
+	    Nothing	-> z
+	    Just ts	-> Just (edge (takeSlice i ks1) Nothing ts)
 	matches len1 len2 = case compare len1 len2 of
 		LT	-> let (_,k2,ks2') = splitSlice len1 ks2 in
-			      Right (edge ks1 (Just a1) (singletonM k2 (singletonEdge ks2' a2)))
+			      Just (edge ks1 (Just a1) (singletonM k2 (singletonEdge ks2' a2)))
 		GT	-> let (_,k1,ks1') = splitSlice len2 ks1 in 
-			      Right (edge ks2 (Just a2) (singletonM k1 (singletonEdge ks1' a1)))
-		_	-> Left (singleLoc ks1)
+			      Just (edge ks2 (Just a2) (singletonM k1 (singletonEdge ks1' a1)))
+		_	-> Nothing

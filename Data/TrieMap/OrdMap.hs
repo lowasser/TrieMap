@@ -88,9 +88,9 @@ instance Ord k => TrieKey (Ordered k) where
 	assignM x (Full k path l r) = rebuild (join k x l r) path
 	
 	unifyM (Ord k1) a1 (Ord k2) a2 = case compare k1 k2 of
-		EQ	-> Left $ Empty k1 Root
-		LT	-> Right $ bin k1 a1 Tip (singleton k2 a2)
-		GT	-> Right $ bin k1 a1 (singleton k2 a2) Tip
+		EQ	-> Nothing
+		LT	-> Just $ bin k1 a1 Tip (singleton k2 a2)
+		GT	-> Just $ bin k1 a1 (singleton k2 a2) Tip
 	
 rebuild :: Sized a => OrdMap k a -> Path k a -> OrdMap k a
 rebuild t Root = t

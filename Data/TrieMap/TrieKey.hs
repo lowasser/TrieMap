@@ -16,7 +16,7 @@ import Prelude hiding (foldr, foldl)
 import GHC.Exts
 
 type LEq a b = a -> b -> Bool
-type Unified k a = Either (Hole k a) (TrieMap k a)
+type Unified k a = Maybe (TrieMap k a)
 
 data Simple a = Null | Singleton a | NonSimple
 

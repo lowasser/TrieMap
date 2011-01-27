@@ -74,7 +74,7 @@ instance TrieKey k => TrieKey (Vector k) where
 	afterM (Hole loc) = Radix (afterEdge Nothing loc)
 	afterWithM a (Hole loc) = Radix (afterEdge (Just a) loc)
 	
-	unifyM ks1 a1 ks2 a2 = either (Left . Hole) (Right . Radix . Just) (unifyEdge (v2S ks1) a1 (v2S ks2) a2)
+	unifyM ks1 a1 ks2 a2 = fmap (Radix . Just) (unifyEdge (v2S ks1) a1 (v2S ks2) a2)
 
 type WordVec = S.Vector Word
 
@@ -131,4 +131,4 @@ instance TrieKey (S.Vector Word) where
 	afterM (WHole loc) = WRadix (afterEdge Nothing loc)
 	afterWithM a (WHole loc) = WRadix (afterEdge (Just a) loc)
 	
-	unifyM ks1 a1 ks2 a2 = either (Left . WHole) (Right . WRadix . Just) (unifyEdge (v2S ks1) a1 (v2S ks2) a2)
+	unifyM ks1 a1 ks2 a2 = fmap (WRadix . Just) (unifyEdge (v2S ks1) a1 (v2S ks2) a2)
