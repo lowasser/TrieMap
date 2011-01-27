@@ -15,6 +15,7 @@ import qualified Data.ByteString.Char8 as BS
 type Key = ByteString
 type Val = [Integer]
 
+main :: IO ()
 main = quickCheckWith stdArgs{maxSize = 300, maxSuccess = 100} (verify M.empty T.empty)
 
 instance Arbitrary ByteString where

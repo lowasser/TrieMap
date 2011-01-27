@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, UndecidableInstances, TemplateHaskell, ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, UndecidableInstances, ScopedTypeVariables #-}
 module Data.TrieMap.Representation.Instances.Vectors () where
 
 import Control.Monad.Primitive
@@ -18,10 +18,9 @@ import qualified Data.Vector.Storable as S
 import qualified Data.Vector.Primitive as P
 import qualified Data.Vector.Unboxed as U
 
+import Data.TrieMap.Utils
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Representation.Instances.Prim
-
-import Language.Haskell.TH.Syntax
 
 #include "MachDeps.h"
 
@@ -33,41 +32,44 @@ instance Repr (S.Vector Word) where
 	type Rep (S.Vector Word) = S.Vector Word
 	toRep = id
 
-type Overhang = Word
--- When storing a vector of WordNs, we view it as a vector of Words plus an overhang.
--- We store the length of the overhang (which can be up to (WORD_SIZE_IN_BITS / N - 1)) in the top
--- N bits of the Overhang, and k leftover WordNs (however large k is) in the low kN bits of the Overhang.
+{-# INLINE unsafeCastStorable #-}
+unsafeCastStorable :: (Storable a, Storable b) => (Int -> Int) -> S.Vector a -> S.Vector b
+unsafeCastStorable f xs = unsafeInlineST $ do
+  S.MVector ptr n fp <- S.unsafeThaw xs
+  let n' = f n
+  S.unsafeFreeze (S.MVector (castPtr ptr) n' (castForeignPtr fp))
 
--- Just a version of 'quot' for dividing by powers of 2.
-quoPow :: Int -> Int -> Int
-quoPow n d = $(foldr ($) [| n `quot` d |] 
-		[\ other -> [| if d == $(lift (bit i :: Int)) then n `shiftR` $(lift i) else $other |]
-			| i <- [0..6]])
+wordSize :: Int
+wordSize = bitSize (0 :: Word)
 
--- Just a version of 'rem' for modding by powers of 2.
-remPow :: Int -> Int -> Int
-remPow n d = n .&. (d - 1)
+{-# INLINE getWord #-}
+getWord :: forall w . (Storable w, Bits w, Integral w) => S.Vector w -> Word
+getWord = S.foldl' (\ x w -> (x `shiftL` bitSize (0 :: w)) .|. fromIntegral w) 0
 
-unsafeToPtr :: Storable a => S.Vector a -> (Ptr a, Int, ForeignPtr a)
-unsafeToPtr xs = unsafeInlineST $ do
-	S.MVector ptr n fp <- S.unsafeThaw xs
-	return (ptr, n, fp)
-
-unsafeFromPtr :: Storable a => Ptr b -> Int -> ForeignPtr b -> S.Vector a
-unsafeFromPtr ptr n fp = unsafeInlineST $ S.unsafeFreeze (S.MVector (castPtr ptr) n (castForeignPtr fp))
+{-# INLINE toWordVector #-}
+toWordVector :: forall w . (Storable w, Integral w, Bits w) => S.Vector w -> S.Vector Word
+toWordVector !xs = let
+  !n = S.length xs
+  wSize = bitSize (0 :: w)
+  ratio = wordSize `quoPow` wSize
+  n' = n `quoPow` ratio
+  in case n `remPow` ratio of
+    0	-> S.map (\ i -> getWord (S.unsafeSlice i ratio xs)) (S.enumFromStepN 0 ratio n')
+    r	-> S.map (\ i -> getWord (S.unsafeSlice i ratio xs)) (S.enumFromStepN 0 ratio n')
+	      `S.snoc` (getWord (S.unsafeDrop (n' * ratio) xs) .<<. (wSize * (ratio - r)))
 
 #define HANGINSTANCE(wTy)					\
     instance Repr (S.Vector wTy) where				\
     	type Rep (S.Vector wTy) = (S.Vector Word);		\
-    	toRep = S.map fromIntegral
+    	{-# NOINLINE toRep #-};					\
+    	toRep = toWordVector
 
 HANGINSTANCE(Word8)
 HANGINSTANCE(Word16)
 #if WORD_SIZE_IN_BITS == 32
 instance Repr (S.Vector Word32) where
 	type Rep (S.Vector Word32) = S.Vector Word
-	toRep xs = case unsafeToPtr xs of
-		(p, n, fp) -> unsafeFromPtr p n fp
+	toRep xs = unsafeCastStorable id xs
 #elif WORD_SIZE_IN_BITS > 32
 HANGINSTANCE(Word32)
 #endif
@@ -79,8 +81,7 @@ HANGINSTANCE(Word32)
 #endif
 instance Repr (S.Vector Word64) where
 	type Rep (S.Vector Word64) = S.Vector Word
-	toRep xs = case unsafeToPtr xs of
-		(p, n, fp) -> unsafeFromPtr p (n * ratio) fp
+	toRep xs = unsafeCastStorable (ratio *) xs
 		where !wordBits = bitSize (0 :: Word); ratio = quoPow 64 wordBits
 
 #define VEC_WORD_DOC(vec, wTy) {-| @'Rep' ('vec' 'wTy') = 'Rep' ('S.Vector' 'wTy')@ -}
@@ -89,25 +90,15 @@ instance Repr (S.Vector Word64) where
 	type Rep (vec wTy) = Rep (S.Vector wTy);	\
 	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert}
 
-VEC_WORD_DOC(U.Vector,Word8)
 VEC_WORD_INST(U.Vector,Word8)
-VEC_WORD_DOC(P.Vector,Word8)
 VEC_WORD_INST(P.Vector,Word8)
-VEC_WORD_DOC(U.Vector,Word16)
 VEC_WORD_INST(U.Vector,Word16)
-VEC_WORD_DOC(P.Vector,Word16)
 VEC_WORD_INST(P.Vector,Word16)
-VEC_WORD_DOC(U.Vector,Word32)
 VEC_WORD_INST(U.Vector,Word32)
-VEC_WORD_DOC(P.Vector,Word32)
 VEC_WORD_INST(P.Vector,Word32)
-VEC_WORD_DOC(U.Vector,Word64)
 VEC_WORD_INST(U.Vector,Word64)
-VEC_WORD_DOC(P.Vector,Word64)
 VEC_WORD_INST(P.Vector,Word64)
-VEC_WORD_DOC(U.Vector,Word)
 VEC_WORD_INST(U.Vector,Word)
-VEC_WORD_DOC(P.Vector,Word)
 VEC_WORD_INST(P.Vector,Word)
 
 #define VEC_INT_INST(vec,iTy,wTy)			\
