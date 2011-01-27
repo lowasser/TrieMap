@@ -12,19 +12,21 @@ import Data.Traversable
 
 import Prelude hiding (foldr)
 
+-- | A map from keys @k@ to values @a@, backed by a trie.
 newtype TMap k a = TMap {getTMap :: TrieMap (Rep k) (Assoc k a)}
 
+-- | A set of values @a@, backed by a trie.
 newtype TSet a = TSet (TMap a a)
 
 -- | @'TKey' k@ is a handy alias for @('Repr' k, 'TrieKey' ('Rep' k))@.  To make a type an instance of 'TKey',
--- use the methods available in "Data.TrieMap.Representation.TH" to generate a 'Repr' instance that will
--- satisfy @'TrieKey' ('Rep' k)@.
+-- create a 'Repr' instance that will satisfy @'TrieKey' ('Rep' k)@, possibly using the Template Haskell methods
+-- provided by "Data.TrieMap.Representation".
 class (Repr k, TrieKey (Rep k)) => TKey k
 
 instance (Repr k, TrieKey (Rep k)) => TKey k
 
 instance TKey k => Functor (TMap k) where
-	fmap = fmapDefault
+	fmap f (TMap m) = TMap (fmapM (\ (Assoc k a) -> Assoc k (f a)) m)
 
 instance TKey k => Foldable (TMap k) where
 	foldr f z (TMap m) = foldrM (\ (Assoc _ a) -> f a) m z
