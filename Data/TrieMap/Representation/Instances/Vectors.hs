@@ -64,7 +64,9 @@ toWordVector !xs = let
     	{-# NOINLINE toRep #-};					\
     	toRep = toWordVector
 
+-- | @'Rep' ('S.Vector' 'Word8') = 'S.Vector' 'Word'@, by packing multiple 'Word8's into each 'Word' for space efficiency.
 HANGINSTANCE(Word8)
+-- | @'Rep' ('S.Vector' 'Word16') = 'S.Vector' 'Word'@, by packing multiple 'Word16's into each 'Word' for space efficiency.
 HANGINSTANCE(Word16)
 #if WORD_SIZE_IN_BITS == 32
 instance Repr (S.Vector Word32) where
@@ -125,4 +127,5 @@ VEC_INT_INSTANCES(Int, Word)
 	VEC_ENUM_INST(ty,P.Vector);	\
 	VEC_ENUM_INST(ty,U.Vector)
 
+-- | @'Rep' ('S.Vector' 'Char') = 'S.Vector' 'Word'@
 VEC_ENUM_INSTANCES(Char)
