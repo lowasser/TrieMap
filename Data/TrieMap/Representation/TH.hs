@@ -23,7 +23,7 @@ genOrdRepr tycon = execReprMonad $ do
 getDataForName :: Quasi m => Name -> m (Cxt, Type, [AlgCon])
 getDataForName tycon = do
 	TyConI dec <- qReify tycon
-	let theTyp = compose tycon . map tyVarBndrVar
+	let theTyp = compose tycon . map (mkName . nameBase . tyVarBndrVar)
 	case dec of
 		DataD cxt _ tyvars cons _ ->
 			return (cxt, theTyp tyvars, map algCon cons)
