@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, UndecidableInstances, ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, ScopedTypeVariables #-}
 module Data.TrieMap.Representation.Instances.Vectors () where
 
 import Control.Monad.Primitive
@@ -53,15 +53,16 @@ toWordVector !xs = let
   wSize = bitSize (0 :: w)
   ratio = wordSize `quoPow` wSize
   n' = n `quoPow` ratio
+  {-# INLINE words #-}
+  words = S.map (\ i -> getWord (S.unsafeSlice i ratio xs)) (S.enumFromStepN 0 ratio n')
   in case n `remPow` ratio of
-    0	-> S.map (\ i -> getWord (S.unsafeSlice i ratio xs)) (S.enumFromStepN 0 ratio n')
-    r	-> S.map (\ i -> getWord (S.unsafeSlice i ratio xs)) (S.enumFromStepN 0 ratio n')
-	      `S.snoc` (getWord (S.unsafeDrop (n' * ratio) xs) .<<. (wSize * (ratio - r)))
+    0	-> words
+    r	-> words `S.snoc` (getWord (S.unsafeDrop (n' * ratio) xs) .<<. (wSize * (ratio - r)))
 
-#define HANGINSTANCE(wTy)					\
-    instance Repr (S.Vector wTy) where				\
-    	type Rep (S.Vector wTy) = (S.Vector Word);		\
-    	{-# NOINLINE toRep #-};					\
+#define HANGINSTANCE(wTy)			\
+    instance Repr (S.Vector wTy) where		\
+    	type Rep (S.Vector wTy) = S.Vector Word;\
+    	{-# NOINLINE toRep #-};			\
     	toRep = toWordVector
 
 -- | @'Rep' ('S.Vector' 'Word8') = 'S.Vector' 'Word'@, by packing multiple 'Word8's into each 'Word' for space efficiency.
@@ -87,9 +88,9 @@ instance Repr (S.Vector Word64) where
 		where !wordBits = bitSize (0 :: Word); ratio = quoPow 64 wordBits
 
 #define VEC_WORD_DOC(vec, wTy) {-| @'Rep' ('vec' 'wTy') = 'Rep' ('S.Vector' 'wTy')@ -}
-#define VEC_WORD_INST(vec,wTy)				\
-  instance Repr (vec wTy) where {			\
-	type Rep (vec wTy) = Rep (S.Vector wTy);	\
+#define VEC_WORD_INST(vec,wTy)			\
+  instance Repr (vec wTy) where {		\
+	type Rep (vec wTy) = S.Vector Word;	\
 	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert}
 
 VEC_WORD_INST(U.Vector,Word8)
@@ -103,9 +104,9 @@ VEC_WORD_INST(P.Vector,Word64)
 VEC_WORD_INST(U.Vector,Word)
 VEC_WORD_INST(P.Vector,Word)
 
-#define VEC_INT_INST(vec,iTy,wTy)			\
-  instance Repr (vec iTy) where {			\
-  	type Rep (vec iTy) = Rep (S.Vector wTy);	\
+#define VEC_INT_INST(vec,iTy,wTy)		\
+  instance Repr (vec iTy) where {		\
+  	type Rep (vec iTy) = S.Vector Word;	\
   	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert . G.map (i2w :: iTy -> wTy)}
 #define VEC_INT_INSTANCES(iTy,wTy)	\
 	VEC_INT_INST(S.Vector,iTy,wTy); \
