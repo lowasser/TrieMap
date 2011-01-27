@@ -23,9 +23,6 @@ data Path k a =
 	| LeftBin k a !(Path k a) !(OrdMap k a)
 	| RightBin k a !(OrdMap k a) !(Path k a)
 
-singletonMaybe :: Sized a => k -> Maybe a -> OrdMap k a
-singletonMaybe k = maybe Tip (singleton k)
-
 -- | @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
 instance Ord k => TrieKey (Ordered k) where
 	Ord k1 =? Ord k2	= k1 == k2
