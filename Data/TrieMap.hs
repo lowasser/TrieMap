@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, FlexibleContexts, UnboxedTuples, RecordWildCards #-}
+{-# LANGUAGE UnboxedTuples #-}
 
 module Data.TrieMap (
 	-- * Map type

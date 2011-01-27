@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash #-}
+{-# LANGUAGE TypeFamilies, MagicHash #-}
 
 module Data.TrieMap.Key () where
 

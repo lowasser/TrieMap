@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections, TypeFamilies, UnboxedTuples, MagicHash #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash #-}
 
 module Data.TrieMap.TrieKey where
 

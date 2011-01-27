@@ -59,8 +59,7 @@ instance TrieKey k => TrieKey (Vector k) where
 	searchM ks (Radix (Just e)) = case searchEdge (v2S ks) e Root of
 		(a, loc) -> (# a, Hole loc #)
 	searchM ks _ = (# Nothing, singleHoleM ks #)
-	indexM i (Radix (Just e)) = case indexEdge i e Root of
-		(# i', a, loc #) -> (# i', a, Hole loc #)
+	indexM i (Radix (Just e)) = onThird Hole (indexEdge i e) Root
 	indexM _ (Radix Nothing) = indexFail ()
 
 	clearM (Hole loc) = Radix (clearEdge loc)
