@@ -37,13 +37,13 @@ instance TrieKey () where
 	isectM f (Unit m1) (Unit m2) = Unit (isectMaybe f m1 m2)
 	diffM f (Unit m1) (Unit m2) = Unit (diffMaybe f m1 m2)
 	isSubmapM (<=) (Unit m1) (Unit m2) = subMaybe (<=) m1 m2
-	fromListM _ [] = Unit Nothing
-	fromListM f ((_, v):xs) = Unit $ Just (foldl (\ v' -> f v' . snd) v xs)
+	fromListM _ [] = emptyM
+	fromListM f ((_, v):xs) = single (foldl (\ v' -> f v' . snd) v xs)
 	
 	singleHoleM _ = Hole
 	beforeM _ = emptyM
-	beforeWithM a _ = single a
 	afterM _ = emptyM
+	beforeWithM a _ = single a
 	afterWithM a _ = single a
 	
 	searchM _ (Unit m) = (# m, Hole #)
