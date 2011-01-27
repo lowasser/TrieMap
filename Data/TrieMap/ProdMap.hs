@@ -5,8 +5,7 @@ module Data.TrieMap.ProdMap () where
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
 
-import Control.Applicative
-
+import Data.Functor
 import Data.Foldable hiding (foldlM, foldrM)
 import Data.Monoid
 

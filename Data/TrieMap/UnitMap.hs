@@ -1,11 +1,11 @@
 {-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash #-}
 
-module Data.TrieMap.UnitMap where
+module Data.TrieMap.UnitMap () where
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 
-import Control.Applicative
+import Data.Functor
 import Control.Monad
 
 import Data.Foldable
@@ -19,14 +19,13 @@ instance TrieKey () where
 	_ =? _ = True
 	_ `cmp` _ = EQ
   
-	newtype TrieMap () a = Unit {getUnit :: Maybe a}
+	newtype TrieMap () a = Unit (Maybe a)
 	data Hole () a = Hole
 	
 	emptyM = Unit Nothing
-	singletonM _ = Unit . Just
+	singletonM _ = single
 	getSimpleM (Unit m) = maybe Null Singleton m
-	sizeM (Unit (Just a)) = getSize# a
-	sizeM _ = 0#
+	sizeM (Unit m) = getSize# m
 	lookupM _ (Unit m) = m
 	traverseM f (Unit m) = Unit <$> traverse f m
 	foldrM f (Unit m) z = foldr f z m

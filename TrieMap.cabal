@@ -32,9 +32,7 @@ exposed-modules:
   Data.TrieMap.Representation,
   Data.TrieMap.Modifiers
 other-modules:
-  Control.Applicative.Dual,
   Control.Monad.Ends,
-  Control.Monad.DualPlus,
   Data.TrieMap.TrieKey,
   Data.TrieMap.Utils,
   Data.TrieMap.Sized,

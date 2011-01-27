@@ -5,12 +5,11 @@ module Data.TrieMap.RadixTrie () where
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 
-import Control.Applicative
+import Data.Functor
 import Control.Monad
 
 import Foreign.Storable
 
-import Data.Maybe
 import Data.Monoid
 import Data.Ord
 import Data.Foldable (foldr, foldl)

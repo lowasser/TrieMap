@@ -3,6 +3,7 @@
 module Data.TrieMap.TrieKey where
 
 import Data.TrieMap.Sized
+import Data.TrieMap.Utils
 
 import Control.Applicative
 import Control.Monad
@@ -110,15 +111,15 @@ singletonM' :: (TrieKey k, Sized a) => k -> Maybe a -> TrieMap k a
 singletonM' k = maybe emptyM (singletonM k)
 
 mapMaybeM' :: (TrieKey k, Sized b) => (a -> Maybe b) -> TrieMap k a -> Maybe (TrieMap k b)
-mapMaybeM' f = guardNullM . mapMaybeM f
+mapMaybeM' = guardNullM .: mapMaybeM
 
 mapEitherM' :: (TrieKey k, Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> TrieMap k a ->
 	(# Maybe (TrieMap k b), Maybe (TrieMap k c) #)
-mapEitherM' f = both guardNullM guardNullM (mapEitherM f)
+mapEitherM' = both guardNullM guardNullM . mapEitherM
 
 mapEitherM'' :: (TrieKey k, Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> Maybe (TrieMap k a) ->
 	(# Maybe (TrieMap k b), Maybe (TrieMap k c) #)
-mapEitherM'' f = mapEitherMaybe (mapEitherM' f)
+mapEitherM'' = mapEitherMaybe . mapEitherM'
 
 unionM' :: (TrieKey k, Sized a) => (a -> a -> Maybe a) -> TrieMap k a -> TrieMap k a -> Maybe (TrieMap k a)
 unionM' f m1 m2 = guardNullM (unionM f m1 m2)
@@ -134,16 +135,14 @@ beforeM' hole = guardNullM (beforeM hole)
 
 {-# INLINE beforeMM #-}
 beforeMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
-beforeMM Nothing hole = beforeM hole
-beforeMM (Just a) hole = beforeWithM a hole
+beforeMM = maybe beforeM beforeWithM
 
 afterM' :: (TrieKey k, Sized a) => Hole k a -> Maybe (TrieMap k a)
-afterM' hole = guardNullM (afterM hole)
+afterM' = guardNullM . afterM
 
 {-# INLINE afterMM #-}
 afterMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
-afterMM Nothing hole = afterM hole
-afterMM (Just a) hole = afterWithM a hole
+afterMM = maybe afterM afterWithM
 
 searchM' :: TrieKey k => k -> Maybe (TrieMap k a) -> (# Maybe a, Hole k a #)
 searchM' k Nothing = (# Nothing, singleHoleM k #)

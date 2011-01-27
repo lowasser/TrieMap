@@ -91,7 +91,7 @@ instance Ord k => TrieKey (Ordered k) where
 		EQ	-> Left $ Empty k1 Root
 		LT	-> Right $ bin k1 a1 Tip (singleton k2 a2)
 		GT	-> Right $ bin k1 a1 (singleton k2 a2) Tip
-
+	
 rebuild :: Sized a => OrdMap k a -> Path k a -> OrdMap k a
 rebuild t Root = t
 rebuild t (LeftBin kx x path r) = rebuild (balance kx x t r) path
