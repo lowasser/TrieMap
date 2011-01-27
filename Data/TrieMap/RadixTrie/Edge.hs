@@ -4,8 +4,8 @@ module Data.TrieMap.RadixTrie.Edge where
 
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
-import Data.TrieMap.RadixTrie.Slice
 import Data.TrieMap.IntMap ()
+import Data.TrieMap.RadixTrie.Slice
 
 import Control.Applicative
 import Control.Monad
@@ -13,9 +13,9 @@ import Data.Word
 import Data.Traversable
 import Data.Foldable (foldr, foldl)
 
-import Data.Vector.Generic hiding (indexM, cmp, foldr, foldl)
-import qualified Data.Vector
-import qualified Data.Vector.Storable
+import Data.Vector.Generic (length, Vector)
+import qualified Data.Vector (Vector)
+import qualified Data.Vector.Storable (Vector)
 import Prelude hiding (length, foldr, foldl, zip, take)
 
 import GHC.Exts
@@ -25,21 +25,21 @@ import GHC.Exts
 
 type Branch v k a = TrieMap k (Edge v k a)
 data Edge v k a =
-	Edge Int# !(Slice v k) !(Maybe a) (Branch v k a)
-data EdgeLoc v k a = Loc !(Slice v k) (Branch v k a) (Path v k a)
+	Edge Int# !( v k) !(Maybe a) (Branch v k a)
+data EdgeLoc v k a = Loc !( v k) (Branch v k a) (Path v k a)
 data Path v k a = Root
-	| Deep (Path v k a) !(Slice v k) !(Maybe a) (Hole k (Edge v k a))
+	| Deep (Path v k a) !( v k) !(Maybe a) (Hole k (Edge v k a))
 type MEdge v k a = Maybe (Edge v k a)
 
 instance Sized (Edge v k a) where
 	getSize# (Edge s# _ _ _) = s#
 
-{-# SPECIALIZE singleLoc :: U(Slice) -> U(EdgeLoc) a #-}
-singleLoc :: TrieKey k => Slice v k -> EdgeLoc v k a
+{-# SPECIALIZE singleLoc :: U() -> U(EdgeLoc) a #-}
+singleLoc :: TrieKey k => v k -> EdgeLoc v k a
 singleLoc ks = Loc ks emptyM Root
 
-{-# SPECIALIZE singletonEdge :: Sized a => U(Slice) -> a -> U(Edge) a #-}
-singletonEdge :: (TrieKey k, Sized a) => Slice v k -> a -> Edge v k a
+{-# SPECIALIZE singletonEdge :: Sized a => U() -> a -> U(Edge) a #-}
+singletonEdge :: (TrieKey k, Sized a) => v k -> a -> Edge v k a
 singletonEdge ks a = edge ks (Just a) emptyM
 
 {-# SPECIALIZE getSimpleEdge :: U(Edge) a -> Simple a #-}
@@ -48,43 +48,42 @@ getSimpleEdge (Edge _ _ v ts)
   | nullM ts	= maybe Null Singleton v
   | otherwise	= NonSimple
 
-{-# SPECIALIZE edge :: Sized a => U(Slice) -> Maybe a -> U(Branch) a -> U(Edge) a #-}
-edge :: (TrieKey k, Sized a) => Slice v k -> Maybe a -> Branch v k a -> Edge v k a
+{-# SPECIALIZE edge :: Sized a => U() -> Maybe a -> U(Branch) a -> U(Edge) a #-}
+edge :: (TrieKey k, Sized a) => v k -> Maybe a -> Branch v k a -> Edge v k a
 edge ks v ts = Edge (getSize# v +# sizeM ts) ks v ts
 
 {-# INLINE compact #-}
 -- TODO: figure out a way to GC dead keys
-compact :: TrieKey k => Edge v k a -> MEdge v k a
+compact :: (Vector v k, TrieKey k) => Edge v k a -> MEdge v k a
 compact e@(Edge _ ks Nothing ts) = case getSimpleM ts of
 	Null		-> Nothing
-	Singleton e'	-> Just (unDropEdge (len ks + 1) e')
+	Singleton e'	-> Just (unDropEdge (length ks + 1) e')
 	_		-> Just e
 compact e = Just e
 
-dropEdge :: Int -> Edge v k a -> Edge v k a
+dropEdge :: Vector v k => Int -> Edge v k a -> Edge v k a
 dropEdge n (Edge s# ks v ts) = Edge s# (dropSlice n ks) v ts
 
-unDropEdge :: Int -> Edge v k a -> Edge v k a
+unDropEdge :: Vector v k => Int -> Edge v k a -> Edge v k a
 unDropEdge n (Edge s# ks v ts) = Edge s# (unDropSlice n ks) v ts
 
 {-# SPECIALIZE lookupEdge :: TrieKey k => V() -> V(Edge) a -> Maybe a #-}
 {-# SPECIALIZE lookupEdge :: U() -> U(Edge) a -> Maybe a #-}
 lookupEdge :: (TrieKey k, Vector v k) => v k -> Edge v k a -> Maybe a
 lookupEdge = lookupE where
-	lookupE !ks (Edge _ ls v ts) = if kLen < lLen then Nothing else matchSliceV matcher matches ks ls where
+	lookupE !ks (Edge _ ls v ts) = if kLen < lLen then Nothing else matchSlice matcher matches ks ls where
 	  !kLen = length ks
-	  !lLen = len ls
+	  !lLen = length ls
 	  matcher k l z
 		  | k =? l	  = z
 		  | otherwise	  = Nothing
 	  matches _ _
 		  | kLen == lLen  = v
-		  | otherwise	  = do	e' <- lookupM (ks `unsafeIndex` lLen) ts
-					lookupE (unsafeDrop (lLen + 1) ks) e'
+		  | (_, k, ks') <- splitSlice lLen ks = lookupM k ts >>= lookupE ks'
 
-{-# SPECIALIZE searchEdge :: TrieKey k => V(Slice) -> V(Edge) a -> V(Path) a -> (Maybe a, V(EdgeLoc) a) #-}
-{-# SPECIALIZE searchEdge :: U(Slice) -> U(Edge) a -> U(Path) a -> (Maybe a, U(EdgeLoc) a) #-}
-searchEdge :: (TrieKey k, Vector v k) => Slice v k -> Edge v k a -> Path v k a -> (Maybe a, EdgeLoc v k a)
+{-# SPECIALIZE searchEdge :: TrieKey k => V() -> V(Edge) a -> V(Path) a -> (Maybe a, V(EdgeLoc) a) #-}
+{-# SPECIALIZE searchEdge :: U() -> U(Edge) a -> U(Path) a -> (Maybe a, U(EdgeLoc) a) #-}
+searchEdge :: (TrieKey k, Vector v k) => v k -> Edge v k a -> Path v k a -> (Maybe a, EdgeLoc v k a)
 searchEdge = searchE where
 	searchE !ks e@(Edge _ ls v ts) path = iMatchSlice matcher matches ks ls where
 	  matcher i k l z
@@ -105,13 +104,13 @@ mapEdge f = mapE where
 	mapE (Edge _ ks v ts) = edge ks (f <$> v) (fmapM mapE ts)
 
 {-# SPECIALIZE mapMaybeEdge :: Sized b => (a -> Maybe b) -> U(Edge) a -> U(MEdge) b #-}
-mapMaybeEdge :: (TrieKey k, Sized b) => (a -> Maybe b) -> Edge v k a -> MEdge v k b
+mapMaybeEdge :: (Vector v k, TrieKey k, Sized b) => (a -> Maybe b) -> Edge v k a -> MEdge v k b
 mapMaybeEdge f = mapMaybeE where
 	mapMaybeE (Edge _ ks v ts) = compact (edge ks (v >>= f) (mapMaybeM mapMaybeE ts))
 
 {-# SPECIALIZE mapEitherEdge :: (Sized b, Sized c) =>
 	(a -> (# Maybe b, Maybe c #)) -> U(Edge) a -> (# U(MEdge) b, U(MEdge) c #) #-}
-mapEitherEdge :: (TrieKey k, Sized b, Sized c) => 
+mapEitherEdge :: (Vector v k, TrieKey k, Sized b, Sized c) => 
 	(a -> (# Maybe b, Maybe c #)) -> Edge v k a -> (# MEdge v k b, MEdge v k c #)
 mapEitherEdge f = mapEitherE where
 	mapEitherE (Edge _ ks v ts) = (# compact (edge ks vL tsL), compact (edge ks vR tsR) #)
@@ -135,17 +134,17 @@ foldlEdge f = foldlE where
   foldlE z (Edge _ _ v ts) = foldlM foldlE ts (foldl f z v)
 
 {-# SPECIALIZE rebuild :: Sized a => U(MEdge) a -> U(Path) a -> U(MEdge) a #-}
-rebuild :: (TrieKey k, Sized a) => MEdge v k a -> Path v k a -> MEdge v k a
+rebuild :: (Vector v k, TrieKey k, Sized a) => MEdge v k a -> Path v k a -> MEdge v k a
 rebuild !e Root = e
 rebuild Nothing (Deep path ks v tHole) = rebuild (compact $ edge ks v $ clearM tHole) path
 rebuild (Just e) (Deep path ks v tHole) = rebuild (compact $ edge ks v $ assignM e tHole) path
 
 {-# SPECIALIZE assignEdge :: Sized a => a -> U(EdgeLoc) a -> U(MEdge) a #-}
-assignEdge :: (TrieKey k, Sized a) => a -> EdgeLoc v k a -> MEdge v k a
+assignEdge :: (Vector v k, TrieKey k, Sized a) => a -> EdgeLoc v k a -> MEdge v k a
 assignEdge v (Loc ks ts path) = rebuild (Just (edge ks (Just v) ts)) path
 
 {-# SPECIALIZE clearEdge :: Sized a => U(EdgeLoc) a -> U(MEdge) a #-}
-clearEdge :: (TrieKey k, Sized a) => EdgeLoc v k a -> MEdge v k a
+clearEdge :: (Vector v k, TrieKey k, Sized a) => EdgeLoc v k a -> MEdge v k a
 clearEdge (Loc ks ts path) = rebuild (compact (edge ks Nothing ts)) path
 
 {-# SPECIALIZE unionEdge :: (TrieKey k, Sized a) => 
@@ -224,7 +223,7 @@ isSubEdge (<=) = isSubE where
 	  Just eL'	-> isSubE (dropEdge (lLen + 1) eK) eL'
 
 {-# SPECIALIZE beforeEdge :: Sized a => Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
-beforeEdge :: (TrieKey k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
+beforeEdge :: (Vector v k, TrieKey k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
 beforeEdge v (Loc ks ts path) = buildBefore (compact (edge ks v ts)) path where
 	buildBefore !e Root
 	  = e
@@ -232,7 +231,7 @@ beforeEdge v (Loc ks ts path) = buildBefore (compact (edge ks v ts)) path where
 	  = buildBefore (compact $ edge ks v $ beforeMM e tHole) path
 
 {-# SPECIALIZE afterEdge :: Sized a => Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
-afterEdge :: (TrieKey k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
+afterEdge :: (Vector v k, TrieKey k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
 afterEdge v (Loc ks ts path) = buildAfter (compact (edge ks v ts)) path where
 	buildAfter !e Root
 	  = e
@@ -259,9 +258,9 @@ indexEdge = indexE where
 			  = indexE i'# e' (Deep path ks Nothing tHole)
 	  where !(# i'#, e', tHole #) = indexM i# ts
 
-{-# SPECIALIZE unifyEdge :: (TrieKey k, Sized a) => V(Slice) -> a -> V(Slice) -> a -> V(MEdge) a #-}
-{-# SPECIALIZE unifyEdge :: Sized a => U(Slice) -> a -> U(Slice) -> a -> U(MEdge) a #-}
-unifyEdge :: (Vector v k, TrieKey k, Sized a) => Slice v k -> a -> Slice v k -> a -> MEdge v k a
+{-# SPECIALIZE unifyEdge :: (TrieKey k, Sized a) => V() -> a -> V() -> a -> V(MEdge) a #-}
+{-# SPECIALIZE unifyEdge :: Sized a => U() -> a -> U() -> a -> U(MEdge) a #-}
+unifyEdge :: (Vector v k, TrieKey k, Sized a) => v k -> a -> v k -> a -> MEdge v k a
 unifyEdge ks1 a1 ks2 a2 = iMatchSlice matcher matches ks1 ks2 where
 	matcher !i k1 k2 z =
 	  case unifyM k1 (singletonEdge (dropSlice (i+1) ks1) a1) k2 (singletonEdge (dropSlice (i+1) ks2) a2) of

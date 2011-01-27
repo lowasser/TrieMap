@@ -20,7 +20,6 @@ import qualified Data.Vector.Storable as S
 import Data.Traversable
 import Data.Word
 
-import Data.TrieMap.RadixTrie.Slice
 import Data.TrieMap.RadixTrie.Edge
 
 import Prelude hiding (length, and, zip, zipWith, foldr, foldl)
@@ -34,7 +33,7 @@ instance TrieKey k => TrieKey (Vector k) where
 	newtype Hole (Vector k) a = Hole (EdgeLoc Vector k a)
 	
 	emptyM = Radix Nothing
-	singletonM ks a = Radix (Just (singletonEdge (v2S ks) a))
+	singletonM ks a = Radix (Just (singletonEdge ks a))
 	getSimpleM (Radix Nothing)	= Null
 	getSimpleM (Radix (Just e))	= getSimpleEdge e
 	sizeM (Radix m) = getSize# m
@@ -54,8 +53,8 @@ instance TrieKey k => TrieKey (Vector k) where
 	
 	isSubmapM (<=) (Radix m1) (Radix m2) = subMaybe (isSubEdge (<=)) m1 m2
 
-	singleHoleM ks = Hole (singleLoc (v2S ks))
-	searchM ks (Radix (Just e)) = case searchEdge (v2S ks) e Root of
+	singleHoleM ks = Hole (singleLoc ks)
+	searchM ks (Radix (Just e)) = case searchEdge ks e Root of
 		(a, loc) -> (# a, Hole loc #)
 	searchM ks _ = (# Nothing, singleHoleM ks #)
 	indexM i (Radix (Just e)) = onThird Hole (indexEdge i e) Root
@@ -74,7 +73,7 @@ instance TrieKey k => TrieKey (Vector k) where
 	afterM (Hole loc) = Radix (afterEdge Nothing loc)
 	afterWithM a (Hole loc) = Radix (afterEdge (Just a) loc)
 	
-	unifyM ks1 a1 ks2 a2 = fmap (Radix . Just) (unifyEdge (v2S ks1) a1 (v2S ks2) a2)
+	unifyM ks1 a1 ks2 a2 = fmap (Radix . Just) (unifyEdge ks1 a1 ks2 a2)
 
 type WordVec = S.Vector Word
 
@@ -90,7 +89,7 @@ instance TrieKey (S.Vector Word) where
 	newtype Hole WordVec a = WHole (EdgeLoc S.Vector Word a)
 	
 	emptyM = WRadix Nothing
-	singletonM ks a = WRadix (Just (singletonEdge (v2S ks) a))
+	singletonM ks a = WRadix (Just (singletonEdge ks a))
 	getSimpleM (WRadix Nothing)	= Null
 	getSimpleM (WRadix (Just e))	= getSimpleEdge e
 	sizeM (WRadix m) = getSize# m
@@ -110,8 +109,8 @@ instance TrieKey (S.Vector Word) where
 	
 	isSubmapM (<=) (WRadix m1) (WRadix m2) = subMaybe (isSubEdge (<=)) m1 m2
 
-	singleHoleM ks = WHole (singleLoc (v2S ks))
-	searchM ks (WRadix (Just e)) = case searchEdge (v2S ks) e Root of
+	singleHoleM ks = WHole (singleLoc ks)
+	searchM ks (WRadix (Just e)) = case searchEdge ks e Root of
 		(a, loc) -> (# a, WHole loc #)
 	searchM ks _ = (# Nothing, singleHoleM ks #)
 	indexM i (WRadix (Just e)) = case indexEdge i e Root of
@@ -131,4 +130,4 @@ instance TrieKey (S.Vector Word) where
 	afterM (WHole loc) = WRadix (afterEdge Nothing loc)
 	afterWithM a (WHole loc) = WRadix (afterEdge (Just a) loc)
 	
-	unifyM ks1 a1 ks2 a2 = fmap (WRadix . Just) (unifyEdge (v2S ks1) a1 (v2S ks2) a2)
+	unifyM ks1 a1 ks2 a2 = fmap (WRadix . Just) (unifyEdge ks1 a1 ks2 a2)
