@@ -6,7 +6,7 @@ import Data.TrieMap.TrieKey
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Sized
 
-import Control.Applicative
+import Data.Functor
 import Data.Foldable hiding (foldrM, foldlM)
 import Data.Traversable
 
@@ -30,6 +30,7 @@ instance TKey k => Functor (TMap k) where
 
 instance TKey k => Foldable (TMap k) where
 	foldr f z (TMap m) = foldrM (\ (Assoc _ a) -> f a) m z
+	foldl f z (TMap m) = foldlM (\ z (Assoc _ a) -> f z a) m z
 
 instance TKey k => Traversable (TMap k) where
 	traverse f (TMap m) = TMap <$> traverseM (\ (Assoc k a) -> Assoc k <$> f a) m

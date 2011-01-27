@@ -18,6 +18,7 @@ takeSlice !n xs = assert (n <= length xs) $ unsafeTake n xs
 dropSlice :: Vector v a => Int -> v a -> v a
 dropSlice !n xs = assert (n <= length xs) $ unsafeDrop n xs
 
+-- | Do you have any idea how unsafe this method is?  No, because you're STILL SANE ENOUGH TO READ THIS.
 unDropSlice :: Vector v a => Int -> v a -> v a
 unDropSlice !n = unsafeDrop (-n)
 
