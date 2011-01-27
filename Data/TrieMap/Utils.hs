@@ -36,3 +36,6 @@ n `remPow` k = if k .&. (k-1) == 0 then n .&. (k-1) else n `rem` k
 
 (.<<.) :: Word -> Int -> Word
 W# w# .<<. I# i# = W# (uncheckedShiftL# w# i#)
+
+(.:) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
+(f .: g) a b = f (g a b)

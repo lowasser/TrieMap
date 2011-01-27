@@ -125,18 +125,20 @@ module Data.TrieMap (
 	maxViewWithKey
 	) where
 
+import Control.Monad.Ends
+
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances()
 import Data.TrieMap.TrieKey
-import Data.TrieMap.Applicative
 import Data.TrieMap.Representation
 import Data.TrieMap.Representation.Instances ()
 import Data.TrieMap.Sized
+import Data.TrieMap.Utils
 
 import Control.Applicative hiding (empty)
 import Control.Monad
 import Data.Maybe hiding (mapMaybe)
-import Data.Monoid(Monoid(..), First(..), Last(..))
+import Data.Monoid(Monoid(..))
 
 import GHC.Exts (build)
 
@@ -597,10 +599,9 @@ updateMax :: TKey k => (a -> Maybe a) -> TMap k a -> TMap k a
 updateMax = updateMaxWithKey . const
 
 {-# INLINE updateHelper #-}
-updateHelper :: (TKey k, MonadPlus m) => (k -> a -> Maybe a) -> TMap k a -> m (Maybe (Assoc k a), Hole (Rep k) (Assoc k a))
-updateHelper f (TMap m) = do
-	(Assoc k a, loc) <- extractHoleM m
-	return (Assoc k <$> f k a, loc)
+updateHelper :: (TKey k, Functor m, MonadPlus m) =>
+  (k -> a -> Maybe a) -> TMap k a -> m (Maybe (Assoc k a), Hole (Rep k) (Assoc k a))
+updateHelper f (TMap m) = fmap (\ (Assoc k a, loc) -> (Assoc k <$> f k a, loc)) (extractHoleM m)
 
 -- | Update the value at the minimal key.
 --
@@ -972,10 +973,8 @@ index i (TMap m) = case indexM (unbox i) m of
 	(# _, Assoc k a, hole #) -> (a, TLoc k hole)
 
 {-# INLINE extract #-}
-extract :: (TKey k, MonadPlus m) => TMap k a -> m (a, TLocation k a)
-extract (TMap m) = do
-	(Assoc k a, hole) <- extractHoleM m
-	return (a, TLoc k hole)
+extract :: (TKey k, Functor m, MonadPlus m) => TMap k a -> m (a, TLocation k a)
+extract (TMap m) = fmap (\ (Assoc k a, hole) -> (a, TLoc k hole)) (extractHoleM m)
 
 -- | /O(log n)/. Return the value and an updatable location for the
 -- least key in the map, or 'Nothing' if the map is empty.

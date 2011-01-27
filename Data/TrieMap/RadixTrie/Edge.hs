@@ -6,7 +6,6 @@ import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
 import Data.TrieMap.RadixTrie.Slice
 import Data.TrieMap.IntMap ()
-import Data.TrieMap.Applicative ()
 
 import Control.Applicative
 import Control.Monad
@@ -240,8 +239,8 @@ afterEdge v (Loc ks ts path) = buildAfter (compact (edge ks v ts)) path where
 	buildAfter e (Deep path ks v tHole)
 	  = buildAfter (compact $ edge ks v $ afterMM e tHole) path
 
-{-# SPECIALIZE extractEdgeLoc :: MonadPlus m => U(Edge) a -> U(Path) a -> m (a, U(EdgeLoc) a) #-}
-extractEdgeLoc :: (TrieKey k, MonadPlus m) => Edge v k a -> Path v k a -> m (a, EdgeLoc v k a)
+{-# SPECIALIZE extractEdgeLoc :: (Functor m, MonadPlus m) => U(Edge) a -> U(Path) a -> m (a, U(EdgeLoc) a) #-}
+extractEdgeLoc :: (TrieKey k, Functor m, MonadPlus m) => Edge v k a -> Path v k a -> m (a, EdgeLoc v k a)
 extractEdgeLoc (Edge _ ks v ts) path = case v of
 	Nothing	-> extractTS
 	Just a	-> return (a, Loc ks ts path) `mplus` extractTS

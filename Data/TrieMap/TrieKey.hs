@@ -6,8 +6,8 @@ import Data.TrieMap.Sized
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Ends
 
-import Data.Monoid
 import Data.Foldable hiding (foldrM, foldlM)
 
 import Prelude hiding (foldr, foldl)
@@ -82,9 +82,14 @@ class TrieKey k where
 	afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
 	searchM :: k -> TrieMap k a -> (# Maybe a, Hole k a #)
 	indexM :: Sized a => Int# -> TrieMap k a -> (# Int#, a, Hole k a #)
-	{-# SPECIALIZE extractHoleM :: Sized a => TrieMap k a -> First (a, Hole k a) #-}
-	{-# SPECIALIZE extractHoleM :: Sized a => TrieMap k a -> Last (a, Hole k a) #-}
-	extractHoleM :: MonadPlus m => Sized a => TrieMap k a -> m (a, Hole k a)
+	extractHoleM :: (Functor m, MonadPlus m) => Sized a => TrieMap k a -> m (a, Hole k a)
+	
+	{-# NOINLINE firstHoleM #-}
+	{-# NOINLINE lastHoleM #-}
+	firstHoleM :: Sized a => TrieMap k a -> First (a, Hole k a)
+	firstHoleM m = inline extractHoleM m
+	lastHoleM :: Sized a => TrieMap k a -> Last (a, Hole k a)
+	lastHoleM m = inline extractHoleM m
 	
 	fillHoleM :: Sized a => Maybe a -> Hole k a -> TrieMap k a
 	assignM :: Sized a => a -> Hole k a -> TrieMap k a
@@ -141,7 +146,7 @@ searchM' :: TrieKey k => k -> Maybe (TrieMap k a) -> (# Maybe a, Hole k a #)
 searchM' k Nothing = (# Nothing, singleHoleM k #)
 searchM' k (Just m) = searchM k m
 
-extractHoleM' :: (TrieKey k, MonadPlus m, Sized a) => Maybe (TrieMap k a) -> m (a, Hole k a)
+extractHoleM' :: (TrieKey k, Functor m, MonadPlus m, Sized a) => Maybe (TrieMap k a) -> m (a, Hole k a)
 extractHoleM' Nothing = mzero
 extractHoleM' (Just m) = extractHoleM m
 
@@ -208,3 +213,8 @@ subMaybe _ _ _ = False
 indexFail :: a -> (# Int#, b, c #)
 indexFail _ = (# error err, error err, error err #) where
 	err = "Error: not a valid index"
+
+{-# RULES
+  "extractHoleM/First" [0] extractHoleM = firstHoleM;
+  "extractHoleM/Last" [0] extractHoleM = lastHoleM;
+  #-}

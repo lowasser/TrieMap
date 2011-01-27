@@ -2,7 +2,7 @@
 
 module Data.TrieMap.Key () where
 
-import Control.Applicative
+import Data.Functor
 
 import Data.TrieMap.Class
 import Data.TrieMap.TrieKey

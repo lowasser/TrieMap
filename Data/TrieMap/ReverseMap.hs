@@ -1,14 +1,26 @@
-{-# LANGUAGE TypeFamilies, MagicHash, UnboxedTuples #-}
+{-# LANGUAGE TypeFamilies, MagicHash, UnboxedTuples, GeneralizedNewtypeDeriving #-}
 module Data.TrieMap.ReverseMap () where
 
 import Control.Applicative
+import Control.Monad
+import Control.Monad.Ends
 
-import Data.TrieMap.Applicative
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Modifiers
 import Data.TrieMap.Sized
 
 import GHC.Exts
+
+newtype DualPlus m a = DualPlus {runDualPlus :: m a} deriving (Functor, Monad)
+newtype Dual f a = Dual {runDual :: f a} deriving (Functor)
+
+instance Applicative f => Applicative (Dual f) where
+  pure a = Dual (pure a)
+  Dual f <*> Dual x = Dual (x <**> f)
+
+instance MonadPlus m => MonadPlus (DualPlus m) where
+  mzero = DualPlus mzero
+  DualPlus m `mplus` DualPlus k = DualPlus (k `mplus` m)
 
 -- | @'TrieMap' ('Rev' k) a@ is a wrapper around a @'TrieMap' k a@ that reverses the order of the operations.
 instance TrieKey k => TrieKey (Rev k) where
@@ -45,9 +57,11 @@ instance TrieKey k => TrieKey (Rev k) where
 	searchM (Rev k) (RevMap m) = onSnd RHole (searchM k) m
 	indexM i# (RevMap m) = case indexM (revIndex i# m) m of
 		(# i'#, a, hole #) -> (# revIndex i'# a, a, RHole hole #)
-	extractHoleM (RevMap m) = runDualPlus $ do
-		(a, hole) <- extractHoleM m
-		return (a, RHole hole)
+	
+	extractHoleM (RevMap m) = fmap RHole <$> runDualPlus (extractHoleM m)
+	firstHoleM (RevMap m) = First (fmap RHole <$> getLast (lastHoleM m))
+	lastHoleM (RevMap m) = Last (fmap RHole <$> getFirst (firstHoleM m))
+	
 	assignM v (RHole m) = RevMap (assignM v m)
 	
 	fromListM f xs = RevMap (fromListM f [(k, a) | (Rev k, a) <- xs])
