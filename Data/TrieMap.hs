@@ -610,7 +610,7 @@ updateHelper f (TMap m) = do
 updateMinWithKey :: TKey k => (k -> a -> Maybe a) -> TMap k a -> TMap k a
 updateMinWithKey f m = fromMaybe m $ do
 	(a, loc) <- getFirst $ updateHelper f m
-	return (TMap (afterM a loc))
+	return (TMap (afterMM a loc))
 
 -- | Update the value at the maximal key.
 --
@@ -620,7 +620,7 @@ updateMinWithKey f m = fromMaybe m $ do
 updateMaxWithKey :: TKey k => (k -> a -> Maybe a) -> TMap k a -> TMap k a
 updateMaxWithKey f m = fromMaybe m $ do
 	(a, loc) <- getLast $ updateHelper f m
-	return (TMap (afterM a loc))
+	return (TMap (beforeMM a loc))
 
 -- | Delete and find the minimal element.
 --
@@ -926,12 +926,12 @@ key (TLoc k _) = k
 -- | @'before' loc@ is the submap with keys less than @'key' loc@.
 {-# INLINE before #-}
 before :: TKey k => TLocation k a -> TMap k a
-before (TLoc _ hole) = TMap (beforeM Nothing hole)
+before (TLoc _ hole) = TMap (beforeM hole)
 
 -- | @'after' loc@ is the submap with keys greater than @'key' loc@.
 {-# INLINE after #-}
 after :: TKey k => TLocation k a -> TMap k a
-after (TLoc _ hole) = TMap (afterM Nothing hole)
+after (TLoc _ hole) = TMap (afterM hole)
 
 -- | Search the map for the given key, returning the
 -- corresponding value (if any) and an updatable location for that key.

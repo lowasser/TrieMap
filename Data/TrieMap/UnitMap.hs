@@ -42,8 +42,11 @@ instance TrieKey () where
 	fromListM f ((_, v):xs) = Unit $ Just (foldl (\ v' -> f v' . snd) v xs)
 	
 	singleHoleM _ = Hole
-	beforeM a _ = Unit a
-	afterM a _ = Unit a
+	beforeM _ = emptyM
+	beforeWithM a _ = single a
+	afterM _ = emptyM
+	afterWithM a _ = single a
+	
 	searchM _ (Unit m) = (# m, Hole #)
 
 	indexM i (Unit (Just v)) = (# i, v, Hole #)
@@ -54,5 +57,8 @@ instance TrieKey () where
 	extractHoleM (Unit (Just v)) = return (v, Hole)
 	extractHoleM _ = mzero
 	
-	clearM _ = Unit Nothing
-	assignM v _ = Unit (Just v)
+	clearM _ = emptyM
+	assignM v _ = single v
+
+single :: a -> TrieMap () a
+single = Unit . Just

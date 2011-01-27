@@ -61,16 +61,14 @@ instance Ord k => TrieKey (Ordered k) where
 	diffM f m1 m2 = hedgeDiff f (const LT) (const GT) m1 m2
 	
 	singleHoleM (Ord k) = Empty k Root
-	beforeM a (Empty k path) = before (singletonMaybe  k a) path
-	beforeM a (Full k path l _) = before t path
-		where	t = case a of
-				Nothing	-> l
-				Just a	-> insertMax k a l
-	afterM  a (Empty k path) = after (singletonMaybe  k a) path
-	afterM  a (Full k path _ r) = after t path
-		where	t = case a of
-				Nothing	-> r
-				Just a	-> insertMin  k a r
+	beforeM (Empty _ path) = before Tip path
+	beforeM (Full _ path l _) = before l path
+	beforeWithM a (Empty k path) = before (singleton k a) path
+	beforeWithM a (Full k path l _) = before (insertMax k a l) path
+	afterM (Empty _ path) = after Tip path
+	afterM (Full _ path _ r) = after r path
+	afterWithM a (Empty k path) = after (singleton k a) path
+	afterWithM a (Full k path _ r) = after (insertMin k a r) path
 	searchM (Ord k) = search k Root
 	indexM i# = indexT Root i# where
 		indexT path i# (Bin _ kx x l r) 
@@ -138,21 +136,12 @@ mapEither f (Bin _ k a l r) = (# joinMaybe k aL lL rL, joinMaybe k aR lR rR #)
   where !(# aL, aR #) = f a; !(# lL, lR #) = mapEither f l; !(# rL, rR #) = mapEither f r
 mapEither _ _ = (# Tip, Tip #)
 
-splitLookup :: (Ord k, Sized a) => k -> OrdMap k a -> (# OrdMap k a, Maybe a, OrdMap k a #)
-splitLookup k m = case m of
-	Tip	-> (# Tip, Nothing, Tip #)
-	Bin _ kx x l r -> case compare k kx of
-		LT	-> let !(# lL, ans, lR #) = splitLookup k l in (# lL, ans, join kx x lR r #)
-		EQ	-> (# l, Just x, r #)
-		GT	-> let !(# rL, ans, rR #) = splitLookup k r in (# join kx x l rL, ans, rR #)
-
 isSubmap :: (Ord k, Sized a, Sized b) => LEq a b -> LEq (OrdMap k a) (OrdMap k b)
 isSubmap _ Tip _ = True
 isSubmap _ _ Tip = False
-isSubmap (<=) (Bin _ kx x l r) t = case found of
-	  Nothing	-> False
-	  Just y	-> x <= y && isSubmap (<=) l lt && isSubmap (<=) r gt
-  where !(# lt, found, gt #) = splitLookup kx t
+isSubmap (<=) (Bin _ kx x l r) t = case search kx Root t of
+	  (# Nothing, _ #)	-> False
+	  (# Just y, hole #)	-> x <= y && isSubmap (<=) l (beforeM hole) && isSubmap (<=) r (afterM hole)
 
 fromAscList :: (Eq k, Sized a) => (a -> a -> a) -> [(k, a)] -> OrdMap k a
 fromAscList f xs = fromDistinctAscList (combineEq xs) where
@@ -241,8 +230,8 @@ isect :: (Ord k, Sized a, Sized b, Sized c) => (a -> b -> Maybe c) -> OrdMap k a
 isect f t1@Bin{} (Bin _ k2 x2 l2 r2) 
   = joinMaybe k2 (found >>= \ x1' -> f x1' x2) tl tr
   where	!(# found, hole #) = search k2 Root t1
-	tl = isect f (beforeM Nothing hole) l2
-	tr = isect f (afterM Nothing hole) r2
+	tl = isect f (beforeM hole) l2
+	tr = isect f (afterM hole) r2
 isect _ _ _ = Tip
 
 hedgeDiff :: (Ord k, Sized a)

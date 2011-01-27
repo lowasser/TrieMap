@@ -56,14 +56,10 @@ instance TrieKey Word where
 	isSubmapM = isSubmapOfBy
 	
 	singleHoleM k = Hole k Root
-	beforeM  a (Hole k path) = before (singletonMaybe  k a) path where
-		before t Root = t
-		before t (LeftBin _ _ path _) = before t path
-		before t (RightBin p m l path) = before (bin p m l t) path
-	afterM  a (Hole k path) = after (singletonMaybe  k a) path where
-		after t Root = t
-		after t (RightBin _ _ _ path) = after t path
-		after t (LeftBin p m path r) = after (bin p m t r) path
+	beforeM (Hole _ path) = before Nil path
+	beforeWithM a (Hole k path) = before (singleton k a) path
+	afterM (Hole _ path) = after Nil path
+	afterWithM a (Hole k path) = after (singleton k a) path
 	searchM !k = onSnd (Hole k) (search Root) where
 		search path t@(Bin _ p m l r)
 			| nomatch k p m	= (# Nothing, branchHole k p path t #)
@@ -94,6 +90,14 @@ instance TrieKey Word where
 	
 	{-# INLINE unifyM #-}
 	unifyM = unify
+
+before, after :: TrieMap Word a -> Path a -> TrieMap Word a
+before t Root = t
+before t (LeftBin _ _ path _) = before t path
+before t (RightBin p m l path) = before (bin p m l t) path
+after t Root = t
+after t (RightBin _ _ _ path) = after t path
+after t (LeftBin p m path r) = after (bin p m t r) path
 
 assign :: TrieMap Word a -> Path a -> TrieMap Word a
 assign t Root = t

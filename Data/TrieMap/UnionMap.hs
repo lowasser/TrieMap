@@ -146,13 +146,19 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 
 	singleHoleM = either (HoleX0 . singleHoleM) (Hole0X . singleHoleM)
 
-	beforeM a hole = case hView hole of
-		Hole1 h1 __	-> beforeM' a h1 ^ Nothing
-		Hole2 m1 h2	-> m1 ^ beforeM' a h2
+	beforeM hole = case hView hole of
+		Hole1 h1 __	-> guardNullM (beforeM h1) ^ Nothing
+		Hole2 m1 h2	-> m1 ^ guardNullM (beforeM h2)
+	beforeWithM a hole = case hView hole of
+		Hole1 h1 __	-> K1 (beforeWithM a h1)
+		Hole2 m1 h2	-> m1 ^ Just (beforeWithM a h2)
 	
-	afterM a hole = case hView hole of
-		Hole1 h1 m2	-> afterM' a h1 ^ m2
-		Hole2 __ h2	-> Nothing ^ afterM' a h2
+	afterM hole = case hView hole of
+		Hole1 h1 m2	-> guardNullM (afterM h1) ^ m2
+		Hole2 __ h2	-> Nothing ^ guardNullM (afterM h2)
+	afterWithM a hole = case hView hole of
+		Hole1 h1 m2	-> Just (afterWithM a h1) ^ m2
+		Hole2 __ h2	-> K2 (afterWithM a h2)
 	
 	searchM (Left k) (UVIEW m1 m2) = onSnd (`hole1` m2) (searchM' k) m1
 	searchM (Right k) (UVIEW m1 m2) = onSnd (hole2 m1) (searchM' k) m2

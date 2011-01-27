@@ -71,8 +71,10 @@ instance TrieKey k => TrieKey (Vector k) where
 		return (a, Hole loc)
 	extractHoleM _ = mzero
 	
-	beforeM a (Hole loc) = Radix (beforeEdge a loc)
-	afterM a (Hole loc) = Radix (afterEdge a loc)
+	beforeM (Hole loc) = Radix (beforeEdge Nothing loc)
+	beforeWithM a (Hole loc) = Radix (beforeEdge (Just a) loc)
+	afterM (Hole loc) = Radix (afterEdge Nothing loc)
+	afterWithM a (Hole loc) = Radix (afterEdge (Just a) loc)
 	
 	unifyM ks1 a1 ks2 a2 = either (Left . Hole) (Right . Radix . Just) (unifyEdge (v2S ks1) a1 (v2S ks2) a2)
 
@@ -126,7 +128,9 @@ instance TrieKey (S.Vector Word) where
 		return (a, WHole loc)
 	extractHoleM _ = mzero
 
-	beforeM a (WHole loc) = WRadix (beforeEdge a loc)
-	afterM a (WHole loc) = WRadix (afterEdge a loc)
+	beforeM (WHole loc) = WRadix (beforeEdge Nothing loc)
+	beforeWithM a (WHole loc) = WRadix (beforeEdge (Just a) loc)
+	afterM (WHole loc) = WRadix (afterEdge Nothing loc)
+	afterWithM a (WHole loc) = WRadix (afterEdge (Just a) loc)
 	
 	unifyM ks1 a1 ks2 a2 = either (Left . WHole) (Right . WRadix . Just) (unifyEdge (v2S ks1) a1 (v2S ks2) a2)

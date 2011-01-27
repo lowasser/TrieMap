@@ -38,8 +38,10 @@ instance TrieKey k => TrieKey (Rev k) where
 	isSubmapM (<=) (RevMap m1) (RevMap m2) = isSubmapM (<=) m1 m2
 	
 	singleHoleM (Rev k) = RHole (singleHoleM k)
-	beforeM a (RHole hole) = RevMap (afterM a hole)
-	afterM a (RHole hole) = RevMap (beforeM a hole)
+	beforeM (RHole hole) = RevMap (afterM hole)
+	beforeWithM a (RHole hole) = RevMap (afterWithM a hole)
+	afterM (RHole hole) = RevMap (beforeM hole)
+	afterWithM a (RHole hole) = RevMap (beforeWithM a hole)
 	searchM (Rev k) (RevMap m) = onSnd RHole (searchM k) m
 	indexM i# (RevMap m) = case indexM (revIndex i# m) m of
 		(# i'#, a, hole #) -> (# revIndex i'# a, a, RHole hole #)

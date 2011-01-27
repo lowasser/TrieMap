@@ -230,7 +230,7 @@ beforeEdge v (Loc ks ts path) = buildBefore (compact (edge ks v ts)) path where
 	buildBefore !e Root
 	  = e
 	buildBefore e (Deep path ks v tHole)
-	  = buildBefore (compact $ edge ks v $ beforeM e tHole) path
+	  = buildBefore (compact $ edge ks v $ beforeMM e tHole) path
 
 {-# SPECIALIZE afterEdge :: Sized a => Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
 afterEdge :: (TrieKey k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
@@ -238,7 +238,7 @@ afterEdge v (Loc ks ts path) = buildAfter (compact (edge ks v ts)) path where
 	buildAfter !e Root
 	  = e
 	buildAfter e (Deep path ks v tHole)
-	  = buildAfter (compact $ edge ks v $ afterM e tHole) path
+	  = buildAfter (compact $ edge ks v $ afterMM e tHole) path
 
 {-# SPECIALIZE extractEdgeLoc :: MonadPlus m => U(Edge) a -> U(Path) a -> m (a, U(EdgeLoc) a) #-}
 extractEdgeLoc :: (TrieKey k, MonadPlus m) => Edge v k a -> Path v k a -> m (a, EdgeLoc v k a)

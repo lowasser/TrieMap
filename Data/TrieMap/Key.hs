@@ -40,11 +40,12 @@ instance TKey k => TrieKey (Key k) where
 	isSubmapM (<=) (KeyMap m1) (KeyMap m2) = isSubmapM (<=) m1 m2
 
 	singleHoleM (Key k) = KeyHole (singleHoleM (toRep k))
-	beforeM a (KeyHole hole) = KeyMap (beforeM a hole)
-	afterM a (KeyHole hole) = KeyMap (afterM a hole)
+	beforeM (KeyHole hole) = KeyMap (beforeM hole)
+	beforeWithM a (KeyHole hole) = KeyMap (beforeWithM a hole)
+	afterM (KeyHole hole) = KeyMap (afterM hole)
+	afterWithM a (KeyHole hole) = KeyMap (afterWithM a hole)
 	searchM (Key k) (KeyMap m) = onSnd KeyHole (searchM (toRep k)) m
-	indexM i (KeyMap m) = case indexM i m of
-		(# i', v, hole #) -> (# i', v, KeyHole hole #)
+	indexM i (KeyMap m) = onThird KeyHole (indexM i) m
 	extractHoleM (KeyMap m) = do
 		(v, hole) <- extractHoleM m
 		return (v, KeyHole hole)
