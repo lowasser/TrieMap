@@ -30,7 +30,9 @@ instance Arbitrary Op where
 		liftM Op (liftM Union recurse),
 		liftM Op (liftM Isect recurse),
 		liftM (Op . ElemAt) (arbitrary `suchThat` (>= 0)),
-		liftM (Op . DeleteAt) (arbitrary `suchThat` (>= 0))]
+		liftM (Op . DeleteAt) (arbitrary `suchThat` (>= 0)),
+		return (Op UpdateMin),
+		return (Op UpdateMax)]
 	shrink (Op (Insert k v)) = [Op (Insert k' v') | k' <- shrink k, v' <- shrink v]
 	shrink (Op (Lookup k)) = map (Op . Lookup) (shrink k)
 	shrink (Op (Delete k)) = map (Op . Delete) (shrink k)
@@ -56,6 +58,8 @@ instance Show Op where
 	show (Op (DeleteAt i)) = "DeleteAt " ++ show i
 	show (Op (ElemAt i)) = "ElemAt " ++ show i
 	show (Op (Isect ops)) = "Isect " ++ show ops
+	show (Op UpdateMax) = "UpdateMax"
+	show (Op UpdateMin) = "UpdateMin"
 
 data Operation r where
 	Insert :: Key -> Val -> Operation ()
@@ -71,6 +75,8 @@ data Operation r where
 	Isect :: [Op] -> Operation ()
 	DeleteAt :: Int -> Operation ()
 	ElemAt :: Int -> Operation (Maybe (Key, Val))
+	UpdateMax :: Operation ()
+	UpdateMin :: Operation ()
 
 mapFunc :: Key -> Val -> Val
 mapFunc ks xs = fromIntegral (BS.length ks):xs
@@ -106,6 +112,8 @@ operateMap m (Union ops) =
 operateMap m (DeleteAt i) = if M.null m then ((), m) else ((), M.deleteAt (i `mod` M.size m) m)
 operateMap m (ElemAt i) = if M.null m then (Nothing, m) else (Just $ M.elemAt (i `mod` M.size m) m, m)
 operateMap m (Isect ops) = ((), M.intersectionWithKey isectFunc m (generateMap M.empty ops))
+operateMap m (UpdateMin) = ((), M.updateMinWithKey mapMaybeFunc m)
+operateMap m (UpdateMax) = ((), M.updateMaxWithKey mapMaybeFunc m)
 
 generateTMap :: T.TMap Key Val -> [Op] -> T.TMap Key Val
 generateTMap = foldl (\ m (Op op) -> snd (operateTMap m op))
@@ -132,6 +140,8 @@ operateTMap m (DeleteAt i)
 operateTMap m (ElemAt i)
 	| T.null m	= (Nothing, m)
 	| otherwise	= (Just $ T.elemAt (i `mod` T.size m) m, m)
+operateTMap m UpdateMin = ((), T.updateMinWithKey mapMaybeFunc m)
+operateTMap m UpdateMax = ((), T.updateMaxWithKey mapMaybeFunc m)
 
 #define VERIFYOP(operation) verifyOp op@operation{} m tm = \
 	case (operateMap m op, operateTMap tm op) of \
@@ -151,6 +161,8 @@ VERIFYOP(Union)
 VERIFYOP(DeleteAt)
 VERIFYOP(ElemAt)
 VERIFYOP(Isect)
+VERIFYOP(UpdateMin)
+VERIFYOP(UpdateMax)
 
 verify :: M.Map Key Val -> T.TMap Key Val -> [Op] -> Bool
 verify m tm (Op op:ops) = case verifyOp op m tm of
