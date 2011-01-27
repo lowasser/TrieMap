@@ -82,8 +82,11 @@ class TrieKey k where
 	afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
 	searchM :: k -> TrieMap k a -> (# Maybe a, Hole k a #)
 	indexM :: Sized a => Int# -> TrieMap k a -> (# Int#, a, Hole k a #)
+
+	-- This, combined with the rewrite rules, allows each instance to define only
+	-- extractHoleM, but to obtain automatically specialized firstHoleM and lastHoleM
+	-- implementations.
 	extractHoleM :: (Functor m, MonadPlus m) => Sized a => TrieMap k a -> m (a, Hole k a)
-	
 	{-# NOINLINE firstHoleM #-}
 	{-# NOINLINE lastHoleM #-}
 	firstHoleM :: Sized a => TrieMap k a -> First (a, Hole k a)
