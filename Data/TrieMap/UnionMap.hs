@@ -171,11 +171,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		where !s1# = sizeM m1
 	indexM _ _ = indexFail ()
 
-	extractHoleM (UVIEW !m1 !m2) = (do
-		(v, h1) <- extractHoleM' m1
-		return (v, hole1 h1 m2)) `mplus` (do
-		(v, h2) <- extractHoleM' m2
-		return (v, hole2 m1 h2))
+	extractHoleM (UVIEW !m1 !m2) = holes1 `mplus` holes2 where
+	  holes1 = fmap (`hole1` m2) <$> extractHoleM' m1
+	  holes2 = fmap (hole2 m1) <$> extractHoleM' m2
 	
 	clearM hole = case hView hole of
 		Hole1 h1 m2	-> clearM' h1 ^ m2

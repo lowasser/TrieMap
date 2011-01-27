@@ -63,9 +63,7 @@ instance TrieKey k => TrieKey (Vector k) where
 	clearM (Hole loc) = Radix (clearEdge loc)
 	assignM a (Hole loc) = Radix (assignEdge a loc)
 	
-	extractHoleM (Radix (Just e)) = do
-		(a, loc) <- extractEdgeLoc e Root
-		return (a, Hole loc)
+	extractHoleM (Radix (Just e)) = fmap Hole <$> extractEdgeLoc e Root
 	extractHoleM _ = mzero
 	
 	beforeM (Hole loc) = Radix (beforeEdge Nothing loc)

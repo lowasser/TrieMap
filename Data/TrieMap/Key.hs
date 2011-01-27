@@ -47,9 +47,7 @@ instance TKey k => TrieKey (Key k) where
 	afterWithM a (KeyHole hole) = keyMap (afterWithM a hole)
 	searchM (Key k) (KeyMap _ m) = onSnd KeyHole (searchM (toRep k)) m
 	indexM i (KeyMap _ m) = onThird KeyHole (indexM i) m
-	extractHoleM (KeyMap _ m) = do
-		(v, hole) <- extractHoleM m
-		return (v, KeyHole hole)
+	extractHoleM (KeyMap _ m) = fmap KeyHole <$> extractHoleM m
 	assignM v (KeyHole hole) = keyMap (assignM v hole)
 	
 	unifyM (Key k1) a1 (Key k2) a2 = keyMap <$> unifyM (toRep k1) a1 (toRep k2) a2
