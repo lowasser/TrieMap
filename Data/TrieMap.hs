@@ -916,7 +916,7 @@ notMember = not .: member
 -- > keysSet empty == Data.TrieSet.empty
 {-# INLINE keysSet #-}
 keysSet :: TKey k => TMap k a -> TSet k
-keysSet m = TSet (() <$ m)
+keysSet m = TSet (mapWithKey const m)
 
 -- | /O(1)/.  The key marking the position of the \"hole\" in the map.
 {-# INLINE key #-}

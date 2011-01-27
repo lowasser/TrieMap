@@ -14,7 +14,7 @@ import Prelude hiding (foldr)
 
 newtype TMap k a = TMap {getTMap :: TrieMap (Rep k) (Assoc k a)}
 
-newtype TSet a = TSet (TMap a ())
+newtype TSet a = TSet (TMap a a)
 
 -- | @'TKey' k@ is a handy alias for @('Repr' k, 'TrieKey' ('Rep' k))@.  To make a type an instance of 'TKey',
 -- use the methods available in "Data.TrieMap.Representation.TH" to generate a 'Repr' instance that will
