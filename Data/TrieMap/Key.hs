@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash #-}
 
 module Data.TrieMap.Key () where
 
@@ -6,6 +6,7 @@ import Control.Applicative
 
 import Data.TrieMap.Class
 import Data.TrieMap.TrieKey
+import Data.TrieMap.Sized
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Modifiers
 
@@ -15,40 +16,46 @@ import Data.TrieMap.IntMap()
 import Data.TrieMap.OrdMap()
 import Data.TrieMap.RadixTrie()
 
+import GHC.Exts
+
+keyMap :: (TKey k, Sized a) => TrieMap (Rep k) a -> TrieMap (Key k) a
+keyMap m = KeyMap (sizeM m) m
+
 -- | @'TrieMap' ('Key' k) a@ is a wrapper around a @TrieMap (Rep k) a@.
 instance TKey k => TrieKey (Key k) where
+	{-# SPECIALIZE instance (Repr k, TrieKey (Rep k)) => TrieKey (Key k) #-}
 	Key k1 =? Key k2 = toRep k1 =? toRep k2
 	Key k1 `cmp` Key k2 = toRep k1 `cmp` toRep k2
   
-	newtype TrieMap (Key k) a = KeyMap (TrieMap (Rep k) a)
+	data TrieMap (Key k) a = KeyMap Int# !(TrieMap (Rep k) a)
 	newtype Hole (Key k) a = KeyHole (Hole (Rep k) a)
 	
-	emptyM = KeyMap emptyM
-	singletonM (Key k) a = KeyMap (singletonM (toRep k) a)
-	getSimpleM (KeyMap m) = getSimpleM m
-	sizeM (KeyMap m) = sizeM m
-	lookupM (Key k) (KeyMap m) = lookupM (toRep k) m
-	traverseM f (KeyMap m) = KeyMap <$> traverseM f m
-	foldrM f (KeyMap m) = foldrM f m
-	foldlM f (KeyMap m) = foldlM f m
-	fmapM f (KeyMap m) = KeyMap (fmapM f m)
-	mapMaybeM f (KeyMap m) = KeyMap (mapMaybeM f m)
-	mapEitherM f (KeyMap m) = both KeyMap KeyMap (mapEitherM f) m
-	unionM f (KeyMap m1) (KeyMap m2) = KeyMap (unionM f m1 m2)
-	isectM f (KeyMap m1) (KeyMap m2) = KeyMap (isectM f m1 m2)
-	diffM f (KeyMap m1) (KeyMap m2) = KeyMap (diffM f m1 m2)
-	isSubmapM (<=) (KeyMap m1) (KeyMap m2) = isSubmapM (<=) m1 m2
+	emptyM = KeyMap 0# emptyM
+	singletonM (Key k) a = KeyMap (getSize# a) (singletonM (toRep k) a)
+	getSimpleM (KeyMap _ m) = getSimpleM m
+	sizeM (KeyMap sz# _) = sz#
+	lookupM (Key k) (KeyMap _ m) = lookupM (toRep k) m
+	traverseM f (KeyMap _ m) = keyMap <$> traverseM f m
+	foldrM f (KeyMap _ m) = foldrM f m
+	foldlM f (KeyMap _ m) = foldlM f m
+	fmapM f (KeyMap _ m) = keyMap (fmapM f m)
+	mapMaybeM f (KeyMap _ m) = keyMap (mapMaybeM f m)
+	mapEitherM f (KeyMap _ m) = both keyMap keyMap (mapEitherM f) m
+	unionM f (KeyMap _ m1) (KeyMap _ m2) = keyMap (unionM f m1 m2)
+	isectM f (KeyMap _ m1) (KeyMap _ m2) = keyMap (isectM f m1 m2)
+	diffM f (KeyMap _ m1) (KeyMap _ m2) = keyMap (diffM f m1 m2)
+	isSubmapM (<=) (KeyMap _ m1) (KeyMap _ m2) = isSubmapM (<=) m1 m2
 
 	singleHoleM (Key k) = KeyHole (singleHoleM (toRep k))
-	beforeM (KeyHole hole) = KeyMap (beforeM hole)
-	beforeWithM a (KeyHole hole) = KeyMap (beforeWithM a hole)
-	afterM (KeyHole hole) = KeyMap (afterM hole)
-	afterWithM a (KeyHole hole) = KeyMap (afterWithM a hole)
-	searchM (Key k) (KeyMap m) = onSnd KeyHole (searchM (toRep k)) m
-	indexM i (KeyMap m) = onThird KeyHole (indexM i) m
-	extractHoleM (KeyMap m) = do
+	beforeM (KeyHole hole) = keyMap (beforeM hole)
+	beforeWithM a (KeyHole hole) = keyMap (beforeWithM a hole)
+	afterM (KeyHole hole) = keyMap (afterM hole)
+	afterWithM a (KeyHole hole) = keyMap (afterWithM a hole)
+	searchM (Key k) (KeyMap _ m) = onSnd KeyHole (searchM (toRep k)) m
+	indexM i (KeyMap _ m) = onThird KeyHole (indexM i) m
+	extractHoleM (KeyMap _ m) = do
 		(v, hole) <- extractHoleM m
 		return (v, KeyHole hole)
-	assignM v (KeyHole hole) = KeyMap (assignM v hole)
+	assignM v (KeyHole hole) = keyMap (assignM v hole)
 	
-	unifyM (Key k1) a1 (Key k2) a2 = either (Left . KeyHole) (Right . KeyMap) (unifyM (toRep k1) a1 (toRep k2) a2)
+	unifyM (Key k1) a1 (Key k2) a2 = either (Left . KeyHole) (Right . keyMap) (unifyM (toRep k1) a1 (toRep k2) a2)
