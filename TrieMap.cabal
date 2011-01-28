@@ -48,7 +48,7 @@ other-modules:
   Data.TrieMap.Representation.Instances.Foreign,
   Data.TrieMap.Representation.Instances.Vectors,
   Data.TrieMap.Representation.Instances.ByteString
-  Data.TrieMap.IntMap,
+  Data.TrieMap.WordMap,
   Data.TrieMap.OrdMap,
   Data.TrieMap.UnitMap,
   Data.TrieMap.ProdMap,

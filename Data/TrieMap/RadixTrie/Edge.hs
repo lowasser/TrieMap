@@ -4,7 +4,7 @@ module Data.TrieMap.RadixTrie.Edge where
 
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
-import Data.TrieMap.IntMap ()
+import Data.TrieMap.WordMap ()
 import Data.TrieMap.RadixTrie.Slice
 
 import Control.Applicative

@@ -1,5 +1,5 @@
 
-.PHONY : opt bench clean
+.PHONY : opt bench clean install prof test
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
@@ -89,8 +89,8 @@ $(OPTIMIZED_DIR)/Data/TrieMap/UnitMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.
 $(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/UnitMap.o
 $(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
 $(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
-$(OPTIMIZED_DIR)/Data/TrieMap/IntMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
-$(OPTIMIZED_DIR)/Data/TrieMap/IntMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
+$(OPTIMIZED_DIR)/Data/TrieMap/WordMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
+$(OPTIMIZED_DIR)/Data/TrieMap/WordMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
 $(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Modifiers.o
 $(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
 $(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
@@ -100,7 +100,7 @@ $(OPTIMIZED_DIR)/Data/TrieMap/Key.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Key.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Key.o : $(OPTIMIZED_DIR)/Data/TrieMap/Class.o
 $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Slice.o
-$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(OPTIMIZED_DIR)/Data/TrieMap/IntMap.o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(OPTIMIZED_DIR)/Data/TrieMap/WordMap.o
 $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
 $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
 $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie.o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.o
@@ -115,7 +115,7 @@ $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o : $(OPTIMIZED_DIR)/Data/TrieMap/
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o : $(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o : $(OPTIMIZED_DIR)/Data/TrieMap/ProdMap.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o : $(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.o
-$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o : $(OPTIMIZED_DIR)/Data/TrieMap/IntMap.o
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o : $(OPTIMIZED_DIR)/Data/TrieMap/WordMap.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o : $(OPTIMIZED_DIR)/Data/TrieMap/ReverseMap.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
@@ -182,8 +182,8 @@ $(OPTIMIZED_DIR)/Data/TrieMap/UnitMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKe
 $(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/UnitMap.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
-$(OPTIMIZED_DIR)/Data/TrieMap/IntMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
-$(OPTIMIZED_DIR)/Data/TrieMap/IntMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/WordMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/WordMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Modifiers.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
@@ -193,7 +193,7 @@ $(OPTIMIZED_DIR)/Data/TrieMap/Key.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Key.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Key.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Class.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Slice.p_o
-$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/IntMap.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/WordMap.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.p_o
@@ -208,7 +208,7 @@ $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o : $(OPTIMIZED_DIR)/Data/TrieMa
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/ProdMap.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.p_o
-$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/IntMap.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/WordMap.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/ReverseMap.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
@@ -275,8 +275,8 @@ $(FAST_DIR)/Data/TrieMap/UnitMap.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
 $(FAST_DIR)/Data/TrieMap/UnionMap.o : $(FAST_DIR)/Data/TrieMap/UnitMap.o
 $(FAST_DIR)/Data/TrieMap/UnionMap.o : $(FAST_DIR)/Data/TrieMap/Sized.o
 $(FAST_DIR)/Data/TrieMap/UnionMap.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
-$(FAST_DIR)/Data/TrieMap/IntMap.o : $(FAST_DIR)/Data/TrieMap/Sized.o
-$(FAST_DIR)/Data/TrieMap/IntMap.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
+$(FAST_DIR)/Data/TrieMap/WordMap.o : $(FAST_DIR)/Data/TrieMap/Sized.o
+$(FAST_DIR)/Data/TrieMap/WordMap.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
 $(FAST_DIR)/Data/TrieMap/OrdMap.o : $(FAST_DIR)/Data/TrieMap/Modifiers.o
 $(FAST_DIR)/Data/TrieMap/OrdMap.o : $(FAST_DIR)/Data/TrieMap/Sized.o
 $(FAST_DIR)/Data/TrieMap/OrdMap.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
@@ -286,7 +286,7 @@ $(FAST_DIR)/Data/TrieMap/Key.o : $(FAST_DIR)/Data/TrieMap/Sized.o
 $(FAST_DIR)/Data/TrieMap/Key.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
 $(FAST_DIR)/Data/TrieMap/Key.o : $(FAST_DIR)/Data/TrieMap/Class.o
 $(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(FAST_DIR)/Data/TrieMap/RadixTrie/Slice.o
-$(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(FAST_DIR)/Data/TrieMap/IntMap.o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(FAST_DIR)/Data/TrieMap/WordMap.o
 $(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
 $(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(FAST_DIR)/Data/TrieMap/Sized.o
 $(FAST_DIR)/Data/TrieMap/RadixTrie.o : $(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.o
@@ -301,7 +301,7 @@ $(FAST_DIR)/Data/TrieMap/Class/Instances.o : $(FAST_DIR)/Data/TrieMap/UnitMap.o
 $(FAST_DIR)/Data/TrieMap/Class/Instances.o : $(FAST_DIR)/Data/TrieMap/UnionMap.o
 $(FAST_DIR)/Data/TrieMap/Class/Instances.o : $(FAST_DIR)/Data/TrieMap/ProdMap.o
 $(FAST_DIR)/Data/TrieMap/Class/Instances.o : $(FAST_DIR)/Data/TrieMap/OrdMap.o
-$(FAST_DIR)/Data/TrieMap/Class/Instances.o : $(FAST_DIR)/Data/TrieMap/IntMap.o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.o : $(FAST_DIR)/Data/TrieMap/WordMap.o
 $(FAST_DIR)/Data/TrieMap/Class/Instances.o : $(FAST_DIR)/Data/TrieMap/RadixTrie.o
 $(FAST_DIR)/Data/TrieMap/Class/Instances.o : $(FAST_DIR)/Data/TrieMap/ReverseMap.o
 $(FAST_DIR)/Data/TrieMap/Class/Instances.o : $(FAST_DIR)/Data/TrieMap/Sized.o
