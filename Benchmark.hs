@@ -14,11 +14,13 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Random
 
+mkTrie  :: [ByteString] -> T.TSet ByteString
 mkTrie = T.fromList
 
 intersect :: T.TSet ByteString -> T.TSet ByteString -> T.TSet ByteString
 intersect = T.intersection
 
+tFold :: T.TSet ByteString -> ByteString
 tFold = T.foldl (\ bs1 bs2 -> if BS.length bs1 >= BS.length bs2 then bs1 else bs2) BS.empty
 
 {-# NOINLINE trieLongestPalindrome #-}
@@ -39,9 +41,10 @@ shuffleM xs = forM_ [0..VM.length xs - 1] $ \ i -> do
   j <- getRandomR (0, VM.length xs - 1)
   lift $ VM.swap xs i j
 
+main :: IO ()
 main = do
   strings <- liftM BS.lines (BS.readFile "dictionary.txt")
   let !strings' = V.toList (shuffle (V.fromList strings))
   let trieBench = bench "Data.TrieSet" (whnf trieLongestPalindrome strings')
   let setBench = bench "Data.Set" (whnf setLongestPalindrome strings')
-  defaultMain [trieBench]
+  defaultMain [setBench, trieBench]

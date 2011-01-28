@@ -3,8 +3,10 @@
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
-FAST_GHC_OPTS := -O0 -odir $(FAST_DIR) $(GHC_OPTS)
-OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
+GHC_OPTS := -Wall -Werror -fno-warn-name-shadowing -fno-warn-orphans
+FAST_GHC_OPTS := -O0 -ddump-minimal-imports -odir $(FAST_DIR) $(GHC_OPTS)
+OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
+  -fmax-worker-args=100 -fno-liberate-case-threshold -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
 
 fast : $(FAST_DIR)/Data/TrieSet.o
@@ -34,6 +36,7 @@ Benchmark : opt
 	ghc $(OPTIMIZED_GHC_OPTS) Benchmark -o Benchmark -main-is Benchmark.main
 
 clean:
+	rm -f *.imports
 	rm -rf out/
 	rm -f Benchmark BenchmarkP Tests
 
