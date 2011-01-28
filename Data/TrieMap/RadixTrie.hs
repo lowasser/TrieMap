@@ -21,6 +21,7 @@ import Data.Traversable
 import Data.Word
 
 import Data.TrieMap.RadixTrie.Edge
+import Data.TrieMap.RadixTrie.Label
 
 import Prelude hiding (length, and, zip, zipWith, foldr, foldl)
 
@@ -54,16 +55,16 @@ instance TrieKey k => TrieKey (Vector k) where
 	isSubmapM (<=) (Radix m1) (Radix m2) = subMaybe (isSubEdge (<=)) m1 m2
 
 	singleHoleM ks = Hole (singleLoc ks)
-	searchM ks (Radix (Just e)) = case searchEdge ks e Root of
+	searchM ks (Radix (Just e)) = case searchEdge ks e root of
 		(a, loc) -> (# a, Hole loc #)
 	searchM ks _ = (# Nothing, singleHoleM ks #)
-	indexM i (Radix (Just e)) = onThird Hole (indexEdge i e) Root
+	indexM i (Radix (Just e)) = onThird Hole (indexEdge i e) root
 	indexM _ (Radix Nothing) = indexFail ()
 
 	clearM (Hole loc) = Radix (clearEdge loc)
-	assignM a (Hole loc) = Radix (assignEdge a loc)
+	assignM a (Hole loc) = Radix (Just (assignEdge a loc))
 	
-	extractHoleM (Radix (Just e)) = fmap Hole <$> extractEdgeLoc e Root
+	extractHoleM (Radix (Just e)) = fmap Hole <$> extractEdgeLoc e root
 	extractHoleM _ = mzero
 	
 	beforeM (Hole loc) = Radix (beforeEdge Nothing loc)
@@ -111,18 +112,18 @@ instance TrieKey (S.Vector Word) where
 	isSubmapM (<=) (WRadix m1) (WRadix m2) = subMaybe (isSubEdge (<=)) m1 m2
 
 	singleHoleM ks = WHole (singleLoc ks)
-	searchM ks (WRadix (Just e)) = case searchEdge ks e Root of
+	searchM ks (WRadix (Just e)) = case searchEdge ks e root of
 		(a, loc) -> (# a, WHole loc #)
 	searchM ks _ = (# Nothing, singleHoleM ks #)
-	indexM i (WRadix (Just e)) = case indexEdge i e Root of
+	indexM i (WRadix (Just e)) = case indexEdge i e root of
 		(# i', a, loc #) -> (# i', a, WHole loc #)
 	indexM _ (WRadix Nothing) = indexFail ()
 
 	clearM (WHole loc) = WRadix (clearEdge loc)
-	assignM a (WHole loc) = WRadix (assignEdge a loc)
+	assignM a (WHole loc) = WRadix (Just (assignEdge a loc))
 	
 	extractHoleM (WRadix (Just e)) = do
-		(a, loc) <- extractEdgeLoc e Root
+		(a, loc) <- extractEdgeLoc e root
 		return (a, WHole loc)
 	extractHoleM _ = mzero
 

@@ -58,5 +58,6 @@ other-modules:
   Data.TrieMap.RadixTrie,
   Data.TrieMap.RadixTrie.Slice,
   Data.TrieMap.RadixTrie.Edge,
+  Data.TrieMap.RadixTrie.Label,
   Data.TrieMap.Class.Instances
 }

@@ -421,6 +421,32 @@ $(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/Class/Instances.p_o
 $(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/Class.p_o
 $(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Control/Monad/Ends.p_o
 $(FAST_DIR)/Data/TrieSet.p_o : $(FAST_DIR)/Data/TrieMap.p_o
+
+$(FAST_DIR)/Data/TrieMap/RadixTrie.p_o : $(FAST_DIR)/Data/TrieMap/RadixTrie/Label.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(FAST_DIR)/Data/TrieMap/RadixTrie/Label.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie.o : $(FAST_DIR)/Data/TrieMap/RadixTrie/Label.o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie.o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(FAST_DIR)/Data/TrieMap/RadixTrie/Label.o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.o
+
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Label.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Label.o : $(FAST_DIR)/Data/TrieMap/Sized.o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Label.o : $(FAST_DIR)/Data/TrieMap/RadixTrie/Slice.o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Label.o : $(FAST_DIR)/Data/TrieMap/WordMap.o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Slice.o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.o : $(OPTIMIZED_DIR)/Data/TrieMap/WordMap.o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Label.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Label.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Label.p_o : $(FAST_DIR)/Data/TrieMap/RadixTrie/Slice.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Label.p_o : $(FAST_DIR)/Data/TrieMap/WordMap.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Slice.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Label.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/WordMap.p_o
 # DO NOT DELETE: End of Haskell dependencies
 
 %.p_o : %.o
