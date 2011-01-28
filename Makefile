@@ -3,7 +3,7 @@
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
-GHC_OPTS := -Wall -Werror -fno-warn-name-shadowing -fno-warn-orphans
+GHC_OPTS := -Wall -fno-warn-name-shadowing -fno-warn-orphans
 FAST_GHC_OPTS := -O0 -ddump-minimal-imports -odir $(FAST_DIR) $(GHC_OPTS)
 DEBUG_GHC_OPTS := -prof -hisuf p_hi -auto-all  -rtsopts -osuf p_o  $(FAST_GHC_OPTS) $(GHC_OPTS)
 OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
