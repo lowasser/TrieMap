@@ -1,5 +1,5 @@
 
-.PHONY : opt bench clean install prof test debug
+.PHONY : opt bench clean install prof test debug benchprof
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
@@ -27,6 +27,7 @@ bench : Benchmark
 	./Benchmark -s 30
 
 benchprof : Benchmark.prof
+	less Benchmark.prof
 
 Benchmark.prof : BenchmarkP
 	./BenchmarkP -s 5 +RTS -P
