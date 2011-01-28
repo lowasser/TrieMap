@@ -1,5 +1,7 @@
 {-# LANGUAGE TemplateHaskell, TypeFamilies, GADTs, ExistentialQuantification, CPP, ViewPatterns #-}
 
+module Tests (main) where
+
 import Control.Monad
 import qualified Data.TrieMap as T
 import qualified Data.Map as M

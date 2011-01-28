@@ -1,4 +1,4 @@
--- module TrieBench where
+module Benchmark (main) where
 
 import Criterion.Main
 
