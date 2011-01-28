@@ -247,8 +247,8 @@ insertWith = insertWithKey . const
 -- > insertWithKey f 5 "xxx" empty                         == singleton 5 "xxx"
 {-# INLINE insertWithKey #-}
 insertWithKey :: TKey k => (k -> a -> a -> a) -> k -> a -> TMap k a -> TMap k a
-insertWithKey f k a m = snd (insertLookupWithKey f k a m)
-
+insertWithKey f k a (TMap m) =
+  TMap (insertWithM (\ _ (Assoc _ a0) -> Assoc k (f k a a0)) (toRep k) (Assoc k a) m)
 
 -- | Combines insert operation with old value retrieval.
 -- The expression (@'insertLookupWithKey' f k x map@)

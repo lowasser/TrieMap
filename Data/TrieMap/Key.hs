@@ -29,6 +29,7 @@ instance TKey k => TrieKey (Key k) where
 	getSimpleM (KeyMap _ m) = getSimpleM m
 	sizeM (KeyMap sz# _) = sz#
 	lookupM (Key k) (KeyMap _ m) = lookupM (toRep k) m
+	insertWithM f (Key k) a (KeyMap _ m) = keyMap (insertWithM f (toRep k) a m)
 	traverseM f (KeyMap _ m) = keyMap <$> traverseM f m
 	foldrM f (KeyMap _ m) = foldrM f m
 	foldlM f (KeyMap _ m) = foldlM f m

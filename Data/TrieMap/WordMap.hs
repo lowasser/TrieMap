@@ -44,6 +44,7 @@ instance TrieKey Word where
 	getSimpleM _		= NonSimple
 	sizeM = size
 	lookupM = lookup
+	insertWithM = insertWith
 	traverseM = traverse
 	foldrM = foldr
 	foldlM = foldl
@@ -133,11 +134,22 @@ size Nil = 0#
 size (Tip sz _ _) = sz
 size (Bin sz _ _ _ _) = sz
 
-lookup :: Nat -> TrieMap Word a -> Maybe a
+lookup :: Key -> TrieMap Word a -> Maybe a
 lookup !k (Bin _ _ m l r) = lookup k (if zeroN k m then l else r)
 lookup k (Tip _ kx x)
 	| k == kx	= Just x
 lookup _ _ = Nothing
+
+insertWith :: Sized a => (a -> a -> a) -> Key -> a -> TrieMap Word a -> TrieMap Word a
+insertWith f k a = ins where
+  ins Nil	= singleton k a
+  ins (Tip _ kx x) = case unify k a kx x of
+    Nothing	-> singleton k (f a x)
+    Just t	-> t
+  ins t@(Bin _ p m l r) 
+    | nomatch k p m = join k (singleton k a) p t
+    | zero k m      = bin p m (ins l) r
+    | otherwise     = bin p m l (ins r)
 
 singleton :: Sized a => Key -> a -> TrieMap Word a
 singleton k a = Tip (getSize# a) k a
@@ -186,7 +198,7 @@ unionWith :: Sized a => (a -> a -> Maybe a) -> TrieMap Word a -> TrieMap Word a 
 unionWith _ Nil t  = t
 unionWith _ t Nil  = t
 unionWith f (Tip _ k x) t = alterM (maybe (Just x) (f x)) k t
-unionWith f t (Tip _ k x) = alterM (maybe (Just x) (flip f x)) k t
+unionWith f t (Tip _ k x) = alterM (maybe (Just x) (`f` x)) k t
 unionWith f t1@(Bin _ p1 m1 l1 r1) t2@(Bin _ p2 m2 l2 r2)
   | shorter m1 m2  = union1
   | shorter m2 m1  = union2

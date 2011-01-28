@@ -56,6 +56,7 @@ class TrieKey k where
 	getSimpleM :: TrieMap k a -> Simple a
 	sizeM :: Sized a => TrieMap k a -> Int#
 	lookupM :: k -> TrieMap k a -> Maybe a
+	insertWithM :: Sized a => (a -> a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
 	fmapM :: Sized b => (a -> b) -> TrieMap k a -> TrieMap k b
 	traverseM :: (Applicative f, Sized b) =>
 		(a -> f b) -> TrieMap k a -> f (TrieMap k b)
@@ -71,6 +72,9 @@ class TrieKey k where
 	
 	fromListM, fromAscListM :: Sized a => (a -> a -> a) -> [(k, a)] -> TrieMap k a
 	fromDistAscListM :: Sized a => [(k, a)] -> TrieMap k a
+	
+	insertWithM f k a m = case searchM k m of
+		(# a', hole #)	-> assignM (maybe a (f a) a') hole
 	fromListM f = foldr (\ (k, a) -> insertWithM f k a) emptyM
 	fromAscListM = fromListM
 	fromDistAscListM = fromAscListM const
@@ -103,16 +107,12 @@ class TrieKey k where
 	clearM = fillHoleM Nothing
 	
 	unifyM :: Sized a => k -> a -> k -> a -> Unified k a
-	
-	insertWithM :: Sized a => (a -> a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
-	insertWithM f k a m = case searchM k m of
-		(# a', hole #)	-> assignM (maybe a (f a) a') hole
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM
 
-singletonM' :: (TrieKey k, Sized a) => k -> Maybe a -> TrieMap k a
-singletonM' k = maybe emptyM (singletonM k)
+insertWithM' :: (TrieKey k, Sized a) => (a -> a -> a) -> k -> a -> Maybe (TrieMap k a) -> TrieMap k a
+insertWithM' f k a = maybe (singletonM k a) (insertWithM f k a)
 
 mapMaybeM' :: (TrieKey k, Sized b) => (a -> Maybe b) -> TrieMap k a -> Maybe (TrieMap k b)
 mapMaybeM' = guardNullM .: mapMaybeM
@@ -134,15 +134,9 @@ isectM' f m1 m2 = guardNullM (isectM f m1 m2)
 diffM' :: (TrieKey k, Sized a) => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> Maybe (TrieMap k a)
 diffM' f m1 m2 = guardNullM (diffM f m1 m2)
 
-beforeM' :: (TrieKey k, Sized a) => Hole k a -> Maybe (TrieMap k a)
-beforeM' hole = guardNullM (beforeM hole)
-
 {-# INLINE beforeMM #-}
 beforeMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
 beforeMM = maybe beforeM beforeWithM
-
-afterM' :: (TrieKey k, Sized a) => Hole k a -> Maybe (TrieMap k a)
-afterM' = guardNullM . afterM
 
 {-# INLINE afterMM #-}
 afterMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
@@ -151,10 +145,6 @@ afterMM = maybe afterM afterWithM
 searchM' :: TrieKey k => k -> Maybe (TrieMap k a) -> (# Maybe a, Hole k a #)
 searchM' k Nothing = (# Nothing, singleHoleM k #)
 searchM' k (Just m) = searchM k m
-
-extractHoleM' :: (TrieKey k, Functor m, MonadPlus m, Sized a) => Maybe (TrieMap k a) -> m (a, Hole k a)
-extractHoleM' Nothing = mzero
-extractHoleM' (Just m) = extractHoleM m
 
 clearM' :: (TrieKey k, Sized a) => Hole k a -> Maybe (TrieMap k a)
 clearM' hole = guardNullM (clearM hole)

@@ -36,6 +36,7 @@ instance Ord k => TrieKey (Ordered k) where
 	emptyM = Tip
 	singletonM (Ord k) = singleton k
 	lookupM (Ord k) = lookup k
+	insertWithM f (Ord k) = insertWith f k
 	getSimpleM Tip			= Null
 	getSimpleM (Bin _ _ a Tip Tip)	= Singleton a
 	getSimpleM _			= NonSimple
@@ -103,6 +104,14 @@ lookup k (Bin _ k' v l r) = case compare k k' of
 	EQ	-> Just v
 	GT	-> lookup k r
 lookup _ _ = Nothing
+
+insertWith :: (Ord k, Sized a) => (a -> a -> a) -> k -> a -> OrdMap k a -> OrdMap k a
+insertWith f k a = ins where
+  ins Tip = singleton k a
+  ins (Bin _ k' a' l r) = case compare k k' of
+    LT	-> join k' a' (ins l) r
+    EQ	-> bin k' (f a a') l r
+    GT	-> join k' a' l (ins r)
 
 singleton :: Sized a => k -> a -> OrdMap k a
 singleton k a = Bin (getSize# a) k a Tip Tip
@@ -262,7 +271,7 @@ join kx x l Tip  = insertMax  kx x l
 join kx x l@(Bin sL# ky y ly ry) r@(Bin sR# kz z lz rz)
   | DELTA *# sL# <=# sR# = balance kz z (join kx x l lz) rz
   | DELTA *# sR# <=# sL# = balance ky y ly (join kx x ry r)
-  | otherwise             = bin kx x l r
+  | otherwise            = bin kx x l r
 
 -- insertMin and insertMax don't perform potentially expensive comparisons.
 insertMax,insertMin :: Sized a => k -> a -> OrdMap k a -> OrdMap k a

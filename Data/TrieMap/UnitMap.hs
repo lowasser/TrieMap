@@ -27,6 +27,8 @@ instance TrieKey () where
 	getSimpleM (Unit m) = maybe Null Singleton m
 	sizeM (Unit m) = getSize# m
 	lookupM _ (Unit m) = m
+	insertWithM f _ a (Unit (Just a0)) = single (f a a0)
+	insertWithM _ _ a (Unit Nothing) = single a
 	traverseM f (Unit m) = Unit <$> traverse f m
 	foldrM f (Unit m) z = foldr f z m
 	foldlM f (Unit m) z = foldl f z m

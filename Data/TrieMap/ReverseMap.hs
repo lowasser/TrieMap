@@ -33,6 +33,7 @@ instance TrieKey k => TrieKey (Rev k) where
 	emptyM = RevMap emptyM
 	singletonM (Rev k) a = RevMap (singletonM k a)
 	lookupM (Rev k) (RevMap m) = lookupM k m
+	insertWithM f (Rev k) a (RevMap m) = RevMap (insertWithM f k a m)
 	sizeM (RevMap m) = sizeM m
 	getSimpleM (RevMap m) = getSimpleM m
 	

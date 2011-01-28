@@ -98,6 +98,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	
 	lookupM (Left k) (UVIEW m1 _) = m1 >>= lookupM k
 	lookupM (Right k) (UVIEW _ m2) = m2 >>= lookupM k
+	insertWithM f (Left k) a (UVIEW m1 m2) = Just (insertWithM' f k a m1) ^ m2
+	insertWithM f (Right k) a (UVIEW m1 m2) = m1 ^ Just (insertWithM' f k a m2)
 
 	traverseM f (Union _ m1 m2) = union <$> traverseM f m1 <*> traverseM f m2
 	traverseM f (K1 m1) = K1 <$> traverseM f m1
@@ -172,8 +174,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	indexM _ _ = indexFail ()
 
 	extractHoleM (UVIEW !m1 !m2) = holes1 `mplus` holes2 where
-	  holes1 = fmap (`hole1` m2) <$> extractHoleM' m1
-	  holes2 = fmap (hole2 m1) <$> extractHoleM' m2
+	  holes1 = holes extractHoleM (`hole1` m2) m1
+	  holes2 = holes extractHoleM (hole2 m1) m2
 	
 	clearM hole = case hView hole of
 		Hole1 h1 m2	-> clearM' h1 ^ m2
@@ -186,6 +188,12 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	unifyM (Left k1) a1 (Right k2) a2 = Just $ singletonM k1 a1 `union` singletonM k2 a2
 	unifyM (Right k2) a2 (Left k1) a1 = Just $ singletonM k1 a1 `union` singletonM k2 a2
 	unifyM (Right k1) a1 (Right k2) a2 = K2 <$> unifyM k1 a1 k2 a2
+
+{-# INLINE holes #-}
+holes :: (Functor m, Functor f, MonadPlus m) => (a -> m (f b)) -> (b -> c) -> Maybe a -> m (f c)
+holes k f (Just a) = fmap f <$> k a
+holes _ _ Nothing = mzero
+
 
 onPair :: (c -> d -> e) -> (a -> c) -> (b -> d) -> (a, b) -> e
 onPair f g h (a, b) = f (g a) (h b)

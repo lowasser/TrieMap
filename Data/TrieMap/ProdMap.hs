@@ -42,9 +42,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 		[(a, fromDistAscListM ys) | (a, Elem ys) <- breakFst xs])
 
 	singleHoleM (k1, k2) = PHole (singleHoleM k1) (singleHoleM k2)
-	beforeM (PHole hole1 hole2) = PMap (beforeMM (beforeM' hole2) hole1)
+	beforeM (PHole hole1 hole2) = PMap (beforeMM (gNull beforeM hole2) hole1)
 	beforeWithM a (PHole hole1 hole2) = PMap (beforeWithM (beforeWithM a hole2) hole1)
-	afterM (PHole hole1 hole2) = PMap (afterMM (afterM' hole2) hole1)
+	afterM (PHole hole1 hole2) = PMap (afterMM (gNull afterM hole2) hole1)
 	afterWithM a (PHole hole1 hole2) = PMap (afterWithM (afterWithM a hole2) hole1)
 	searchM (k1, k2) (PMap m) = onSnd (PHole hole1) (searchM' k2) m'
 	  where	!(# m', hole1 #) = searchM k1 m
@@ -61,6 +61,13 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	unifyM (k11, k12) a1 (k21, k22) a2 = PMap <$> (match1 `mplus` match2) where
 	  match1 = unifyM k11 (singletonM k12 a1) k21 (singletonM k22 a2)
 	  match2 = singletonM k11 <$> unifyM k12 a1 k22 a2
+	
+	insertWithM f (k1, k2) a (PMap m) = PMap (insertWithM g k1 single m) where
+	  single = singletonM k2 a
+	  g _ = insertWithM f k2 a
+
+gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
+gNull = (guardNullM .)
 
 breakFst :: TrieKey k1 => [((k1, k2), a)] -> [(k1, Elem [(k2, a)])]
 breakFst [] = []
