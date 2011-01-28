@@ -10,6 +10,8 @@ PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC
 fast : $(FAST_DIR)/Data/TrieSet.o
 opt : $(OPTIMIZED_DIR)/Data/TrieSet.o
 prof : $(OPTIMIZED_DIR)/Data/TrieSet.p_o
+install : test
+	cabal install
 
 test : Tests
 	./Tests
