@@ -3,9 +3,9 @@
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
-FAST_GHC_OPTS := -O0 -odir $(FAST_DIR)
-OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold -odir $(OPTIMIZED_DIR)
-PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS)
+FAST_GHC_OPTS := -O0 -odir $(FAST_DIR) $(GHC_OPTS)
+OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
+PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
 
 fast : $(FAST_DIR)/Data/TrieSet.o
 opt : $(OPTIMIZED_DIR)/Data/TrieSet.o
@@ -23,7 +23,6 @@ Benchmark.prof : BenchmarkP
 	./BenchmarkP -s 5 +RTS -P
 
 Tests : fast
-	rm Tests
 	ghc $(FAST_GHC_OPTS) Tests -o Tests -main-is Tests.main
 
 BenchmarkP : opt prof
