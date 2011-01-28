@@ -14,7 +14,6 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Random
 
--- mkTrie :: [ByteString] -> ByteString
 mkTrie = T.fromList
 
 intersect :: T.TSet ByteString -> T.TSet ByteString -> T.TSet ByteString

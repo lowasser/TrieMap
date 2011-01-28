@@ -5,9 +5,11 @@ FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
 FAST_GHC_OPTS := -O0 -odir $(FAST_DIR)
 OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold -odir $(OPTIMIZED_DIR)
+PROFILING_OPTS := -prof -auto-all -rtsopts -osuf po $(OPTIMIZED_GHC_OPTS)
 
 fast : $(FAST_DIR)/Data/TrieSet.o
 opt : $(OPTIMIZED_DIR)/Data/TrieSet.o
+prof : $(OPTIMIZED_DIR)/Data/TrieSet.po
 
 test : Tests
 	./Tests
@@ -15,16 +17,24 @@ test : Tests
 bench : Benchmark
 	./Benchmark -s 30
 
+benchprof : Benchmark.prof
+
+Benchmark.prof : BenchmarkP
+	./BenchmarkP -s 5 +RTS -P
+
 Tests : fast
+	rm Tests
 	ghc $(FAST_GHC_OPTS) Tests -o Tests -main-is Tests.main
+
+BenchmarkP : opt prof
+	ghc $(PROFILING_OPTS) Benchmark -o BenchmarkP -main-is Benchmark.main
 
 Benchmark : opt
 	ghc $(OPTIMIZED_GHC_OPTS) Benchmark -o Benchmark -main-is Benchmark.main
 
 clean:
 	rm -rf out/
-	rm -f Benchmark
-	rm -f Tests
+	rm -f Benchmark BenchmarkP Tests
 
 # DO NOT DELETE: Beginning of Haskell dependencies
 
@@ -120,6 +130,99 @@ $(OPTIMIZED_DIR)/Data/TrieMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.
 $(OPTIMIZED_DIR)/Data/TrieMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Class.o
 $(OPTIMIZED_DIR)/Data/TrieMap.o : $(OPTIMIZED_DIR)/Control/Monad/Ends.o
 $(OPTIMIZED_DIR)/Data/TrieSet.o : $(OPTIMIZED_DIR)/Data/TrieMap.o
+
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/ReprMonad.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Utils.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/ReprMonad.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Modifiers.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Representation.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/ReprMonad.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Representation.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Utils.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Representation.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Representation.po : $(OPTIMIZED_DIR)/Data/TrieMap/Modifiers.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Factorized.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Utils.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Factorized.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Representation.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/ReprMonad.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Factorized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Representation.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Utils.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Basic.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Basic.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Foreign.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Foreign.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Basic.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Foreign.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.po : $(OPTIMIZED_DIR)/Data/TrieMap/Utils.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/ByteString.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/ByteString.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Foreign.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/ByteString.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Basic.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Utils.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Modifiers.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po : $(OPTIMIZED_DIR)/Control/Monad/Ends.po
+$(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po : $(OPTIMIZED_DIR)/Data/TrieMap/Utils.po
+$(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/ProdMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/ProdMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/UnitMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/UnitMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/UnitMap.po
+$(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/IntMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/IntMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Modifiers.po
+$(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Key.po : $(OPTIMIZED_DIR)/Data/TrieMap/Modifiers.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Key.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Key.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Key.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Key.po : $(OPTIMIZED_DIR)/Data/TrieMap/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.po : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Slice.po
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.po : $(OPTIMIZED_DIR)/Data/TrieMap/IntMap.po
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie.po : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie/Edge.po
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/ReverseMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/ReverseMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Modifiers.po
+$(OPTIMIZED_DIR)/Data/TrieMap/ReverseMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/ReverseMap.po : $(OPTIMIZED_DIR)/Control/Monad/Ends.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Key.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/UnitMap.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/UnionMap.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/ProdMap.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/OrdMap.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/IntMap.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/RadixTrie.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/ReverseMap.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po : $(OPTIMIZED_DIR)/Data/TrieMap/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Utils.po
+$(OPTIMIZED_DIR)/Data/TrieMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.po
+$(OPTIMIZED_DIR)/Data/TrieMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.po
+$(OPTIMIZED_DIR)/Data/TrieMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Representation.po
+$(OPTIMIZED_DIR)/Data/TrieMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.po
+$(OPTIMIZED_DIR)/Data/TrieMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.po
+$(OPTIMIZED_DIR)/Data/TrieMap.po : $(OPTIMIZED_DIR)/Data/TrieMap/Class.po
+$(OPTIMIZED_DIR)/Data/TrieMap.po : $(OPTIMIZED_DIR)/Control/Monad/Ends.po
+$(OPTIMIZED_DIR)/Data/TrieSet.po : $(OPTIMIZED_DIR)/Data/TrieMap.po
 
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.o : $(FAST_DIR)/Data/TrieMap/Representation/Class.o
 $(FAST_DIR)/Data/TrieMap/Representation/TH/ReprMonad.o : $(FAST_DIR)/Data/TrieMap/Representation/TH/Utils.o
@@ -219,3 +322,6 @@ $(OPTIMIZED_DIR)/%.o : %.hs
 	ghc -c $(OPTIMIZED_GHC_OPTS) $<
 $(FAST_DIR)/%.o : %.hs
 	ghc -c $(FAST_GHC_OPTS) $<
+$(OPTIMIZED_DIR)/%.po : $(OPTIMIZED_DIR)/%.o
+$(OPTIMIZED_DIR)/%.po : %.hs
+	ghc -c $(PROFILING_OPTS) $<
