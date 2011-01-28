@@ -284,6 +284,8 @@ insertEdge f ks a = insertE ks where
     matches lenK lenL = case compare lenK lenL of
       LT	-> edge ks (Just a) $ singletonM (ls !$ lenK) $ dropEdge (lenK+1) e
       EQ	-> edge ls (Just (maybe a (f a) v)) ts
-      GT	-> case searchM (ks !$ lenL) ts of
-	(# Nothing, tHole #)	-> edge ls v $ assignM (singletonEdge (dropSlice (lenL+1) ks) a) tHole
-	(# Just e', tHole #)	-> edge ls v $ assignM (insertE (dropSlice (lenL+1) ks) e') tHole
+      GT	->
+	let	ks' = dropSlice (lenL + 1) ks
+		g _ e' = insertE ks' e'
+		single = singletonEdge ks' a
+		in edge ls v $ insertWithM g (ks !$ lenL) single ts
