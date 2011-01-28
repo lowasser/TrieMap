@@ -1,15 +1,17 @@
 
-.PHONY : opt bench clean install prof test
+.PHONY : opt bench clean install prof test debug
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
 GHC_OPTS := -Wall -Werror -fno-warn-name-shadowing -fno-warn-orphans
 FAST_GHC_OPTS := -O0 -ddump-minimal-imports -odir $(FAST_DIR) $(GHC_OPTS)
+DEBUG_GHC_OPTS := -prof -hisuf p_hi -auto-all  -rtsopts -osuf p_o  $(FAST_GHC_OPTS) $(GHC_OPTS)
 OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
   -fmax-worker-args=100 -fno-liberate-case-threshold -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
 
 fast : $(FAST_DIR)/Data/TrieSet.o
+debug: $(FAST_DIR)/Data/TrieSet.p_o
 opt : $(OPTIMIZED_DIR)/Data/TrieSet.o
 prof : $(OPTIMIZED_DIR)/Data/TrieSet.p_o
 install : test
@@ -17,6 +19,9 @@ install : test
 
 test : Tests
 	./Tests
+
+testdbg :: TestsP
+	./TestsP +RTS -xc
 
 bench : Benchmark
 	./Benchmark -s 30
@@ -28,6 +33,9 @@ Benchmark.prof : BenchmarkP
 
 Tests : fast
 	ghc $(FAST_GHC_OPTS) Tests -o Tests -main-is Tests.main
+
+TestsP : fast debug
+	ghc $(DEBUG_GHC_OPTS) Tests -o TestsP -main-is Tests.main
 
 BenchmarkP : opt prof
 	ghc $(PROFILING_OPTS) Benchmark -o BenchmarkP -main-is Benchmark.main
@@ -320,12 +328,107 @@ $(FAST_DIR)/Data/TrieMap.o : $(FAST_DIR)/Data/TrieMap/Class/Instances.o
 $(FAST_DIR)/Data/TrieMap.o : $(FAST_DIR)/Data/TrieMap/Class.o
 $(FAST_DIR)/Data/TrieMap.o : $(FAST_DIR)/Control/Monad/Ends.o
 $(FAST_DIR)/Data/TrieSet.o : $(FAST_DIR)/Data/TrieMap.o
+
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH/ReprMonad.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH/Utils.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH/ReprMonad.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Modifiers.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH/Representation.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH/ReprMonad.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH/Representation.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH/Utils.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH/Representation.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH/Representation.p_o : $(FAST_DIR)/Data/TrieMap/Modifiers.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH/Factorized.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH/Utils.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH/Factorized.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH/Representation.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH/ReprMonad.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH/Factorized.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH/Representation.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH/Utils.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/TH.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Basic.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Basic.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Foreign.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Foreign.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Basic.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Foreign.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o : $(FAST_DIR)/Data/TrieMap/Utils.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/ByteString.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/ByteString.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Foreign.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/ByteString.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Basic.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Utils.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Modifiers.p_o
+$(FAST_DIR)/Data/TrieMap/Representation.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH.p_o
+$(FAST_DIR)/Data/TrieMap/Representation.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o
+$(FAST_DIR)/Data/TrieMap/Representation.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/TrieKey.p_o : $(FAST_DIR)/Control/Monad/Ends.p_o
+$(FAST_DIR)/Data/TrieMap/TrieKey.p_o : $(FAST_DIR)/Data/TrieMap/Utils.p_o
+$(FAST_DIR)/Data/TrieMap/TrieKey.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/Class.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/Class.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Class.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/ProdMap.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/ProdMap.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/UnitMap.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/UnitMap.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/UnionMap.p_o : $(FAST_DIR)/Data/TrieMap/UnitMap.p_o
+$(FAST_DIR)/Data/TrieMap/UnionMap.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/UnionMap.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/WordMap.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/WordMap.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/OrdMap.p_o : $(FAST_DIR)/Data/TrieMap/Modifiers.p_o
+$(FAST_DIR)/Data/TrieMap/OrdMap.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/OrdMap.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/Key.p_o : $(FAST_DIR)/Data/TrieMap/Modifiers.p_o
+$(FAST_DIR)/Data/TrieMap/Key.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieMap/Key.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/Key.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/Key.p_o : $(FAST_DIR)/Data/TrieMap/Class.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(FAST_DIR)/Data/TrieMap/RadixTrie/Slice.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(FAST_DIR)/Data/TrieMap/WordMap.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie.p_o : $(FAST_DIR)/Data/TrieMap/RadixTrie/Edge.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/RadixTrie.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/ReverseMap.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/ReverseMap.p_o : $(FAST_DIR)/Data/TrieMap/Modifiers.p_o
+$(FAST_DIR)/Data/TrieMap/ReverseMap.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/ReverseMap.p_o : $(FAST_DIR)/Control/Monad/Ends.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Key.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/UnitMap.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/UnionMap.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/ProdMap.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/OrdMap.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/WordMap.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/RadixTrie.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/ReverseMap.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap/Class/Instances.p_o : $(FAST_DIR)/Data/TrieMap/Class.p_o
+$(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/Utils.p_o
+$(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o
+$(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/Representation.p_o
+$(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/Class/Instances.p_o
+$(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/Class.p_o
+$(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Control/Monad/Ends.p_o
+$(FAST_DIR)/Data/TrieSet.p_o : $(FAST_DIR)/Data/TrieMap.p_o
 # DO NOT DELETE: End of Haskell dependencies
 
+%.p_o : %.o
 $(OPTIMIZED_DIR)/%.o : %.hs
 	ghc -c $(OPTIMIZED_GHC_OPTS) $<
 $(FAST_DIR)/%.o : %.hs
 	ghc -c $(FAST_GHC_OPTS) $<
-$(OPTIMIZED_DIR)/%.p_o : $(OPTIMIZED_DIR)/%.o
 $(OPTIMIZED_DIR)/%.p_o : %.hs
 	ghc -c $(PROFILING_OPTS) $<
+$(FAST_DIR)/%.p_o : %.hs
+	ghc -c $(DEBUG_GHC_OPTS) $<
