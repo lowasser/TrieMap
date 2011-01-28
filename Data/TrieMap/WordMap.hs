@@ -25,8 +25,8 @@ type Key    = Word
 type Size   = Int#
 
 data Path a = Root 
-	| LeftBin !Prefix !Mask !(Path a) !(TrieMap Word a)
-	| RightBin !Prefix !Mask !(TrieMap Word a) !(Path a)
+	| LeftBin !Prefix !Mask (Path a) (TrieMap Word a)
+	| RightBin !Prefix !Mask (TrieMap Word a) (Path a)
 
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
@@ -35,7 +35,7 @@ instance TrieKey Word where
 
 	data TrieMap Word a = Nil
               | Tip !Size !Key a
-              | Bin !Size !Prefix !Mask !(TrieMap Word a) !(TrieMap Word a)
+              | Bin !Size !Prefix !Mask (TrieMap Word a) (TrieMap Word a)
         data Hole Word a = Hole !Key !(Path a)
 	emptyM = Nil
 	singletonM = singleton
@@ -61,6 +61,7 @@ instance TrieKey Word where
 	beforeWithM a (Hole k path) = before (singleton k a) path
 	afterM (Hole _ path) = after Nil path
 	afterWithM a (Hole k path) = after (singleton k a) path
+	{-# INLINE searchM #-}
 	searchM !k = onSnd (Hole k) (search Root) where
 		search path t@(Bin _ p m l r)
 			| nomatch k p m	= (# Nothing, branchHole k p path t #)
@@ -86,7 +87,7 @@ instance TrieKey Word where
 			extractHole (LeftBin p m path r) l `mplus`
 				extractHole (RightBin p m l path) r
 	clearM (Hole _ path) = assign Nil path
-	assignM v (Hole kx path) = assign (singletonM kx v) path where
+	assignM v (Hole kx path) = assign (singletonM kx v) path
 		
 	
 	{-# INLINE unifyM #-}
@@ -112,12 +113,6 @@ branchHole !k !p path t
   where	m = branchMask k p
   	p' = mask k m
 
-natFromInt :: Word -> Nat
-natFromInt = id
-
-intFromNat :: Nat -> Word
-intFromNat = id
-
 shiftRL :: Nat -> Key -> Nat
 -- #if __GLASGOW_HASKELL__
 {--------------------------------------------------------------------
@@ -140,17 +135,12 @@ lookup k (Tip _ kx x)
 	| k == kx	= Just x
 lookup _ _ = Nothing
 
+{-# SPECIALIZE insertWith :: (Assoc k a -> Assoc k a -> Assoc k a) -> Key 
+      -> Assoc k a -> TrieMap Word (Assoc k a) -> TrieMap Word (Assoc k a) #-}
 insertWith :: Sized a => (a -> a -> a) -> Key -> a -> TrieMap Word a -> TrieMap Word a
-insertWith f k a = ins where
-  ins Nil	= singleton k a
-  ins (Tip _ kx x) = case unify k a kx x of
-    Nothing	-> singleton k (f a x)
-    Just t	-> t
-  ins t@(Bin _ p m l r) 
-    | nomatch k p m = join k (singleton k a) p t
-    | zero k m      = bin p m (ins l) r
-    | otherwise     = bin p m l (ins r)
-
+insertWith f !k a t = case searchM k t of
+  (# Nothing, hole #)	-> assignM a hole
+  (# Just a', hole #)	-> assignM (f a a') hole
 singleton :: Sized a => Key -> a -> TrieMap Word a
 singleton k a = Tip (getSize# a) k a
 
@@ -161,7 +151,7 @@ traverse :: (Applicative f, Sized b) => (a -> f b) -> TrieMap Word a -> f (TrieM
 traverse f t = case t of
 	Nil		-> pure Nil
 	Tip _ kx x	-> singleton kx <$> f x
-	Bin _ p m l r	-> bin p m <$> traverse f l <*> traverse f r
+	Bin _ p m l r	-> bin' p m <$> traverse f l <*> traverse f r
 
 foldr :: (a -> b -> b) -> TrieMap Word a -> b -> b
 foldr f t
@@ -178,7 +168,7 @@ foldl f t
       Nil         -> id
 
 mapWithKey :: Sized b => (a -> b) -> TrieMap Word a -> TrieMap Word b
-mapWithKey f (Bin _ p m l r)	= bin p m (mapWithKey f l) (mapWithKey f r)
+mapWithKey f (Bin _ p m l r)	= bin' p m (mapWithKey f l) (mapWithKey f r)
 mapWithKey f (Tip _ kx x)	= singleton kx (f x)
 mapWithKey _ _			= Nil
 
@@ -203,13 +193,13 @@ unionWith f t1@(Bin _ p1 m1 l1 r1) t2@(Bin _ p2 m2 l2 r2)
   | shorter m1 m2  = union1
   | shorter m2 m1  = union2
   | p1 == p2       = bin p1 m1 (unionWith f l1 l2) (unionWith f r1 r2)
-  | otherwise      = join p1 t1 p2 t2
+  | otherwise      = join' p1 t1 p2 t2
   where
-    union1  | nomatch p2 p1 m1  = join p1 t1 p2 t2
+    union1  | nomatch p2 p1 m1  = join' p1 t1 p2 t2
             | zero p2 m1        = bin p1 m1 (unionWith f l1 t2) r1
             | otherwise         = bin p1 m1 l1 (unionWith f r1 t2)
 
-    union2  | nomatch p1 p2 m2  = join p1 t1 p2 t2
+    union2  | nomatch p1 p2 m2  = join' p1 t1 p2 t2
             | zero p1 m2        = bin p2 m2 (unionWith f t1 l2) r2
             | otherwise         = bin p2 m2 l2 (unionWith f t1 r2)
 
@@ -217,9 +207,9 @@ intersectionWith :: Sized c => (a -> b -> Maybe c) -> TrieMap Word a -> TrieMap 
 intersectionWith _ Nil _ = Nil
 intersectionWith _ _ Nil = Nil
 intersectionWith f (Tip _ k x) t2
-  = singletonMaybe k (lookup (natFromInt k) t2 >>= f x)
+  = singletonMaybe k (lookup k t2 >>= f x)
 intersectionWith f t1 (Tip _ k y) 
-  = singletonMaybe k (lookup (natFromInt k) t1 >>= flip f y)
+  = singletonMaybe k (lookup k t1 >>= flip f y)
 intersectionWith f t1@(Bin _ p1 m1 l1 r1) t2@(Bin _ p2 m2 l2 r2)
   | shorter m1 m2  = intersection1
   | shorter m2 m1  = intersection2
@@ -238,7 +228,7 @@ differenceWith :: Sized a => (a -> b -> Maybe a) -> TrieMap Word a -> TrieMap Wo
 differenceWith _ Nil _       = Nil
 differenceWith _ t Nil       = t
 differenceWith f t1@(Tip _ k x) t2 
-  = maybe t1 (singletonMaybe k . f x) (lookup (natFromInt k) t2)
+  = maybe t1 (singletonMaybe k . f x) (lookup k t2)
 differenceWith f t (Tip _ k y) = alterM  (>>= flip f y) k t
 differenceWith f t1@(Bin _ p1 m1 l1 r1) t2@(Bin _ p2 m2 l2 r2)
   | shorter m1 m2  = difference1
@@ -263,17 +253,17 @@ isSubmapOfBy (<=) t1@(Bin _ p1 m1 l1 r1) (Bin _ p2 m2 l2 r2)
 isSubmapOfBy _		(Bin _ _ _ _ _) _
 	= False
 isSubmapOfBy (<=)	(Tip _ k x) t
-	= maybe False (x <=) (lookup (natFromInt k) t)
+	= maybe False (x <=) (lookup k t)
 isSubmapOfBy _		Nil _
 	= True
 
 mask :: Key -> Mask -> Prefix
 mask i m
-  = maskW (natFromInt i) (natFromInt m)
+  = maskW i m
 
 zero :: Key -> Mask -> Bool
 zero i m
-  = (natFromInt i) .&. (natFromInt m) == 0
+  = i .&. m == 0
 
 nomatch,match :: Key -> Prefix -> Mask -> Bool
 nomatch i p m
@@ -287,15 +277,15 @@ zeroN i m = (i .&. m) == 0
 
 maskW :: Nat -> Nat -> Prefix
 maskW i m
-  = intFromNat (i .&. (complement (m-1) `xor` m))
+  = i .&. (complement (m-1) `xor` m)
 
 shorter :: Mask -> Mask -> Bool
 shorter m1 m2
-  = (natFromInt m1) > (natFromInt m2)
+  = m1 > m2
 
 branchMask :: Prefix -> Prefix -> Mask
 branchMask p1 p2
-  = intFromNat (highestBitMask (natFromInt p1 `xor` natFromInt p2))
+  = highestBitMask (p1 `xor` p2)
 
 highestBitMask :: Nat -> Nat
 highestBitMask x0
@@ -311,14 +301,26 @@ highestBitMask x0
 	 x5 -> x5 `xor` shiftRL x5 1
 #endif
 
-{-# INLINE join #-}
-join :: Prefix -> TrieMap Word a -> Prefix -> TrieMap Word a -> TrieMap Word a
-join p1 t1 p2 t2
-  | zero p1 m = bin p m t1 t2
-  | otherwise = bin p m t2 t1
+{-# INLINE join' #-}
+join' :: Prefix -> TrieMap Word a -> Prefix -> TrieMap Word a -> TrieMap Word a
+join' p1 t1 p2 t2
+  | zero p1 m = bin' p m t1 t2
+  | otherwise = bin' p m t2 t1
   where
     m = branchMask p1 p2
     p = mask p1 m
+
+-- {-# INLINE join #-}
+-- join :: Prefix -> TrieMap Word a -> Prefix -> TrieMap Word a -> TrieMap Word a
+-- join p1 t1 p2 t2
+--   | zero p1 m = bin p m t1 t2
+--   | otherwise = bin p m t2 t1
+--   where
+--     m = branchMask p1 p2
+--     p = mask p1 m
+
+bin' :: Prefix -> Mask -> TrieMap Word a -> TrieMap Word a -> TrieMap Word a
+bin' p m l r   = Bin (size l +# size r) p m l r
 
 bin :: Prefix -> Mask -> TrieMap Word a -> TrieMap Word a -> TrieMap Word a
 bin _ _ l Nil = l
