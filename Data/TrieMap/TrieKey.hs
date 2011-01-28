@@ -103,6 +103,10 @@ class TrieKey k where
 	clearM = fillHoleM Nothing
 	
 	unifyM :: Sized a => k -> a -> k -> a -> Unified k a
+	
+	insertWithM :: Sized a => (a -> a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
+	insertWithM f k a m = case searchM k m of
+		(# a', hole #)	-> assignM (maybe a (f a) a') hole
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM
@@ -183,10 +187,6 @@ both g1 g2 f a = case f a of
 
 elemsM :: TrieKey k => TrieMap k a -> [a]
 elemsM m = build (\ f z -> foldrM f m z)
-
-insertWithM :: (TrieKey k, Sized a) => (a -> a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
-insertWithM f k a m = case searchM k m of
-	(# a', hole #)	-> assignM (maybe a (f a) a') hole
 
 mapEitherMaybe :: (a -> (# Maybe b, Maybe c #)) -> Maybe a -> (# Maybe b, Maybe c #)
 mapEitherMaybe f (Just a) = f a

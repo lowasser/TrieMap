@@ -72,6 +72,9 @@ instance TrieKey k => TrieKey (Vector k) where
 	afterWithM a (Hole loc) = Radix (afterEdge (Just a) loc)
 	
 	unifyM ks1 a1 ks2 a2 = fmap (Radix . Just) (unifyEdge ks1 a1 ks2 a2)
+	
+	insertWithM f ks a (Radix (Just e)) = Radix (Just (insertEdge f ks a e))
+	insertWithM _ ks a (Radix Nothing) = singletonM ks a
 
 type WordVec = S.Vector Word
 
@@ -129,3 +132,6 @@ instance TrieKey (S.Vector Word) where
 	afterWithM a (WHole loc) = WRadix (afterEdge (Just a) loc)
 	
 	unifyM ks1 a1 ks2 a2 = fmap (WRadix . Just) (unifyEdge ks1 a1 ks2 a2)
+	
+	insertWithM f ks a (WRadix (Just e)) = WRadix (Just (insertEdge f ks a e))
+	insertWithM _ ks a (WRadix Nothing) = singletonM ks a
