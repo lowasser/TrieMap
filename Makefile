@@ -26,10 +26,10 @@ testdbg :: TestsP
 bench : Benchmark
 	./Benchmark -s 30
 
-benchprof : Benchmark.prof
-	less Benchmark.prof
+benchprof : BenchmarkP.prof
+	less BenchmarkP.prof
 
-Benchmark.prof : BenchmarkP
+BenchmarkP.prof : BenchmarkP
 	./BenchmarkP -s 5 +RTS -P
 
 Tests : fast
