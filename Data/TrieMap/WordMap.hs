@@ -1,6 +1,6 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP #-}
 {-# OPTIONS -funbox-strict-fields #-}
-module Data.TrieMap.WordMap () where
+module Data.TrieMap.WordMap (SNode, TrieMap(WordMap), getWordMap) where
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized

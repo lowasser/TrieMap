@@ -260,8 +260,10 @@ unifyEdge ks1 a1 ks2 a2 = iMatchSlice matcher matches ks1 ks2 where
 {-# SPECIALIZE insertEdge :: Sized a => (a -> a -> a) -> U() -> a -> U(Edge) a -> U(Edge) a #-}
 insertEdge :: (Label v k, Sized a) => (a -> a -> a) -> v k -> a -> Edge v k a -> Edge v k a
 insertEdge f ks a = insertE ks where
+  !sa# = getSize# a
   insertE ks !e@(eView -> Edge _ ls !v ts) = iMatchSlice matcher matches ks ls where
-    matcher !i k l z = case unifyM k (singletonEdge (dropSlice (i+1) ks) a) l (dropEdge (i+1) e) of
+    single n = edge' sa# (dropSlice n ks) (Just a) emptyM
+    matcher !i k l z = case unifyM k (single (i+1)) l (dropEdge (i+1) e) of
       Nothing	-> z
       Just ts	-> edge (takeSlice i ks) Nothing ts
     matches lenK lenL = case compare lenK lenL of
@@ -270,5 +272,4 @@ insertEdge f ks a = insertE ks where
       GT	->
 	let	ks' = dropSlice (lenL + 1) ks
 		g _ e' = insertE ks' e'
-		single = singletonEdge ks' a
-		in edge ls v $ insertWithM g (ks !$ lenL) single ts
+		in edge ls v $ insertWithM g (ks !$ lenL) (single (lenL+1)) ts
