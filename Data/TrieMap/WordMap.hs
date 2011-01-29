@@ -280,7 +280,7 @@ differenceWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
 		  | otherwise         = differenceWith f n1 r2
 
 isSubmapOfBy :: LEq a b -> LEq (SNode a) (SNode b)
-isSubmapOfBy (<=) n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
+isSubmapOfBy (<=) n1@(SNode _ t1) (SNode _ t2) = case (t1, t2) of
   (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
     | shorter m1 m2  -> False
     | shorter m2 m1  -> match p1 p2 m2 && (if zero p1 m2 then isSubmapOfBy (<=) n1 l2
@@ -358,8 +358,8 @@ nil = SNode 0# Nil
 bin :: Prefix -> Mask -> SNode a -> SNode a -> SNode a
 bin _ _ l r
   | l `seq` r `seq` False	= undefined
-bin p m (SNode _ Nil) r = r
-bin p m l (SNode _ Nil) = l
+bin _ _ (SNode _ Nil) r = r
+bin _ _ l (SNode _ Nil) = l
 bin p m l@(SNode sl# _) r@(SNode sr# _)
 			= SNode (sl# +# sr#) (Bin p m l r)
 

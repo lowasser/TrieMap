@@ -9,7 +9,7 @@ class Sized a where
 
 data Assoc k a = Assoc {getK :: k, getValue :: a}
 
-newtype Elem a = Elem a
+newtype Elem a = Elem {getElem :: a}
 
 instance Sized (Elem a) where
 	getSize# _ = 1#

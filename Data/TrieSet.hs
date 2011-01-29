@@ -1,3 +1,4 @@
+{-# LANGUAGE UnboxedTuples #-}
 module Data.TrieSet (
 	-- * Set type
 	TSet,
@@ -53,16 +54,19 @@ module Data.TrieSet (
 	fromDistinctAscList)
  		where
 
-import qualified Data.TrieMap as M
-import qualified Data.Foldable as F
 import Data.TrieMap.Class
+import Data.TrieMap.Class.Instances ()
+import Data.TrieMap.TrieKey
+import Data.TrieMap.Representation.Class
+import Data.TrieMap.Sized
+import Data.TrieMap.Utils
 
-import Control.Applicative hiding (empty)
-import Control.Arrow
+import Control.Monad.Ends
 
 import Data.Maybe
-import Data.Monoid
+import Data.Monoid (Monoid (..))
 
+import GHC.Exts
 import Prelude hiding (foldr, foldl, map, filter, null)
 
 instance TKey a => Eq (TSet a) where
@@ -80,46 +84,51 @@ instance TKey a => Monoid (TSet a) where
 
 -- | The empty 'TSet'.
 empty :: TKey a => TSet a
-empty = TSet M.empty
+empty = TSet emptyM
 
 -- | Insert an element into the 'TSet'.
 insert :: TKey a => a -> TSet a -> TSet a
-insert a (TSet s) = TSet (M.insert a a s)
+insert a (TSet s) = TSet (insertWithM const (toRep a) (Elem a) s)
 
 -- | Delete an element from the 'TSet'.
 delete :: TKey a => a -> TSet a -> TSet a
-delete a (TSet s) = TSet (M.delete a s)
+delete a (TSet s) = TSet (case searchM (toRep a) s of
+  (# _, hole #)	-> clearM hole)
 
 -- | /O(1)/. Create a singleton set.
 singleton :: TKey a => a -> TSet a
-singleton a = TSet (M.singleton a a)
+singleton a = TSet (singletonM (toRep a) (Elem a))
 
 -- | The union of two 'TSet's, preferring the first set when
 -- equal elements are encountered.
 union :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `union` TSet s2 = TSet (s1 `M.union` s2)
+TSet s1 `union` TSet s2 = TSet (unionM (const . Just) s1 s2)
 
 -- | The symmetric difference of two 'TSet's.
 symmetricDifference :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `symmetricDifference` TSet s2 = TSet (M.unionMaybeWith (\ _ _ -> Nothing) s1 s2)
+TSet s1 `symmetricDifference` TSet s2 = TSet (unionM (\ _ _ -> Nothing) s1 s2)
 
 -- | Difference of two 'TSet's.
 difference :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `difference` TSet s2 = TSet (s1 `M.difference` s2)
+TSet s1 `difference` TSet s2 = TSet (diffM (\ _ _ -> Nothing) s1 s2)
 
 -- | Intersection of two 'TSet's.  Elements of the result come from the first set.
 intersection :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `intersection` TSet s2 = TSet (s1 `M.intersection` s2)
+TSet s1 `intersection` TSet s2 = TSet (isectM (const . Just) s1 s2)
 
 -- | Filter all elements that satisfy the predicate.
 filter :: TKey a => (a -> Bool) -> TSet a -> TSet a
-filter p (TSet s) = TSet (M.filter p s)
+filter p (TSet s) = TSet (mapMaybeM (\ (Elem a) -> if p a then Just (Elem a) else Nothing) s)
 
 -- | Partition the set into two sets, one with all elements that satisfy
 -- the predicate and one with all elements that don't satisfy the predicate.
 -- See also 'split'.
 partition :: TKey a => (a -> Bool) -> TSet a -> (TSet a, TSet a)
-partition p (TSet s) = (TSet *** TSet) (M.partition p s)
+partition p (TSet s) = case mapEitherM f s of
+	  (# s1, s2 #) -> (TSet s1, TSet s2)
+  where f e@(Elem a)
+	  | p a		= (# Just e, Nothing #)
+	  | otherwise	= (# Nothing, Just e #)
 
 -- | The expression (@'split' x set@) is a pair @(set1,set2)@
 -- where @set1@ comprises the elements of @set@ less than @x@ and @set2@
@@ -131,8 +140,9 @@ split a s = case splitMember a s of
 -- | Performs a 'split' but also returns whether the pivot
 -- element was found in the original set.
 splitMember :: TKey a => a -> TSet a -> (TSet a, Bool, TSet a)
-splitMember a (TSet s) = case M.splitLookup a s of
-	(sL, x, sR) -> (TSet sL, isJust x, TSet sR)
+splitMember a (TSet s) = case searchM (toRep a) s of
+  (# Nothing, hole #)	-> (TSet (beforeM hole), False, TSet (afterM hole))
+  (# Just{}, hole #)	-> (TSet (beforeM hole), True, TSet (afterM hole))
 
 -- |
 -- @'map' f s@ is the set obtained by applying @f@ to each element of @s@.
@@ -155,11 +165,11 @@ mapMonotonic f s = fromAscList [f x | x <- toAscList s]
 
 -- | Post-order fold.
 foldr :: TKey a => (a -> b -> b) -> b -> TSet a -> b
-foldr f z (TSet s) = F.foldr f z s
+foldr f z (TSet s) = foldrM (\ (Elem a) -> f a) s z
 
 -- | Pre-order fold.
 foldl :: TKey b => (a -> b -> a) -> a -> TSet b -> a
-foldl f z (TSet s) = F.foldl f z s
+foldl f z (TSet s) = foldlM (\ z (Elem a) -> f z a) s z
 
 -- | The minimal element of the set.
 findMin :: TKey a => TSet a -> a
@@ -192,12 +202,16 @@ deleteFindMax = fromJust . maxView
 -- | Retrieves the minimal key of the set, and the set
 -- stripped of that element, or 'Nothing' if passed an empty set.
 minView :: TKey a => TSet a -> Maybe (a, TSet a)
-minView (TSet s) = (fst *** TSet) <$> M.minViewWithKey s
+minView (TSet s) = case getFirst (extractHoleM s) of
+  Nothing	-> Nothing
+  Just (Elem a, hole) -> Just (a, TSet (afterM hole))
 
 -- | Retrieves the maximal key of the set, and the set
 -- stripped of that element, or 'Nothing' if passed an empty set.
 maxView :: TKey a => TSet a -> Maybe (a, TSet a)
-maxView (TSet s) = (fst *** TSet) <$> M.maxViewWithKey s
+maxView (TSet s) = case getLast (extractHoleM s) of
+  Nothing	-> Nothing
+  Just (Elem a, hole) -> Just (a, TSet (beforeM hole))
 
 {-# INLINE elems #-}
 -- | See 'toAscList'.
@@ -210,41 +224,43 @@ toList = toAscList
 {-# INLINE toAscList #-}
 -- | Convert the set to an ascending list of elements.
 toAscList :: TKey a => TSet a -> [a]
-toAscList (TSet s) = M.keys s
+toAscList (TSet s) = build (\ c n -> foldrM (\ (Elem a) -> c a) s n)
 
 -- | Create a set from a list of elements.
 fromList :: TKey a => [a] -> TSet a
-fromList xs = TSet (M.fromList [(x, x) | x <- xs])
+fromList xs = TSet (fromListM const [(toRep x, Elem x) | x <- xs])
 
 -- | Build a set from an ascending list in linear time.
 -- /The precondition (input list is ascending) is not checked./
 fromAscList :: TKey a => [a] -> TSet a
-fromAscList xs = TSet (M.fromAscList [(x, x) | x <- xs])
+fromAscList xs = TSet (fromAscListM const [(toRep x, Elem x) | x <- xs])
 
 -- | /O(n)/. Build a set from an ascending list of distinct elements in linear time.
 -- /The precondition (input list is strictly ascending) is not checked./
 fromDistinctAscList :: TKey a => [a] -> TSet a
-fromDistinctAscList xs = TSet (M.fromDistinctAscList [(x, x) | x <- xs])
+fromDistinctAscList xs = TSet (fromDistAscListM [(toRep x, Elem x) | x <- xs])
 
 -- | /O(1)/. Is this the empty set?
 null :: TKey a => TSet a -> Bool
-null (TSet s) = M.null s
+null (TSet s) = nullM s
 
 -- | /O(1)/. The number of elements in the set.
 size :: TKey a => TSet a -> Int
-size (TSet s) = M.size s
+size (TSet s) = getSize s
 
 -- | Is the element in the set?
 member :: TKey a => a -> TSet a -> Bool
-member a (TSet s) = a `M.member` s
+member a (TSet s) = case lookupM (toRep a) s of
+	Nothing	-> False
+	Just{}	-> True
 
 -- | Is the element not in the set?
 notMember :: TKey a => a -> TSet a -> Bool
-notMember a = not . member a
+notMember = not .: member
 
 -- | Is this a subset? @(s1 `isSubsetOf` s2)@ tells whether @s1@ is a subset of @s2@.
 isSubsetOf :: TKey a => TSet a -> TSet a -> Bool
-TSet s1 `isSubsetOf` TSet s2 = M.isSubmapOfBy (\ _ _ -> True) s1 s2
+TSet s1 `isSubsetOf` TSet s2 = isSubmapM (\ _ _ -> True) s1 s2
 
 -- | Is this a proper subset? (ie. a subset but not equal).
 isProperSubsetOf :: TKey a => TSet a -> TSet a -> Bool
@@ -257,8 +273,4 @@ s1 `isProperSubsetOf` s2 = size s1 < size s2 && s1 `isSubsetOf` s2
 {-# INLINE [1] mapSet #-}
 -- | Generate a 'TMap' by mapping on the elements of a 'TSet'.
 mapSet :: TKey a => (a -> b) -> TSet a -> TMap a b
-mapSet f (TSet a) = M.map f a
-
-{-# RULES
-	"mapSet/id" forall s . mapSet id s = let TSet m = s in m;
-	#-}
+mapSet f (TSet s) = TMap (fmapM (\ (Elem a) -> Assoc a (f a)) s)

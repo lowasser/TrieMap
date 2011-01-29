@@ -11,7 +11,6 @@ import Data.Char
 import Data.Bits
 import Data.Vector.Storable
 import Prelude hiding (map)
-import GHC.Exts
 
 #define WDOC(ty) {-| @'Rep' 'ty' = 'Word'@ -}
 
