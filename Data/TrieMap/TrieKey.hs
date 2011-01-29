@@ -209,4 +209,6 @@ indexFail _ = (# error err, error err, error err #) where
 {-# RULES
   "extractHoleM/First" [0] extractHoleM = firstHoleM;
   "extractHoleM/Last" [0] extractHoleM = lastHoleM;
+  "getSimpleM/emptyM" getSimpleM emptyM = Null;
+  "getSimpleM/singletonM" forall k a . getSimpleM (singletonM k a) = Singleton a;
   #-}

@@ -3,12 +3,16 @@
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
-GHC_OPTS := -Wall -fno-warn-name-shadowing -fno-warn-orphans
+GHC_OPTS := -Wall -fno-warn-name-shadowing -fno-warn-orphans -rtsopts
 FAST_GHC_OPTS := -O0 -ddump-minimal-imports -odir $(FAST_DIR) $(GHC_OPTS)
 DEBUG_GHC_OPTS := -prof -hisuf p_hi -auto-all  -rtsopts -osuf p_o  $(FAST_GHC_OPTS) $(GHC_OPTS)
 OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
   -fmax-worker-args=100 -fno-liberate-case-threshold -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
+HP2PS_OPTS := -c -s -m12
+RTS_OPTS := -H256M -s
+BENCH_SAMPLES := 30
+BPROF_SAMPLES := 5
 
 fast : $(FAST_DIR)/Data/TrieSet.o $(FAST_DIR)/Data/TrieMap.o
 debug: $(FAST_DIR)/Data/TrieSet.p_o $(FAST_DIR)/Data/TrieMap.p_o
@@ -24,13 +28,18 @@ testdbg :: TestsP
 	./TestsP +RTS -xc
 
 bench : Benchmark
-	./Benchmark -s 30
+	./Benchmark -s $(BENCH_SAMPLES) +RTS $(RTS_OPTS) -RTS
 
-benchprof : BenchmarkP.prof
+benchprof : BenchmarkP.prof BenchmarkP.ps
 	less BenchmarkP.prof
 
+BenchmarkP.ps : BenchmarkP.hp
+	hp2ps $(HP2PS_OPTS) $<
+
+BenchmarkP.hp : BenchmarkP.prof
+
 BenchmarkP.prof : BenchmarkP
-	./BenchmarkP -s 5 +RTS -P
+	./BenchmarkP -s $(BPROF_SAMPLES) +RTS -P -hd $(RTS_OPTS) -RTS
 
 Tests : fast
 	ghc $(FAST_GHC_OPTS) Tests -o Tests -main-is Tests.main

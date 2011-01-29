@@ -5,7 +5,7 @@ module Data.TrieMap.RadixTrie.Label where
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 import Data.TrieMap.RadixTrie.Slice
-import Data.TrieMap.WordMap ()
+import Data.TrieMap.WordMap
 
 import Data.Word
 import Data.Vector.Generic
@@ -72,24 +72,24 @@ instance TrieKey k => Label V.Vector k where
 
 instance Label S.Vector Word where
   data Edge S.Vector Word a =
-    SEdge Int# !(U()) (U(Branch) a)
-    | SEdgeX Int# !(U()) a (U(Branch) a)
+    SEdge Int# !(U()) !(SNode (U(Edge) a))
+    | SEdgeX Int# !(U()) a !(SNode (U(Edge) a))
   data Path S.Vector Word a =
     SRoot
     | SDeep (U(Path) a) !(U()) !(U(BHole) a)
     | SDeepX (U(Path) a) !(U()) a !(U(BHole) a)
   
-  edge !ks Nothing ts = SEdge (sizeM ts) ks ts
-  edge !ks (Just v) ts = SEdgeX (getSize# v +# sizeM ts) ks v ts
-  edge' sz# !ks Nothing ts = SEdge sz# ks ts
-  edge' sz# !ks (Just v) ts = SEdgeX sz# ks v ts
+  edge !ks Nothing ts = SEdge (sizeM ts) ks (getWordMap ts)
+  edge !ks (Just v) ts = SEdgeX (getSize# v +# sizeM ts) ks v (getWordMap ts)
+  edge' sz# !ks Nothing ts = SEdge sz# ks (getWordMap ts)
+  edge' sz# !ks (Just v) ts = SEdgeX sz# ks v (getWordMap ts)
   
   root = SRoot
   deep path !ks Nothing tHole = SDeep path ks tHole
   deep path !ks (Just v) tHole = SDeepX path ks v tHole
   
-  eView (SEdge sz# ks ts) = Edge sz# ks Nothing ts
-  eView (SEdgeX sz# ks v ts) = Edge sz# ks (Just v) ts
+  eView (SEdge sz# ks ts) = Edge sz# ks Nothing (WordMap ts)
+  eView (SEdgeX sz# ks v ts) = Edge sz# ks (Just v) (WordMap ts)
   pView SRoot = Root
   pView (SDeep path ks tHole) = Deep path ks Nothing tHole
   pView (SDeepX path ks v tHole) = Deep path ks (Just v) tHole
@@ -114,10 +114,10 @@ getSimpleEdge !(eView -> Edge _ _ v ts)
   | nullM ts	= maybe Null Singleton v
   | otherwise	= NonSimple
 
-{-# SPECIALIZE dropEdge ::
+{-# SPECIALIZE INLINE dropEdge ::
     TrieKey k => Int -> V(Edge) a -> V(Edge) a,
     Int -> U(Edge) a -> U(Edge) a #-}
-{-# SPECIALIZE unDropEdge ::
+{-# SPECIALIZE INLINE unDropEdge ::
     TrieKey k => Int -> V(Edge) a -> V(Edge) a,
     Int -> U(Edge) a -> U(Edge) a #-}
 dropEdge, unDropEdge :: Label v k => Int -> Edge v k a -> Edge v k a
