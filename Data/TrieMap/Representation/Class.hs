@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.TrieMap.Representation.Class where
 
+import Data.Vector
+
 -- | The @Repr@ type class denotes that a type can be decomposed to a representation
 -- built out of pieces for which the 'TrieKey' class defines a generalized trie structure.
 -- 
@@ -12,5 +14,17 @@ module Data.TrieMap.Representation.Class where
 -- As an additional note, the 'Key' modifier is used for \"bootstrapping\" 'Repr' instances,
 -- allowing a type to be used in its own 'Repr' definition when wrapped in a 'Key' modifier.
 class Repr a where
-	type Rep a
-	toRep :: a -> Rep a
+  type Rep a
+  type RepList a
+  toRep :: a -> Rep a
+  toRepList :: [a] -> RepList a
+
+type DRepList a = Vector (Rep a)
+dToRepList :: Repr a => [a] -> DRepList a
+dToRepList = fromList . Prelude.map toRep
+
+instance Repr a => Repr [a] where
+  type Rep [a] = RepList a
+  type RepList [a] = Vector (RepList a)
+  toRep = toRepList
+  toRepList = dToRepList

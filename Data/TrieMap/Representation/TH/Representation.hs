@@ -112,7 +112,9 @@ outputRepr cxt ty Repr{..} = do
     [InstanceD cxt (ConT ''Repr `AppT` ty)
       [TySynInstD ''Rep [ty] reprType,
 	FunD 'toRep
-	  (map caseToClause cases)]]
+	  (map caseToClause cases),
+	TySynInstD ''RepList [ty] (ConT ''V.Vector `AppT` reprType),
+	ValD (VarP 'toRepList) (NormalB (VarE 'dToRepList)) []]]
   return reprType
 
 recursiveRepr :: Quasi m => Type -> Exp -> m Representation
