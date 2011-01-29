@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, ScopedTypeVariables #-}
+{-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.Representation.Instances.Vectors () where
 
 import Control.Monad.Primitive
@@ -11,12 +12,15 @@ import Foreign.Storable (Storable)
 import Foreign.Ptr
 import Foreign.ForeignPtr
 
-import Data.Vector.Generic (convert)
+import Data.Vector.Generic (convert, stream, unstream)
 import qualified Data.Vector.Generic as G
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as S
 import qualified Data.Vector.Primitive as P
 import qualified Data.Vector.Unboxed as U
+
+import Data.Vector.Fusion.Stream.Monadic
+import Data.Vector.Fusion.Stream.Size
 
 import Data.TrieMap.Utils
 import Data.TrieMap.Representation.Class
@@ -26,7 +30,9 @@ import Data.TrieMap.Representation.Instances.Prim
 
 instance Repr a => Repr (V.Vector a) where
 	type Rep (V.Vector a) = V.Vector (Rep a)
+	type RepList (V.Vector a) = V.Vector (V.Vector (Rep a))
 	toRep = V.map toRep
+	toRepList = V.fromList . Prelude.map toRep
 
 instance Repr (S.Vector Word) where
 	type Rep (S.Vector Word) = S.Vector Word
@@ -42,28 +48,11 @@ unsafeCastStorable f xs = unsafeInlineST $ do
 wordSize :: Int
 wordSize = bitSize (0 :: Word)
 
-{-# INLINE getWord #-}
-getWord :: forall w . (Storable w, Bits w, Integral w) => S.Vector w -> Word
-getWord = S.foldl' (\ x w -> (x `shiftL` bitSize (0 :: w)) .|. fromIntegral w) 0
-
-{-# INLINE toWordVector #-}
-toWordVector :: forall w . (Storable w, Integral w, Bits w) => S.Vector w -> S.Vector Word
-toWordVector !xs = let
-  !n = S.length xs
-  wSize = bitSize (0 :: w)
-  ratio = wordSize `quoPow` wSize
-  n' = n `quoPow` ratio
-  {-# INLINE words #-}
-  words = S.map (\ i -> getWord (S.unsafeSlice i ratio xs)) (S.enumFromStepN 0 ratio n')
-  in case n `remPow` ratio of
-    0	-> words
-    r	-> words `S.snoc` (getWord (S.unsafeDrop (n' * ratio) xs) .<<. (wSize * (ratio - r)))
-
 #define HANGINSTANCE(wTy)			\
     instance Repr (S.Vector wTy) where		\
     	type Rep (S.Vector wTy) = S.Vector Word;\
     	{-# NOINLINE toRep #-};			\
-    	toRep = toWordVector
+    	toRep xs = unstream (packStream (stream xs))
 
 -- | @'Rep' ('S.Vector' 'Word8') = 'S.Vector' 'Word'@, by packing multiple 'Word8's into each 'Word' for space efficiency.
 HANGINSTANCE(Word8)
@@ -130,3 +119,24 @@ VEC_INT_INSTANCES(Int, Word)
 
 -- | @'Rep' ('S.Vector' 'Char') = 'S.Vector' 'Word'@
 VEC_ENUM_INSTANCES(Char)
+
+data PackState s = PackState !Word !Int s | End
+
+{-# INLINE packStream #-}
+packStream :: forall m w . (Bits w, Integral w, Storable w, Monad m) => Stream m w -> Stream m Word
+packStream (Stream step s0 size) = Stream step' s0' size'
+  where	!ratio = wordSize `quoPow` bitSize (0 :: w)
+	size' = case size of
+	  Exact n	-> Exact $ (n + ratio - 1) `quoPow` ratio
+	  Max n		-> Max $ (n + ratio - 1) `quoPow` ratio
+	  Unknown	-> Unknown
+	s0' = PackState 0 ratio s0
+	step' End = return Done
+	step' (PackState w 0 s) = return $ Yield w (PackState 0 ratio s)
+	step' (PackState w i s) = do
+	  s' <- step s
+	  case s' of
+	    Done  | i == ratio	-> return Done
+		  | otherwise	-> return $ Yield (w .<<. (i * bitSize (0 :: w))) End
+	    Skip s'		-> return $ Skip (PackState w i s')
+	    Yield ww s'		-> return $ Skip (PackState ((w .<<. bitSize (0 :: w)) .|. fromIntegral ww) (i-1) s')
