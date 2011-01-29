@@ -10,10 +10,10 @@ OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
   -fmax-worker-args=100 -fno-liberate-case-threshold -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
 
-fast : $(FAST_DIR)/Data/TrieSet.o
-debug: $(FAST_DIR)/Data/TrieSet.p_o
-opt : $(OPTIMIZED_DIR)/Data/TrieSet.o
-prof : $(OPTIMIZED_DIR)/Data/TrieSet.p_o
+fast : $(FAST_DIR)/Data/TrieSet.o $(FAST_DIR)/Data/TrieMap.o
+debug: $(FAST_DIR)/Data/TrieSet.p_o $(FAST_DIR)/Data/TrieMap.p_o
+opt : $(OPTIMIZED_DIR)/Data/TrieSet.o $(OPTIMIZED_DIR)/Data/TrieMap.o
+prof : $(OPTIMIZED_DIR)/Data/TrieSet.p_o $(OPTIMIZED_DIR)/Data/TrieMap.p_o
 install : test
 	cabal install
 
@@ -142,7 +142,12 @@ $(OPTIMIZED_DIR)/Data/TrieMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
 $(OPTIMIZED_DIR)/Data/TrieMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o
 $(OPTIMIZED_DIR)/Data/TrieMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Class.o
 $(OPTIMIZED_DIR)/Data/TrieMap.o : $(OPTIMIZED_DIR)/Control/Monad/Ends.o
-$(OPTIMIZED_DIR)/Data/TrieSet.o : $(OPTIMIZED_DIR)/Data/TrieMap.o
+$(OPTIMIZED_DIR)/Data/TrieSet.o : $(OPTIMIZED_DIR)/Data/TrieMap/Class.o
+$(OPTIMIZED_DIR)/Data/TrieSet.o : $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.o
+$(OPTIMIZED_DIR)/Data/TrieSet.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
+$(OPTIMIZED_DIR)/Data/TrieSet.o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.o
+$(OPTIMIZED_DIR)/Data/TrieSet.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
+$(OPTIMIZED_DIR)/Data/TrieSet.o : $(OPTIMIZED_DIR)/Control/Monad/Ends.o
 
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/ReprMonad.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH/Utils.p_o
@@ -235,7 +240,12 @@ $(OPTIMIZED_DIR)/Data/TrieMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Class.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap.p_o : $(OPTIMIZED_DIR)/Control/Monad/Ends.p_o
-$(OPTIMIZED_DIR)/Data/TrieSet.p_o : $(OPTIMIZED_DIR)/Data/TrieMap.p_o
+$(OPTIMIZED_DIR)/Data/TrieSet.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Class.p_o
+$(OPTIMIZED_DIR)/Data/TrieSet.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Class/Instances.p_o
+$(OPTIMIZED_DIR)/Data/TrieSet.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
+$(OPTIMIZED_DIR)/Data/TrieSet.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.p_o
+$(OPTIMIZED_DIR)/Data/TrieSet.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
+$(OPTIMIZED_DIR)/Data/TrieSet.p_o : $(OPTIMIZED_DIR)/Control/Monad/Ends.p_o
 
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.o : $(FAST_DIR)/Data/TrieMap/Representation/Class.o
 $(FAST_DIR)/Data/TrieMap/Representation/TH/ReprMonad.o : $(FAST_DIR)/Data/TrieMap/Representation/TH/Utils.o
@@ -329,6 +339,12 @@ $(FAST_DIR)/Data/TrieMap.o : $(FAST_DIR)/Data/TrieMap/Class/Instances.o
 $(FAST_DIR)/Data/TrieMap.o : $(FAST_DIR)/Data/TrieMap/Class.o
 $(FAST_DIR)/Data/TrieMap.o : $(FAST_DIR)/Control/Monad/Ends.o
 $(FAST_DIR)/Data/TrieSet.o : $(FAST_DIR)/Data/TrieMap.o
+$(FAST_DIR)/Data/TrieSet.o : $(FAST_DIR)/Data/TrieMap/Class.o
+$(FAST_DIR)/Data/TrieSet.o : $(FAST_DIR)/Data/TrieMap/Class/Instances.o
+$(FAST_DIR)/Data/TrieSet.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
+$(FAST_DIR)/Data/TrieSet.o : $(FAST_DIR)/Data/TrieMap/Representation/Class.o
+$(FAST_DIR)/Data/TrieSet.o : $(FAST_DIR)/Data/TrieMap/Sized.o
+$(FAST_DIR)/Data/TrieSet.o : $(FAST_DIR)/Control/Monad/Ends.o
 
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
 $(FAST_DIR)/Data/TrieMap/Representation/TH/ReprMonad.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH/Utils.p_o
@@ -421,7 +437,12 @@ $(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
 $(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/Class/Instances.p_o
 $(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Data/TrieMap/Class.p_o
 $(FAST_DIR)/Data/TrieMap.p_o : $(FAST_DIR)/Control/Monad/Ends.p_o
-$(FAST_DIR)/Data/TrieSet.p_o : $(FAST_DIR)/Data/TrieMap.p_o
+$(FAST_DIR)/Data/TrieSet.p_o : $(FAST_DIR)/Data/TrieMap/Class.p_o
+$(FAST_DIR)/Data/TrieSet.p_o : $(FAST_DIR)/Data/TrieMap/Class/Instances.p_o
+$(FAST_DIR)/Data/TrieSet.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
+$(FAST_DIR)/Data/TrieSet.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
+$(FAST_DIR)/Data/TrieSet.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
+$(FAST_DIR)/Data/TrieSet.p_o : $(FAST_DIR)/Control/Monad/Ends.p_o
 # DO NOT DELETE: End of Haskell dependencies
 
 %.p_o : %.o
