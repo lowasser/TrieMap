@@ -1,24 +1,33 @@
 {-# LANGUAGE ScopedTypeVariables, BangPatterns, TypeFamilies, UndecidableInstances, CPP #-}
-module Data.TrieMap.Representation.Instances.Prim (i2w) where
+module Data.TrieMap.Representation.Instances.Prim () where
 
 #include "MachDeps.h"
 
 import Data.TrieMap.Representation.Class
+import Data.TrieMap.Representation.Instances.Vectors
 import Data.Word
 import Data.Int
 import Data.Char
 import Data.Bits
+import Data.Vector.Storable
+import Prelude hiding (map)
+import GHC.Exts
 
 #define WDOC(ty) {-| @'Rep' 'ty' = 'Word'@ -}
+
 WDOC(Char)
 instance Repr Char where
 	type Rep Char = Word
+	type RepList Char = Vector Word
 	toRep = fromIntegral . ord
+	toRepList xs = toRep (fromList xs)
 
 #define WREPR(wTy) \
 instance Repr wTy where { \
 	type Rep wTy = Word; \
-	toRep = fromIntegral}
+	toRep = fromIntegral; \
+	type RepList wTy = Vector Word;\
+	toRepList xs = toRep (fromList xs)}
 
 WREPR(Word)
 WDOC(Word8)
@@ -35,22 +44,19 @@ instance Repr Word64 where
 	toRep w = (toRep pre, toRep suf)
 		where	pre = fromIntegral (w `shiftR` 32) :: Word32
 			suf = fromIntegral w :: Word32
+	type RepList Word64 = Vector Word
+	toRepList xs = toRep (fromList xs)
 #else
 WDOC(Word64)
 WREPR(Word64)
 #endif
 
--- | We embed IntN into WordN, but we have to be careful about overflow.
-{-# INLINE [1] i2w #-}
-i2w :: forall i w . (Integral i, Bits w, Bits i, Integral w) => i -> w
-i2w !i	| i < 0		= mB - fromIntegral (-i)
-	| otherwise	= mB + fromIntegral i
-	where mB = bit (bitSize (0 :: i) - 1) :: w
-
 #define IREPR(iTy,wTy) \
 instance Repr iTy where { \
 	type Rep iTy = Rep wTy; \
-	toRep = toRep . (i2w :: iTy -> wTy)}
+	toRep = toRep . (i2w :: iTy -> wTy); \
+	type RepList iTy = Vector Word; \
+	toRepList xs = toRep (fromList xs)}
 
 IREPR(Int8,Word8)
 IREPR(Int16,Word16)

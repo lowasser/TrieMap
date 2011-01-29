@@ -70,7 +70,7 @@ $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Basic.o : $(OPTIMIZED_DIR
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Foreign.o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Foreign.o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Basic.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Foreign.o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.o
-$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.o
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.o : $(OPTIMIZED_DIR)/Data/TrieMap/Utils.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/ByteString.o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.o
@@ -163,7 +163,7 @@ $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Basic.p_o : $(OPTIMIZED_D
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Foreign.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/TH.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Foreign.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Basic.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Foreign.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o
-$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o
+$(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Utils.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/ByteString.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o
@@ -256,7 +256,7 @@ $(FAST_DIR)/Data/TrieMap/Representation/Instances/Basic.o : $(FAST_DIR)/Data/Tri
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Foreign.o : $(FAST_DIR)/Data/TrieMap/Representation/TH.o
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Foreign.o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Basic.o
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Foreign.o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.o
-$(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.o
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.o : $(FAST_DIR)/Data/TrieMap/Representation/Class.o
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.o : $(FAST_DIR)/Data/TrieMap/Utils.o
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/ByteString.o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.o
@@ -349,7 +349,7 @@ $(FAST_DIR)/Data/TrieMap/Representation/Instances/Basic.p_o : $(FAST_DIR)/Data/T
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Foreign.p_o : $(FAST_DIR)/Data/TrieMap/Representation/TH.p_o
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Foreign.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Basic.p_o
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Foreign.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o
-$(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o
+$(FAST_DIR)/Data/TrieMap/Representation/Instances/Prim.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o : $(FAST_DIR)/Data/TrieMap/Utils.p_o
 $(FAST_DIR)/Data/TrieMap/Representation/Instances/ByteString.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances/Vectors.p_o

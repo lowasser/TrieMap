@@ -1,6 +1,6 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, ScopedTypeVariables, UndecidableInstances #-}
 {-# OPTIONS -funbox-strict-fields #-}
-module Data.TrieMap.Representation.Instances.Vectors () where
+module Data.TrieMap.Representation.Instances.Vectors (i2w) where
 
 import Control.Monad.Primitive
 
@@ -24,19 +24,23 @@ import Data.Vector.Fusion.Stream.Size
 
 import Data.TrieMap.Utils
 import Data.TrieMap.Representation.Class
-import Data.TrieMap.Representation.Instances.Prim
+-- import Data.TrieMap.Representation.Instances.Prim
 
 #include "MachDeps.h"
 
+#define DefList(ty) \
+  type RepList (ty) = DRepList (ty); \
+  toRepList = dToRepList
+
 instance Repr a => Repr (V.Vector a) where
 	type Rep (V.Vector a) = V.Vector (Rep a)
-	type RepList (V.Vector a) = V.Vector (V.Vector (Rep a))
 	toRep = V.map toRep
-	toRepList = V.fromList . Prelude.map toRep
+	DefList(V.Vector a)
 
 instance Repr (S.Vector Word) where
 	type Rep (S.Vector Word) = S.Vector Word
 	toRep = id
+	DefList(S.Vector Word)
 
 {-# INLINE unsafeCastStorable #-}
 unsafeCastStorable :: (Storable a, Storable b) => (Int -> Int) -> S.Vector a -> S.Vector b
@@ -51,8 +55,9 @@ wordSize = bitSize (0 :: Word)
 #define HANGINSTANCE(wTy)			\
     instance Repr (S.Vector wTy) where		\
     	type Rep (S.Vector wTy) = S.Vector Word;\
-    	{-# NOINLINE toRep #-};			\
-    	toRep xs = unstream (packStream (stream xs))
+    	{-# INLINE toRep #-};			\
+    	toRep xs = unstream (packStream (stream xs));\
+    	DefList(S.Vector wTy)
 
 -- | @'Rep' ('S.Vector' 'Word8') = 'S.Vector' 'Word'@, by packing multiple 'Word8's into each 'Word' for space efficiency.
 HANGINSTANCE(Word8)
@@ -62,6 +67,7 @@ HANGINSTANCE(Word16)
 instance Repr (S.Vector Word32) where
 	type Rep (S.Vector Word32) = S.Vector Word
 	toRep xs = unsafeCastStorable id xs
+	DefList (S.Vector Word32)
 #elif WORD_SIZE_IN_BITS > 32
 HANGINSTANCE(Word32)
 #endif
@@ -75,12 +81,14 @@ instance Repr (S.Vector Word64) where
 	type Rep (S.Vector Word64) = S.Vector Word
 	toRep xs = unsafeCastStorable (ratio *) xs
 		where !wordBits = bitSize (0 :: Word); ratio = quoPow 64 wordBits
+	DefList(S.Vector Word64)
 
 #define VEC_WORD_DOC(vec, wTy) {-| @'Rep' ('vec' 'wTy') = 'Rep' ('S.Vector' 'wTy')@ -}
 #define VEC_WORD_INST(vec,wTy)			\
   instance Repr (vec wTy) where {		\
 	type Rep (vec wTy) = S.Vector Word;	\
-	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert}
+	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert;\
+	DefList(vec wTy)}
 
 VEC_WORD_INST(U.Vector,Word8)
 VEC_WORD_INST(P.Vector,Word8)
@@ -96,7 +104,8 @@ VEC_WORD_INST(P.Vector,Word)
 #define VEC_INT_INST(vec,iTy,wTy)		\
   instance Repr (vec iTy) where {		\
   	type Rep (vec iTy) = S.Vector Word;	\
-  	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert . G.map (i2w :: iTy -> wTy)}
+  	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert . G.map (i2w :: iTy -> wTy); \
+  	DefList(vec iTy)}
 #define VEC_INT_INSTANCES(iTy,wTy)	\
 	VEC_INT_INST(S.Vector,iTy,wTy); \
 	VEC_INT_INST(P.Vector,iTy,wTy); \
@@ -111,7 +120,9 @@ VEC_INT_INSTANCES(Int, Word)
 #define VEC_ENUM_INST(ty, vec)				\
   instance Repr (vec ty) where {			\
   	type Rep (vec ty) = S.Vector Word;		\
-  	toRep = convert . G.map (fromIntegral . fromEnum)}
+  	{-# INLINE toRep #-};				\
+  	toRep xs = convert (G.map (fromIntegral . fromEnum) xs);\
+  	DefList(vec ty)}
 #define VEC_ENUM_INSTANCES(ty)	\
 	VEC_ENUM_INST(ty,S.Vector);	\
 	VEC_ENUM_INST(ty,P.Vector);	\
@@ -119,6 +130,13 @@ VEC_INT_INSTANCES(Int, Word)
 
 -- | @'Rep' ('S.Vector' 'Char') = 'S.Vector' 'Word'@
 VEC_ENUM_INSTANCES(Char)
+
+-- | We embed IntN into WordN, but we have to be careful about overflow.
+{-# INLINE [1] i2w #-}
+i2w :: forall i w . (Integral i, Bits w, Bits i, Integral w) => i -> w
+i2w !i	| i < 0		= mB - fromIntegral (-i)
+	| otherwise	= mB + fromIntegral i
+	where mB = bit (bitSize (0 :: i) - 1) :: w
 
 data PackState s = PackState !Word !Int s | End
 

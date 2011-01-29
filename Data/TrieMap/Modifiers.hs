@@ -18,4 +18,6 @@ newtype Key k = Key {getKey :: k}
 
 instance Repr k => Repr (Key k) where
 	type Rep (Key k) = Rep k
+	type RepList (Key k) = RepList k
 	toRep (Key k) = toRep k
+	toRepList ks = toRepList [k | Key k <- ks]
