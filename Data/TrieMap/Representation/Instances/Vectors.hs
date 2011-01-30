@@ -24,7 +24,8 @@ import Data.Vector.Fusion.Stream.Size
 
 import Data.TrieMap.Utils
 import Data.TrieMap.Representation.Class
--- import Data.TrieMap.Representation.Instances.Prim
+
+import Prelude hiding (length)
 
 #include "MachDeps.h"
 
@@ -52,12 +53,23 @@ unsafeCastStorable f xs = unsafeInlineST $ do
 wordSize :: Int
 wordSize = bitSize (0 :: Word)
 
+#define VEC_WORD_INST(vec,wTy)			\
+  instance Repr (vec wTy) where {		\
+	type Rep (vec wTy) = Rep (S.Vector wTy);	\
+	toRep xs = toHangingVector xs;\
+	DefList(vec wTy)}
 #define HANGINSTANCE(wTy)			\
-    instance Repr (S.Vector wTy) where		\
-    	type Rep (S.Vector wTy) = S.Vector Word;\
+    instance Repr (S.Vector wTy) where {	\
+    	type Rep (S.Vector wTy) = (S.Vector Word, Word);\
     	{-# INLINE toRep #-};			\
-    	toRep xs = unstream (packStream (stream xs));\
-    	DefList(S.Vector wTy)
+    	toRep xs = toHangingVector xs;		\
+    	DefList(S.Vector wTy) };		\
+    VEC_WORD_INST(P.Vector,wTy);		\
+    VEC_WORD_INST(U.Vector,wTy)
+
+{-# INLINE toHangingVector #-}
+toHangingVector :: (G.Vector v w, Bits w, Integral w, Storable w) => v w -> (S.Vector Word, Word)
+toHangingVector !xs = (unstream (packStream (stream xs)), fromIntegral (G.length xs))
 
 -- | @'Rep' ('S.Vector' 'Word8') = 'S.Vector' 'Word'@, by packing multiple 'Word8's into each 'Word' for space efficiency.
 HANGINSTANCE(Word8)
@@ -68,6 +80,14 @@ instance Repr (S.Vector Word32) where
 	type Rep (S.Vector Word32) = S.Vector Word
 	toRep xs = unsafeCastStorable id xs
 	DefList (S.Vector Word32)
+instance Repr (U.Vector Word32) where
+	type Rep (U.Vector Word32) = S.Vector Word
+	toRep xs = unsafeCastStorable id (convert xs)
+	DefList (U.Vector Word32)
+instance Repr (P.Vector Word32) where
+	type Rep (P.Vector Word32) = S.Vector Word
+	toRep xs = unsafeCastStorable id (convert xs)
+	DefList (P.Vector Word32)
 #elif WORD_SIZE_IN_BITS > 32
 HANGINSTANCE(Word32)
 #endif
@@ -83,27 +103,9 @@ instance Repr (S.Vector Word64) where
 		where !wordBits = bitSize (0 :: Word); ratio = quoPow 64 wordBits
 	DefList(S.Vector Word64)
 
-#define VEC_WORD_DOC(vec, wTy) {-| @'Rep' ('vec' 'wTy') = 'Rep' ('S.Vector' 'wTy')@ -}
-#define VEC_WORD_INST(vec,wTy)			\
-  instance Repr (vec wTy) where {		\
-	type Rep (vec wTy) = S.Vector Word;	\
-	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert;\
-	DefList(vec wTy)}
-
-VEC_WORD_INST(U.Vector,Word8)
-VEC_WORD_INST(P.Vector,Word8)
-VEC_WORD_INST(U.Vector,Word16)
-VEC_WORD_INST(P.Vector,Word16)
-VEC_WORD_INST(U.Vector,Word32)
-VEC_WORD_INST(P.Vector,Word32)
-VEC_WORD_INST(U.Vector,Word64)
-VEC_WORD_INST(P.Vector,Word64)
-VEC_WORD_INST(U.Vector,Word)
-VEC_WORD_INST(P.Vector,Word)
-
 #define VEC_INT_INST(vec,iTy,wTy)		\
   instance Repr (vec iTy) where {		\
-  	type Rep (vec iTy) = S.Vector Word;	\
+  	type Rep (vec iTy) = Rep (S.Vector wTy);	\
   	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert . G.map (i2w :: iTy -> wTy); \
   	DefList(vec iTy)}
 #define VEC_INT_INSTANCES(iTy,wTy)	\

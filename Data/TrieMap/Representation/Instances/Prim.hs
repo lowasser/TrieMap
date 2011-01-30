@@ -25,7 +25,7 @@ instance Repr Char where
 instance Repr wTy where { \
 	type Rep wTy = Word; \
 	toRep = fromIntegral; \
-	type RepList wTy = Vector Word;\
+	type RepList wTy = Rep (Vector wTy);\
 	toRepList xs = toRep (fromList xs)}
 
 WREPR(Word)
@@ -54,7 +54,7 @@ WREPR(Word64)
 instance Repr iTy where { \
 	type Rep iTy = Rep wTy; \
 	toRep = toRep . (i2w :: iTy -> wTy); \
-	type RepList iTy = Vector Word; \
+	type RepList iTy = Rep (Vector wTy); \
 	toRepList xs = toRep (fromList xs)}
 
 IREPR(Int8,Word8)
