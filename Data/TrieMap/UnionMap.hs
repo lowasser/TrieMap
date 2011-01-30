@@ -62,8 +62,6 @@ hole2 (Just m1) hole2 = Hole1X m1 hole2
 -- specialized for the cases where one or both maps are empty.
 instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	{-# SPECIALIZE instance TrieKey (Either () ()) #-}
-	{-# SPECIALIZE instance TrieKey k => TrieKey (Either () k) #-}
-	{-# SPECIALIZE instance TrieKey k => TrieKey (Either k ()) #-}
   	Left k1 =? Left k2	= k1 =? k2
   	Right k1 =? Right k2	= k1 =? k2
   	_ =? _			= False
@@ -106,13 +104,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	traverseM f (K2 m2) = K2 <$> traverseM f m2
 	traverseM _ _ = pure Empty
 
-	foldrM f (UVIEW m1 m2) = fold (foldrM f) m1 . fold (foldrM f) m2
-		where	fold :: (a -> b -> b) -> Maybe a -> b -> b
-			fold = flip . foldr
+	foldrM f (UVIEW m1 m2) z = foldr (foldrM f) (foldr (foldrM f) z m2) m1
 
-	foldlM f (UVIEW m1 m2) = fold (foldlM f) m2 . fold (foldlM f) m1
-		where	fold :: (a -> b -> b) -> Maybe a -> b -> b
-			fold = flip . foldr
+	foldlM f (UVIEW m1 m2) z = foldr (foldlM f) (foldr (foldlM f) z m1) m2
 
 	fmapM f (Union _ m1 m2) = fmapM f m1 `union` fmapM f m2
 	fmapM f (K1 m1)		= K1 (fmapM f m1)
