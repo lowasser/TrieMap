@@ -7,13 +7,13 @@ import qualified Data.TrieMap as T
 import qualified Data.Map as M
 import Test.QuickCheck
 import Prelude hiding (null, lookup)
-import Data.ByteString.Char8 (ByteString, pack)
-import qualified Data.ByteString.Char8 as BS
+import Data.ByteString (ByteString, pack)
+import qualified Data.ByteString as BS
 type Key = ByteString
 type Val = [Integer]
 
 main :: IO ()
-main = quickCheckWith stdArgs{maxSize = 300, maxSuccess = 100} (verify M.empty T.empty)
+main = quickCheckWith stdArgs{maxSuccess = 100} (verify M.empty T.empty .&&. conjoin concretes)
 
 instance Arbitrary ByteString where
 	arbitrary = liftM pack arbitrary
@@ -171,3 +171,9 @@ verify m tm (Op op:ops) = case verifyOp op m tm of
 	Nothing	-> False
 	Just (m', tm') -> verify m' tm' ops
 verify _ _ [] = True
+
+concretes :: [Property]
+concretes = [
+	label "proper Word8 termination" 
+	  (\ xs ys -> not (BS.null ys) ==> T.intersection (T.singleton xs "a") (T.singleton (BS.append xs ys) "b") == T.empty)
+	]
