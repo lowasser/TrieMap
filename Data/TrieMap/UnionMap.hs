@@ -188,7 +188,6 @@ holes :: (Functor m, Functor f, MonadPlus m) => (a -> m (f b)) -> (b -> c) -> Ma
 holes k f (Just a) = fmap f <$> k a
 holes _ _ Nothing = mzero
 
-
 onPair :: (c -> d -> e) -> (a -> c) -> (b -> d) -> (a, b) -> e
 onPair f g h (a, b) = f (g a) (h b)
 

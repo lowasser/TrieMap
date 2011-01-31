@@ -177,5 +177,7 @@ concretes = [
 	printTestCase "extending by a single 0 makes a difference" 
 	  (T.intersection (T.singleton (BS.pack [0]) "a") (T.singleton (BS.pack [0,0]) "b") == T.empty),
 	printTestCase "comparisons are correct"
-	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,0], "a")] in T.assocs (T.fromList input) == input)
+	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,0], "a")] in T.assocs (T.fromList input) == input),
+	printTestCase "comparisons are correct"
+	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,maxBound], "a")] in T.assocs (T.fromList input) == input)
 	]
