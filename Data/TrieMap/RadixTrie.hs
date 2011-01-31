@@ -45,8 +45,8 @@ instance TrieKey k => TrieKey (Vector k) where
 	mapEitherM f (Radix e) = both Radix Radix (mapEitherMaybe (mapEitherEdge f)) e
 	traverseM f (Radix m) = Radix <$> traverse (traverseEdge f) m
 
-	foldrM f (Radix m) z = foldr (foldrEdge f) z m
-	foldlM f (Radix m) z = foldl (foldlEdge f) z m
+	foldrM f (Radix m) z = foldl (foldr f) z m
+	foldlM f (Radix m) z = foldl (foldl f) z m
 
 	unionM f (Radix m1) (Radix m2) = Radix (unionMaybe (unionEdge f) m1 m2)
 	isectM f (Radix m1) (Radix m2) = Radix (isectMaybe (isectEdge f) m1 m2)
@@ -102,8 +102,8 @@ instance TrieKey (S.Vector Word) where
 	mapEitherM f (WRadix e) = both WRadix WRadix (mapEitherMaybe (mapEitherEdge f)) e
 	traverseM f (WRadix m) = WRadix <$> traverse (traverseEdge f) m
 
-	foldrM f (WRadix m) z = foldr (foldrEdge f) z m
-	foldlM f (WRadix m) z = foldl (foldlEdge f) z m
+	foldrM f (WRadix m) z = foldr (flip $ foldr f) z m
+	foldlM f (WRadix m) z = foldl (foldl f) z m
 
 	unionM f (WRadix m1) (WRadix m2) = WRadix (unionMaybe (unionEdge f) m1 m2)
 	isectM f (WRadix m1) (WRadix m2) = WRadix (isectMaybe (isectEdge f) m1 m2)
@@ -133,6 +133,3 @@ instance TrieKey (S.Vector Word) where
 	afterWithM a (WHole loc) = WRadix (afterEdge (Just a) loc)
 	
 	unifyM ks1 a1 ks2 a2 = fmap (WRadix . Just) (unifyEdge ks1 a1 ks2 a2)
-	
-	insertWithM f ks a (WRadix (Just e)) = WRadix (Just (insertEdge f ks a e))
-	insertWithM _ ks a (WRadix Nothing) = singletonM ks a

@@ -11,7 +11,7 @@ import Data.TrieMap.RadixTrie.Slice
 import Control.Applicative
 import Control.Monad
 import Data.Word
-import Data.Foldable (foldr, foldl)
+import Data.Foldable (Foldable(..))
 
 import Data.Vector.Generic (length)
 import qualified Data.Vector (Vector)
@@ -86,19 +86,15 @@ traverseEdge f = traverseE where
 	  Edge _ ks Nothing ts	-> edge ks Nothing <$> traverseM traverseE ts
 	  Edge _ ks (Just v) ts	-> edge ks . Just <$> f v <*> traverseM traverseE ts
 
-{-# SPECIALIZE foldrEdge ::
-    TrieKey k => (a -> b -> b) -> V(Edge) a -> b -> b,
-    (a -> b -> b) -> U(Edge) a -> b -> b #-}
-foldrEdge :: Label v k => (a -> b -> b) -> Edge v k a -> b -> b
-foldrEdge f = foldrE where
-  foldrE !(eView -> Edge _ _ v ts) z = foldr f (foldrM foldrE ts z) v
+instance Label v k => Foldable (EView v k) where
+  foldr f z (Edge _ _ v ts) = foldr f (foldr (flip $ foldr f) z ts) v
+  foldl f z (Edge _ _ v ts) = foldl (foldl f) (foldl f z v) ts
 
-{-# SPECIALIZE foldlEdge ::
-    TrieKey k => (b -> a -> b) -> b -> V(Edge) a -> b,
-    (b -> a -> b) -> b -> U(Edge) a -> b #-}
-foldlEdge :: Label v k => (b -> a -> b) -> b -> Edge v k a -> b
-foldlEdge f = foldlE where
-  foldlE z !(eView -> Edge _ _ v ts) = foldlM foldlE ts (foldl f z v)
+instance Label v k => Foldable (Edge v k) where
+  {-# SPECIALIZE instance TrieKey k => Foldable (V(Edge)) #-}
+  {-# SPECIALIZE instance Foldable (U(Edge)) #-}
+  foldr f z e = foldr f z (eView e)
+  foldl f z e = foldl f z (eView e)
 
 {-# SPECIALIZE assignEdge ::
     (TrieKey k, Sized a) => a -> V(EdgeLoc) a -> V(Edge) a,
@@ -253,21 +249,3 @@ unifyEdge ks1 a1 ks2 a2 = iMatchSlice matcher matches ks1 ks2 where
 		GT	-> let (_,k1,ks1') = splitSlice len2 ks1 in 
 			      Just (edge ks2 (Just a2) (singletonM k1 (singletonEdge ks1' a1)))
 		_	-> Nothing
-
-{-# SPECIALIZE insertEdge :: (TrieKey k, Sized a) => (a -> a -> a) -> V() -> a -> V(Edge) a -> V(Edge) a #-}
-{-# SPECIALIZE insertEdge :: Sized a => (a -> a -> a) -> U() -> a -> U(Edge) a -> U(Edge) a #-}
-insertEdge :: (Label v k, Sized a) => (a -> a -> a) -> v k -> a -> Edge v k a -> Edge v k a
-insertEdge f ks a = insertE ks where
-  !sa = getSize a
-  insertE ks !e@(eView -> Edge _ ls !v ts) = iMatchSlice matcher matches ks ls where
-    single n = edge' sa (dropSlice n ks) (Just a) emptyM
-    matcher !i k l z = case unifyM k (single (i+1)) l (dropEdge (i+1) e) of
-      Nothing	-> z
-      Just ts	-> edge (takeSlice i ks) Nothing ts
-    matches lenK lenL = case compare lenK lenL of
-      LT	-> edge ks (Just a) $ singletonM (ls !$ lenK) $ dropEdge (lenK+1) e
-      EQ	-> edge ls (Just (maybe a (f a) v)) ts
-      GT	->
-	let	ks' = dropSlice (lenL + 1) ks
-		g _ e' = insertE ks' e'
-		in edge ls v $ insertWithM g (ks !$ lenL) (single (lenL+1)) ts
