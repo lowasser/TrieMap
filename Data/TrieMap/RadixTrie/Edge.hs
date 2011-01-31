@@ -224,7 +224,7 @@ extractEdgeLoc !(eView -> Edge _ ks v ts) path = case v of
 	where	extractTS = do	(e', tHole) <- extractHoleM ts
 				extractEdgeLoc e' (deep path ks v tHole)
 
-{-# SPECIALIZE indexEdge :: 
+{-# SPECIALIZE INLINE indexEdge :: 
     (TrieKey k, Sized a) => Int -> V(Edge) a -> V(Path) a -> (# Int, a, V(EdgeLoc) a #),
     Sized a => Int -> U(Edge) a -> U(Path) a -> (# Int, a, U(EdgeLoc) a #) #-}
 indexEdge :: (Label v k, Sized a) => Int -> Edge v k a -> Path v k a -> (# Int, a, EdgeLoc v k a #)
