@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleInstances #-}
 
 module Data.TrieMap.UnitMap () where
 
@@ -12,7 +12,14 @@ import Data.Foldable
 import Data.Traversable
 import Data.Maybe
 
-import Prelude hiding (foldr, foldl)
+import Prelude hiding (foldr, foldl, foldr1, foldl1)
+
+instance Foldable (TrieMap ()) where
+  foldMap f (Unit m) = foldMap f m
+  foldr f z (Unit m) = foldr f z m
+  foldl f z (Unit m) = foldl f z m
+  foldr1 f (Unit m) = foldr1 f m
+  foldl1 f (Unit m) = foldl1 f m
 
 -- | @'TrieMap' () a@ is implemented as @'Maybe' a@.
 instance TrieKey () where
@@ -30,8 +37,6 @@ instance TrieKey () where
 	insertWithM f _ a (Unit (Just a0)) = single (f a a0)
 	insertWithM _ _ a (Unit Nothing) = single a
 	traverseM f (Unit m) = Unit <$> traverse f m
-	foldrM f (Unit m) z = foldr f z m
-	foldlM f (Unit m) z = foldl f z m
 	fmapM f (Unit m) = Unit (f <$> m)
 	mapMaybeM f (Unit m) = Unit (m >>= f)
 	mapEitherM f (Unit a) = both Unit Unit (mapEitherMaybe f) a

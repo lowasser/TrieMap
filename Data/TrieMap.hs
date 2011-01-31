@@ -137,6 +137,7 @@ import Data.TrieMap.Utils
 
 import Control.Applicative hiding (empty)
 import Control.Monad
+import qualified Data.Foldable as F
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid(Monoid(..))
 
@@ -330,13 +331,13 @@ updateWithKey f k m = case search k m of
 -- value to the highest.
 {-# INLINE foldrWithKey #-}
 foldrWithKey :: TKey k => (k -> a -> b -> b) -> b -> TMap k a -> b
-foldrWithKey f z (TMap m) = foldrM (\ (Assoc k a) -> f k a) m z
+foldrWithKey f z (TMap m) = F.foldr (\ (Assoc k a) -> f k a) z m
 
 -- | Pre-order fold.  The function will be applied from the highest
 -- value to the lowest.
 {-# INLINE foldlWithKey #-}
 foldlWithKey :: TKey k => (b -> k -> a -> b) -> b -> TMap k a -> b
-foldlWithKey f z (TMap m) = foldlM (\ z (Assoc k a) -> f z k a) m z
+foldlWithKey f z (TMap m) = F.foldl (\ z (Assoc k a) -> f z k a) z m
 
 -- | Map each key\/element pair to an action, evaluate these actions from left to right, and collect the results.
 {-# INLINE traverseWithKey #-}
@@ -348,7 +349,7 @@ traverseWithKey f (TMap m) = TMap <$> traverseM (\ (Assoc k a) -> Assoc k <$> f 
 -- > map (++ "x") (fromList [(5,"a"), (3,"b")]) == fromList [(3, "bx"), (5, "ax")]
 {-# INLINE map #-}
 map :: TKey k => (a -> b) -> TMap k a -> TMap k b
-map f = mapWithKey (const f)
+map = fmap
 
 -- | Map a function over all values in the map.
 --

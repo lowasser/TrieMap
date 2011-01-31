@@ -7,10 +7,10 @@ import Data.TrieMap.Representation.Class
 import Data.TrieMap.Sized
 
 import Data.Functor
-import Data.Foldable hiding (foldrM, foldlM)
+import Data.Foldable
 import Data.Traversable
 
-import Prelude hiding (foldr)
+import Prelude hiding (foldr, foldl, foldl1, foldr1)
 
 -- | A map from keys @k@ to values @a@, backed by a trie.
 newtype TMap k a = TMap {getTMap :: TrieMap (Rep k) (Assoc k a)}
@@ -26,11 +26,18 @@ class (Repr k, TrieKey (Rep k)) => TKey k
 instance (Repr k, TrieKey (Rep k)) => TKey k
 
 instance TKey k => Functor (TMap k) where
-	fmap f (TMap m) = TMap (fmapM (\ (Assoc k a) -> Assoc k (f a)) m)
+	fmap f (TMap m) = TMap (fmapM (fmap f) m)
 
 instance TKey k => Foldable (TMap k) where
-	foldr f z (TMap m) = foldrM (\ (Assoc _ a) -> f a) m z
-	foldl f z (TMap m) = foldlM (\ z (Assoc _ a) -> f z a) m z
+	foldMap f (TMap m) = foldMap (foldMap f) m
+	foldr f z (TMap m) = foldr (flip $ foldr f) z m
+	foldl f z (TMap m) = foldl (foldl f) z m
+	foldr1 f (TMap m) = getElem (foldr1 f' m') where
+	  f' (Elem a) (Elem b) = Elem (f a b)
+	  m' = fmapM (\ (Assoc _ a) -> Elem a) m
+	foldl1 f (TMap m) = getElem (foldl1 f' m') where
+	  f' (Elem a) (Elem b) = Elem (f a b)
+	  m' = fmapM (\ (Assoc _ a) -> Elem a) m
 
 instance TKey k => Traversable (TMap k) where
-	traverse f (TMap m) = TMap <$> traverseM (\ (Assoc k a) -> Assoc k <$> f a) m
+	traverse f (TMap m) = TMap <$> traverseM (traverse f) m

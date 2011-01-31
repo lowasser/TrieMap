@@ -64,6 +64,7 @@ import Data.TrieMap.Utils
 import Control.Monad.Ends
 
 import Data.Maybe
+import qualified Data.Foldable as F
 import Data.Monoid (Monoid (..))
 
 import GHC.Exts
@@ -165,11 +166,11 @@ mapMonotonic f s = fromAscList [f x | x <- toAscList s]
 
 -- | Post-order fold.
 foldr :: TKey a => (a -> b -> b) -> b -> TSet a -> b
-foldr f z (TSet s) = foldrM (\ (Elem a) -> f a) s z
+foldr f z (TSet s) = F.foldr (flip $ F.foldr f) z s
 
 -- | Pre-order fold.
 foldl :: TKey b => (a -> b -> a) -> a -> TSet b -> a
-foldl f z (TSet s) = foldlM (\ z (Elem a) -> f z a) s z
+foldl f z (TSet s) = F.foldl (F.foldl f) z s
 
 -- | The minimal element of the set.
 findMin :: TKey a => TSet a -> a
@@ -224,7 +225,7 @@ toList = toAscList
 {-# INLINE toAscList #-}
 -- | Convert the set to an ascending list of elements.
 toAscList :: TKey a => TSet a -> [a]
-toAscList (TSet s) = build (\ c n -> foldrM (\ (Elem a) -> c a) s n)
+toAscList s = build (\ c n -> foldr c n s)
 
 -- | Create a set from a list of elements.
 fromList :: TKey a => [a] -> TSet a

@@ -6,13 +6,13 @@ import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 
 import Data.Functor
+import Data.Foldable (Foldable(..))
 import Control.Monad
 
 import Foreign.Storable
 
 import Data.Monoid
 import Data.Ord
-import Data.Foldable (foldr, foldl)
 import Data.Vector.Generic hiding (Vector, cmp, foldl, foldr)
 import Data.Vector (Vector)
 import qualified Data.Vector as V
@@ -24,6 +24,11 @@ import Data.TrieMap.RadixTrie.Edge
 import Data.TrieMap.RadixTrie.Label
 
 import Prelude hiding (length, and, zip, zipWith, foldr, foldl)
+
+instance TrieKey k => Foldable (TrieMap (Vector k)) where
+  foldMap f (Radix m) = foldMap (foldMap f) m
+  foldr f z (Radix m) = foldl (foldr f) z m
+  foldl f z (Radix m) = foldl (foldl f) z m
 
 -- | @'TrieMap' ('Vector' k) a@ is a traditional radix trie.
 instance TrieKey k => TrieKey (Vector k) where
@@ -44,9 +49,6 @@ instance TrieKey k => TrieKey (Vector k) where
 	mapMaybeM f (Radix m) = Radix (m >>= mapMaybeEdge f)
 	mapEitherM f (Radix e) = both Radix Radix (mapEitherMaybe (mapEitherEdge f)) e
 	traverseM f (Radix m) = Radix <$> traverse (traverseEdge f) m
-
-	foldrM f (Radix m) z = foldr (foldrEdge f) z m
-	foldlM f (Radix m) z = foldl (foldlEdge f) z m
 
 	unionM f (Radix m1) (Radix m2) = Radix (unionMaybe (unionEdge f) m1 m2)
 	isectM f (Radix m1) (Radix m2) = Radix (isectMaybe (isectEdge f) m1 m2)
@@ -82,6 +84,11 @@ type WordVec = S.Vector Word
 vZipWith :: (Storable a, Storable b) => (a -> b -> c) -> S.Vector a -> S.Vector b -> Vector c
 vZipWith f xs ys = V.zipWith f (convert xs) (convert ys)
 
+instance Foldable (TrieMap (S.Vector Word)) where
+  foldMap f (WRadix m) = foldMap (foldMap f) m
+  foldr f z (WRadix m) = foldl (foldr f) z m
+  foldl f z (WRadix m) = foldl (foldl f) z m
+
 -- | @'TrieMap' ('S.Vector' Word) a@ is a traditional radix trie specialized for word arrays.
 instance TrieKey (S.Vector Word) where
 	ks =? ls	= length ks == length ls && and (vZipWith (=?) ks ls)
@@ -101,9 +108,6 @@ instance TrieKey (S.Vector Word) where
 	mapMaybeM f (WRadix m) = WRadix (m >>= mapMaybeEdge f)
 	mapEitherM f (WRadix e) = both WRadix WRadix (mapEitherMaybe (mapEitherEdge f)) e
 	traverseM f (WRadix m) = WRadix <$> traverse (traverseEdge f) m
-
-	foldrM f (WRadix m) z = foldr (foldrEdge f) z m
-	foldlM f (WRadix m) z = foldl (foldlEdge f) z m
 
 	unionM f (WRadix m1) (WRadix m2) = WRadix (unionMaybe (unionEdge f) m1 m2)
 	isectM f (WRadix m1) (WRadix m2) = WRadix (isectMaybe (isectEdge f) m1 m2)

@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP #-}
+{-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, FlexibleInstances #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.WordMap (SNode, TrieMap(WordMap), getWordMap) where
 
@@ -12,11 +12,12 @@ import Control.Monad hiding (join)
 import Data.Bits
 import Data.Foldable
 import Data.Maybe hiding (mapMaybe)
+import Data.Monoid
 import Data.Word
 
 import GHC.Exts
 
-import Prelude hiding (lookup, null, foldl, foldr)
+import Prelude hiding (lookup, null, map, foldl, foldr, foldl1, foldr1)
 
 #include "MachDeps.h"
 #define NIL SNode{node = Nil}
@@ -68,9 +69,7 @@ instance TrieKey Word where
 	lookupM k (WordMap m) = lookup k m
 	insertWithM f k a (WordMap m) = WordMap (insertWith f k a m)
 	traverseM f (WordMap m) = WordMap <$> traverse f m
-	foldrM f (WordMap m) z = foldr f z m
-	foldlM f (WordMap m) z = foldl f z m
-	fmapM f (WordMap m) = WordMap (mapWithKey f m)
+	fmapM f (WordMap m) = WordMap (map f m)
 	mapMaybeM f (WordMap m) = WordMap (mapMaybe f m)
 	mapEitherM f (WordMap m) = both WordMap WordMap (mapEither f) m
 	unionM f (WordMap m1) (WordMap m2) = WordMap (unionWith f m1 m2)
@@ -186,27 +185,47 @@ traverse f (SNode _ t) = case t of
 	Bin p m l r	-> bin' p m <$> traverse f l <*> traverse f r
 
 instance Foldable SNode where
+  foldMap _ NIL = mempty
+  foldMap f TIP(_ x) = f x
+  foldMap f BIN(_ _ l r) = foldMap f l `mappend` foldMap f r
+
   foldr f z BIN(_ _ l r) = foldr f (foldr f z r) l
   foldr f z TIP(_ x) = f x z
   foldr _ z NIL = z
+  
   foldl f z BIN(_ _ l r) = foldl f (foldl f z l) r
   foldl f z TIP(_ x) = f z x
   foldl _ z NIL = z
+  
+  foldr1 _ NIL = error "Error: cannot call foldr1 on an empty map"
+  foldr1 _ TIP(_ x) = x
+  foldr1 f BIN(_ _ l r) = foldr f (foldr1 f r) l
+  
+  foldl1 _ NIL = error "Error: cannot call foldl1 on an empty map"
+  foldl1 _ TIP(_ x) = x
+  foldl1 f BIN(_ _ l r) = foldl f (foldl1 f l) r
 
-mapWithKey :: Sized b => (a -> b) -> SNode a -> SNode b
-mapWithKey f BIN(p m l r)	= bin' p m (mapWithKey f l) (mapWithKey f r)
-mapWithKey f TIP(kx x)	= singleton kx (f x)
-mapWithKey _ _				= nil
+instance Foldable (TrieMap Word) where
+  foldMap f (WordMap m) = foldMap f m
+  foldr f z (WordMap m) = foldr f z m
+  foldl f z (WordMap m) = foldl f z m
+  foldr1 f (WordMap m) = foldr1 f m
+  foldl1 f (WordMap m) = foldl1 f m
+
+map :: Sized b => (a -> b) -> SNode a -> SNode b
+map f BIN(p m l r)	= bin' p m (map f l) (map f r)
+map f TIP(kx x)		= singleton kx (f x)
+map _ _			= nil
 
 mapMaybe :: Sized b => (a -> Maybe b) -> SNode a -> SNode b
 mapMaybe f BIN(p m l r)	= bin p m (mapMaybe f l) (mapMaybe f r)
-mapMaybe f TIP(kx x)		= singletonMaybe  kx (f x)
-mapMaybe _ _				= nil
+mapMaybe f TIP(kx x)	= singletonMaybe  kx (f x)
+mapMaybe _ _		= nil
 
 mapEither :: (Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> 
 	SNode a -> (# SNode b, SNode c #)
 mapEither f BIN(p m l r) = both (bin p m lL) (bin p m lR) (mapEither f) r
-	where	!(# lL, lR #) = mapEither f l
+	where !(# lL, lR #) = mapEither f l
 mapEither f TIP(kx x)	= both (singletonMaybe kx) (singletonMaybe kx) f x
 mapEither _ _				= (# nil, nil #)
 
@@ -351,7 +370,7 @@ bin p m l@(SNode sl tl) r@(SNode sr tr) = case (tl, tr) of
   _		-> SNode (sl + sr) (Bin p m l r)
 
 bin' :: Prefix -> Mask -> SNode a -> SNode a -> SNode a
-bin' p m l@SNode{sz=sl} r@SNode{sz=sr} = assert (nonempty l) $ assert (nonempty r) $ SNode (sl + sr) (Bin p m l r)
+bin' p m l@SNode{sz=sl} r@SNode{sz=sr} = assert (nonempty l && nonempty r) $ SNode (sl + sr) (Bin p m l r)
   where	nonempty NIL = False
   	nonempty _ = True
 

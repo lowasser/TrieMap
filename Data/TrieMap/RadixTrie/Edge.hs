@@ -10,8 +10,10 @@ import Data.TrieMap.RadixTrie.Slice
 
 import Control.Applicative
 import Control.Monad
+
+import Data.Foldable (Foldable(..))
+import Data.Monoid
 import Data.Word
-import Data.Foldable (foldr, foldl)
 
 import Data.Vector.Generic (length)
 import qualified Data.Vector (Vector)
@@ -88,19 +90,21 @@ traverseEdge f = traverseE where
 	  Edge _ ks Nothing ts	-> edge ks Nothing <$> traverseM traverseE ts
 	  Edge _ ks (Just v) ts	-> edge ks . Just <$> f v <*> traverseM traverseE ts
 
-{-# SPECIALIZE foldrEdge ::
-      TrieKey k => (a -> b -> b) -> V(Edge) a -> b -> b,
-      (a -> b -> b) -> U(Edge) a -> b -> b #-}
-foldrEdge :: Label v k => (a -> b -> b) -> Edge v k a -> b -> b
-foldrEdge f = foldrE where
-  foldrE !(eView -> Edge _ _ v ts) z = foldr f (foldrM foldrE ts z) v
+instance Label v k => Foldable (EView v k) where
+  {-# INLINE foldr #-}
+  {-# INLINE foldl #-}
+  {-# INLINE foldMap #-}
+  foldMap f (Edge _ _ Nothing ts) = foldMap (foldMap f) ts
+  foldMap f (Edge _ _ (Just v) ts) = f v `mappend` foldMap (foldMap f) ts
+  foldr f z (Edge _ _ v ts) = foldr f (foldr (flip $ foldr f) z ts) v
+  foldl f z (Edge _ _ v ts) = foldl (foldl f) (foldl f z v) ts
 
-{-# SPECIALIZE foldlEdge ::
-      TrieKey k => (b -> a -> b) -> b -> V(Edge) a -> b,
-      (b -> a -> b) -> b -> U(Edge) a -> b #-}
-foldlEdge :: Label v k => (b -> a -> b) -> b -> Edge v k a -> b
-foldlEdge f = foldlE where
-  foldlE z !(eView -> Edge _ _ v ts) = foldlM foldlE ts (foldl f z v)
+instance Label v k => Foldable (Edge v k) where
+  {-# SPECIALIZE instance TrieKey k => Foldable (V(Edge)) #-}
+  {-# SPECIALIZE instance Foldable (U(Edge)) #-}
+  foldMap f e = foldMap f (eView e)
+  foldr f z e = foldr f z (eView e)
+  foldl f z e = foldl f z (eView e)
 
 {-# SPECIALIZE assignEdge ::
       (TrieKey k, Sized a) => a -> V(EdgeLoc) a -> V(Edge) a,

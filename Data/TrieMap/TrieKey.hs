@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts #-}
 
 module Data.TrieMap.TrieKey where
 
@@ -40,13 +40,9 @@ onThird :: (d -> e) -> (a -> (# Int, c, d #)) -> a -> (# Int, c, e #)
 onThird g f a = case f a of
 	(# b, c, d #) -> (# b, c, g d #)
 
-instance TrieKey k => Foldable (TrieMap k) where
-	foldr f = flip $ foldrM f
-	foldl f = flip $ foldlM f
-
 -- | A @TrieKey k@ instance implies that @k@ is a standardized representation for which a
 -- generalized trie structure can be derived.
-class TrieKey k where
+class Foldable (TrieMap k) => TrieKey k where
 	(=?) :: k -> k -> Bool
 	cmp :: k -> k -> Ordering
 
@@ -61,8 +57,6 @@ class TrieKey k where
 	fmapM :: Sized b => (a -> b) -> TrieMap k a -> TrieMap k b
 	traverseM :: (Applicative f, Sized b) =>
 		(a -> f b) -> TrieMap k a -> f (TrieMap k b)
-	foldrM :: (a -> b -> b) -> TrieMap k a -> b -> b
-	foldlM :: (b -> a -> b) -> TrieMap k a -> b -> b
 	mapMaybeM :: Sized b => (a -> Maybe b) -> TrieMap k a -> TrieMap k b
 	mapEitherM :: (Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> TrieMap k a -> (# TrieMap k b, TrieMap k c #)
 	unionM :: Sized a => (a -> a -> Maybe a) -> TrieMap k a -> TrieMap k a -> TrieMap k a
@@ -183,7 +177,7 @@ both g1 g2 f a = case f a of
 	(# x, y #) -> (# g1 x, g2 y #)
 
 elemsM :: TrieKey k => TrieMap k a -> [a]
-elemsM m = build (\ f z -> foldrM f m z)
+elemsM m = build (\ f z -> foldr f z m)
 
 mapEitherMaybe :: (a -> (# Maybe b, Maybe c #)) -> Maybe a -> (# Maybe b, Maybe c #)
 mapEitherMaybe f (Just a) = f a
