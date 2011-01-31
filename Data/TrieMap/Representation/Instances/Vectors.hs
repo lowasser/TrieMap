@@ -160,3 +160,34 @@ packStream (Stream step s0 size) = Stream step' s0' size'
 		  | otherwise	-> return $ Yield (w .<<. (i * bitSize (0 :: w))) End
 	    Skip s'		-> return $ Skip (PackState w i s')
 	    Yield ww s'		-> return $ Skip (PackState ((w .<<. bitSize (0 :: w)) .|. fromIntegral ww) (i-1) s')
+
+instance Repr (S.Vector Bool) where
+  type Rep (S.Vector Bool) = (S.Vector Word, Word)
+  toRep !xs = (unstream (packBoolStream (stream xs)), fromIntegral $ G.length xs)
+  DefList(S.Vector Bool)
+
+instance Repr (U.Vector Bool) where
+  type Rep (U.Vector Bool) = (S.Vector Word, Word)
+  toRep !xs = (unstream (packBoolStream (stream xs)), fromIntegral $ G.length xs)
+  DefList(U.Vector Bool)
+
+{-# INLINE packBoolStream #-}
+packBoolStream :: Monad m => Stream m Bool -> Stream m Word
+packBoolStream (Stream step s0 size) = Stream step' s0' size'
+  where	!ratio = wordSize
+	size' = case size of
+	  Exact n	-> Exact $ (n + ratio - 1) `quoPow` ratio
+	  Max n		-> Max $ (n + ratio - 1) `quoPow` ratio
+	  Unknown	-> Unknown
+	s0' = PackState 0 ratio s0
+	toW False = 0
+	toW True = 1
+	step' End = return Done
+	step' (PackState w 0 s) = return $ Yield w (PackState 0 ratio s)
+	step' (PackState w i s) = do
+	  s' <- step s
+	  case s' of
+	    Done  | i == ratio	-> return Done
+		  | otherwise	-> return $ Yield (w .<<. i) End
+	    Skip s'		-> return $ Skip (PackState w i s')
+	    Yield ww s'		-> return $ Skip (PackState ((w .<<. 1) .|. toW ww) (i-1) s')
