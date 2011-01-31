@@ -227,7 +227,7 @@ extractEdgeLoc !(eView -> Edge _ ks v ts) path = case v of
 {-# SPECIALIZE INLINE indexEdge :: 
       (TrieKey k, Sized a) => Int -> V(Edge) a -> V(Path) a -> (# Int, a, V(EdgeLoc) a #),
       Sized a => Int -> U(Edge) a -> U(Path) a -> (# Int, a, U(EdgeLoc) a #) #-}
-indexEdge :: (Label v k, Sized a) => Int -> Edge v k a -> Path v k a -> (# Int#, a, EdgeLoc v k a #)
+indexEdge :: (Label v k, Sized a) => Int -> Edge v k a -> Path v k a -> (# Int, a, EdgeLoc v k a #)
 indexEdge = indexE where
   indexE !i e path = case eView e of
     Edge _ ks v@(Just a) ts
