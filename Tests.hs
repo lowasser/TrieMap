@@ -1,19 +1,39 @@
-{-# LANGUAGE TemplateHaskell, TypeFamilies, GADTs, ExistentialQuantification, CPP, ViewPatterns #-}
+{-# LANGUAGE TemplateHaskell, TypeFamilies, GADTs, ExistentialQuantification, CPP, ViewPatterns, TemplateHaskell, QuasiQuotes,
+	UndecidableInstances #-}
 
 module Tests (main) where
 
 import Control.Monad
+import Control.Applicative
 import qualified Data.TrieMap as T
 import qualified Data.Map as M
+import Data.List (foldl')
+import Data.TrieMap.Representation
 import Test.QuickCheck
 import Prelude hiding (null, lookup)
 import Data.ByteString (ByteString, pack)
 import qualified Data.ByteString as BS
-type Key = ByteString
-type Val = [Integer]
+type Val = [Int]
 
 main :: IO ()
-main = quickCheckWith stdArgs{maxSuccess = 100} (verify M.empty T.empty .&&. conjoin concretes)
+main = quickCheckWith stdArgs{maxSuccess = 1000} (verify M.empty T.empty .&&. conjoin concretes)
+
+data Key = A (ByteString, Int) | B Int ByteString | C [Bool] | D [Char] | E (Either String Int) deriving (Eq, Ord, Show)
+
+hash :: Key -> Int
+hash (A (bs, i)) = BS.foldl' (\ i w -> i * 31 + fromIntegral w) i bs
+hash (B i bs)	= BS.foldl' (\ i w -> i * 61 + fromIntegral w) i bs
+hash (C bs)	= length bs
+hash (D cs)	= foldl' (\ i w -> i * 91 + fromEnum w) 0 cs
+hash (E (Left cs))	= foldl' (\ i w -> i * 255 + fromEnum w) 0 cs
+hash (E (Right i))	= i
+
+instance Arbitrary Key where
+	arbitrary = oneof [A <$> arbitrary,
+				B <$> arbitrary <*> arbitrary,
+				C <$> arbitrary,
+				D <$> arbitrary,
+				E <$> arbitrary]
 
 instance Arbitrary ByteString where
 	arbitrary = liftM pack arbitrary
@@ -81,16 +101,16 @@ data Operation r where
 	UpdateMin :: Operation ()
 
 mapFunc :: Key -> Val -> Val
-mapFunc ks xs = fromIntegral (BS.length ks):xs
+mapFunc ks xs = fromIntegral (hash ks):xs
 
 mapMaybeFunc :: Key -> Val -> Maybe Val
 mapMaybeFunc ks xs
-	| even k	= Just (fromIntegral k:xs)
-	where k = BS.length ks
+	| even h	= Just (fromIntegral h:xs)
+	where h = hash ks
 mapMaybeFunc _ _ = Nothing
 
 isectFunc :: Key -> Val -> Val -> Val
-isectFunc ks xs ys = [fromIntegral $ BS.length ks] ++ xs ++ ys
+isectFunc ks xs ys = [fromIntegral $ hash ks] ++ xs ++ ys
 
 generateMap :: M.Map Key Val -> [Op] -> M.Map Key Val
 generateMap = foldl (\ mm (Op op) -> snd (operateMap mm op))
@@ -181,3 +201,6 @@ concretes = [
 	printTestCase "comparisons are correct"
 	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,maxBound], "a")] in T.assocs (T.fromList input) == input)
 	]
+
+$(genRepr ''Key)
+>>>>>>> 46eeaf5a7b259df1a9c17f57d431194247c3f35c
