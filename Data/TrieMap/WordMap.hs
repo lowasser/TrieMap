@@ -13,7 +13,6 @@ import Data.Bits
 import Data.Foldable
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
-import Data.Word
 
 import GHC.Exts
 

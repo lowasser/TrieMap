@@ -14,7 +14,6 @@ import Control.Monad
 import Data.Foldable (Foldable(..))
 import Data.Monoid
 import Data.Word
-import Data.Foldable (Foldable(..))
 
 import Data.Vector.Generic (length)
 import qualified Data.Vector (Vector)
