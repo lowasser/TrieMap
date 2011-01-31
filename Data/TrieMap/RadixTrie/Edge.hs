@@ -18,8 +18,6 @@ import qualified Data.Vector (Vector)
 import qualified Data.Vector.Storable (Vector)
 import Prelude hiding (length, foldr, foldl, zip, take)
 
-import GHC.Exts
-
 #define V(f) f (Data.Vector.Vector) (k)
 #define U(f) f (Data.Vector.Storable.Vector) (Word)
 
@@ -227,19 +225,19 @@ extractEdgeLoc !(eView -> Edge _ ks v ts) path = case v of
 				extractEdgeLoc e' (deep path ks v tHole)
 
 {-# SPECIALIZE indexEdge :: 
-    (TrieKey k, Sized a) => Int# -> V(Edge) a -> V(Path) a -> (# Int#, a, V(EdgeLoc) a #),
-    Sized a => Int# -> U(Edge) a -> U(Path) a -> (# Int#, a, U(EdgeLoc) a #) #-}
-indexEdge :: (Label v k, Sized a) => Int# -> Edge v k a -> Path v k a -> (# Int#, a, EdgeLoc v k a #)
+    (TrieKey k, Sized a) => Int -> V(Edge) a -> V(Path) a -> (# Int, a, V(EdgeLoc) a #),
+    Sized a => Int -> U(Edge) a -> U(Path) a -> (# Int, a, U(EdgeLoc) a #) #-}
+indexEdge :: (Label v k, Sized a) => Int -> Edge v k a -> Path v k a -> (# Int, a, EdgeLoc v k a #)
 indexEdge = indexE where
-  indexE i# e path = case eView e of
+  indexE !i e path = case eView e of
     Edge _ ks v@(Just a) ts
-	  | i# <# sv#	-> (# i#, a, Loc ks ts path #)
-	  | (# i'#, e', tHole #) <- indexM (i# -# sv#) ts
-			-> indexE i'# e' (deep path ks v tHole)
-	  where	!sv# = getSize# a
+	  | i < sv	-> (# i, a, Loc ks ts path #)
+	  | (# i', e', tHole #) <- indexM (i - sv) ts
+			-> indexE i' e' (deep path ks v tHole)
+	  where	!sv = getSize a
     Edge _ ks Nothing ts
-			  -> indexE i'# e' (deep path ks Nothing tHole)
-	  where !(# i'#, e', tHole #) = indexM i# ts
+			  -> indexE i' e' (deep path ks Nothing tHole)
+	  where !(# i', e', tHole #) = indexM i ts
 
 {-# SPECIALIZE unifyEdge :: (TrieKey k, Sized a) => V() -> a -> V() -> a -> V(MEdge) a #-}
 {-# SPECIALIZE unifyEdge :: Sized a => U() -> a -> U() -> a -> U(MEdge) a #-}
@@ -260,9 +258,9 @@ unifyEdge ks1 a1 ks2 a2 = iMatchSlice matcher matches ks1 ks2 where
 {-# SPECIALIZE insertEdge :: Sized a => (a -> a -> a) -> U() -> a -> U(Edge) a -> U(Edge) a #-}
 insertEdge :: (Label v k, Sized a) => (a -> a -> a) -> v k -> a -> Edge v k a -> Edge v k a
 insertEdge f ks a = insertE ks where
-  !sa# = getSize# a
+  !sa = getSize a
   insertE ks !e@(eView -> Edge _ ls !v ts) = iMatchSlice matcher matches ks ls where
-    single n = edge' sa# (dropSlice n ks) (Just a) emptyM
+    single n = edge' sa (dropSlice n ks) (Just a) emptyM
     matcher !i k l z = case unifyM k (single (i+1)) l (dropEdge (i+1) e) of
       Nothing	-> z
       Just ts	-> edge (takeSlice i ks) Nothing ts

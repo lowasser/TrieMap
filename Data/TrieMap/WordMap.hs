@@ -28,27 +28,28 @@ type Nat = Word
 type Prefix = Word
 type Mask   = Word
 type Key    = Word
-type Size   = Int#
+type Size   = Int
 
 data Path a = Root 
 	| LeftBin !Prefix !Mask (Path a) !(SNode a)
 	| RightBin !Prefix !Mask !(SNode a) (Path a)
 
-data SNode a = SNode {_sSize :: !Size, node :: (Node a)}
+data SNode a = SNode {sz :: !Size, node :: (Node a)}
 {-# ANN type SNode ForceSpecConstr #-}
 data Node a = Nil | Tip !Key a | Bin !Prefix !Mask !(SNode a) !(SNode a)
 {-# ANN type Node ForceSpecConstr #-}
 
 instance Sized (SNode a) where
-  getSize# (SNode sz# _) = sz#
+  getSize# t = unbox (sz t)
 
 instance Sized a => Sized (Node a) where
-  getSize# Nil	= 0#
-  getSize# (Tip _ a) = getSize# a
-  getSize# (Bin _ _ l r) = getSize# l +# getSize# r
+  getSize# t = unbox $ case t of
+    Nil		-> 0
+    Tip _ a	-> getSize a
+    Bin _ _ l r	-> getSize l + getSize r
 
 sNode :: Sized a => Node a -> SNode a
-sNode !n = SNode (getSize# n) n
+sNode !n = SNode (getSize n) n
 
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
@@ -63,7 +64,7 @@ instance TrieKey Word where
 	  Nil		-> Null
 	  Tip _ a	-> Singleton a
 	  _		-> NonSimple
-	sizeM (WordMap t) = getSize# t
+	sizeM (WordMap t) = getSize t
 	lookupM k (WordMap m) = lookup k m
 	insertWithM f k a (WordMap m) = WordMap (insertWith f k a m)
 	traverseM f (WordMap m) = WordMap <$> traverse f m
@@ -84,13 +85,13 @@ instance TrieKey Word where
 	afterWithM a (Hole k path) = WordMap (after (singleton k a) path)
 
 	searchM !k (WordMap t) = onSnd (Hole k) (search k Root) t
-	indexM i# (WordMap m) = indexT i# m Root where
-		indexT _ (SNode _ Nil) _ = indexFail ()
-		indexT i# TIP(kx x) path = (# i#, x, Hole kx path #)
-		indexT i# BIN(p m l r) path
-			| i# <# sl#	= indexT i# l (LeftBin p m path r)
-			| otherwise	= indexT (i# -# sl#) r (RightBin p m l path)
-			where !sl# = getSize# l
+	indexM i (WordMap m) = indexT i m Root where
+		indexT !i TIP(kx x) path = (# i, x, Hole kx path #)
+		indexT !i BIN(p m l r) path
+			| i < sl	= indexT i l (LeftBin p m path r)
+			| otherwise	= indexT (i - sl) r (RightBin p m l path)
+			where !sl = getSize l
+		indexT _ NIL _		= indexFail ()
 	extractHoleM (WordMap m) = extractHole Root m where
 		extractHole _ (SNode _ Nil) = mzero
 		extractHole path TIP(kx x) = return (x, Hole kx path)
@@ -341,16 +342,16 @@ join p1 t1 p2 t2
     p = mask p1 m
 
 nil :: SNode a
-nil = SNode 0# Nil
+nil = SNode 0 Nil
 
 bin :: Prefix -> Mask -> SNode a -> SNode a -> SNode a
-bin p m l@(SNode sl# tl) r@(SNode sr# tr) = case (tl, tr) of
+bin p m l@(SNode sl tl) r@(SNode sr tr) = case (tl, tr) of
   (Nil, _)	-> r
   (_, Nil)	-> l
-  _		-> SNode (sl# +# sr#) (Bin p m l r)
+  _		-> SNode (sl + sr) (Bin p m l r)
 
 bin' :: Prefix -> Mask -> SNode a -> SNode a -> SNode a
-bin' p m l r = assert (nonempty l) $ assert (nonempty r) $ SNode (getSize# l +# getSize# r) (Bin p m l r)
+bin' p m l@SNode{sz=sl} r@SNode{sz=sr} = assert (nonempty l) $ assert (nonempty r) $ SNode (sl + sr) (Bin p m l r)
   where	nonempty NIL = False
   	nonempty _ = True
 

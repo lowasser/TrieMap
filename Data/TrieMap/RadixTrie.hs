@@ -37,7 +37,7 @@ instance TrieKey k => TrieKey (Vector k) where
 	singletonM ks a = Radix (Just (singletonEdge ks a))
 	getSimpleM (Radix Nothing)	= Null
 	getSimpleM (Radix (Just e))	= getSimpleEdge e
-	sizeM (Radix m) = getSize# m
+	sizeM (Radix m) = getSize m
 	lookupM ks (Radix m) = m >>= lookupEdge ks
 
 	fmapM f (Radix m) = Radix (mapEdge f <$> m)
@@ -94,7 +94,7 @@ instance TrieKey (S.Vector Word) where
 	singletonM ks a = WRadix (Just (singletonEdge ks a))
 	getSimpleM (WRadix Nothing)	= Null
 	getSimpleM (WRadix (Just e))	= getSimpleEdge e
-	sizeM (WRadix m) = getSize# m
+	sizeM (WRadix m) = getSize m
 	lookupM ks (WRadix m) = m >>= lookupEdge ks
 
 	fmapM f (WRadix m) = WRadix (mapEdge f <$> m)

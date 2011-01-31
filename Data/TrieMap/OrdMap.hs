@@ -25,7 +25,7 @@ data Path k a =
 data Node k a =
   Tip
   | Bin k a !(SNode k a) !(SNode k a)
-data SNode k a = SNode{sz :: Int#, count :: !Int, node :: Node k a}
+data SNode k a = SNode{sz :: !Int, count :: !Int, node :: Node k a}
 
 #define TIP SNode{node=Tip}
 #define BIN(args) SNode{node=Bin args}
@@ -35,17 +35,18 @@ instance Sized a => Sized (Node k a) where
   getSize# (Bin _ a l r) = getSize# a +# getSize# l +# getSize# r
 
 instance Sized (SNode k a) where
-  getSize# = sz
+  getSize# SNode{sz = I# sz#} = sz#
 
 nCount :: Node k a -> Int
 nCount Tip = 0
 nCount (Bin _ _ l r) = 1 + count l + count r
 
 sNode :: Sized a => Node k a -> SNode k a
-sNode !n = SNode (getSize# n) (nCount n) n
+sNode !n = SNode (getSize n) (nCount n) n
 
 tip :: SNode k a
-tip = SNode 0# 0 Tip
+tip = SNode 0 0 Tip
+
 -- | @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
 instance Ord k => TrieKey (Ordered k) where
 	Ord k1 =? Ord k2	= k1 == k2
@@ -64,7 +65,7 @@ instance Ord k => TrieKey (Ordered k) where
 		BIN(_ a TIP TIP)
 			-> Singleton a
 		_	-> NonSimple
-	sizeM (OrdMap m) = getSize# m
+	sizeM (OrdMap m) = sz m
 	traverseM f (OrdMap m) = OrdMap  <$> traverse f m
 	foldrM f (OrdMap m) z = foldr f z m
 	foldlM f (OrdMap m) z = foldl f z m
@@ -88,13 +89,13 @@ instance Ord k => TrieKey (Ordered k) where
 	afterWithM a (Empty k path) = OrdMap $ after (singleton k a) path
 	afterWithM a (Full k path _ r) = OrdMap $ after (insertMin k a r) path
 	searchM (Ord k) (OrdMap m) = search k Root m
-	indexM i# (OrdMap m) = indexT Root i# m where
-		indexT path i# BIN(kx x l r) 
-		  | i# <# sl#	= indexT (LeftBin kx x path r) i# l
-		  | i# <# sx#	= (# i# -# sl#, x, Full kx path l r #)
-		  | otherwise	= indexT (RightBin kx x l path) (i# -# sx#) r
-			where	!sl# = getSize# l
-				!sx# = getSize# x +# sl#
+	indexM i (OrdMap m) = indexT Root i m where
+		indexT path i BIN(kx x l r) 
+		  | i < sl	= indexT (LeftBin kx x path r) i l
+		  | i < sx	= (# i - sl, x, Full kx path l r #)
+		  | otherwise	= indexT (RightBin kx x l path) (i - sx) r
+			where	!sl = getSize l
+				!sx = getSize x + sl
 		indexT _ _ _ = indexFail ()
 	extractHoleM (OrdMap m) = extractHole Root m where
 		extractHole path BIN(kx x l r) =

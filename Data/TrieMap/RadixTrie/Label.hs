@@ -22,7 +22,7 @@ class (Vector v k, TrieKey k) => Label v k where
   data Edge v k :: * -> *
   data Path v k :: * -> *
   edge :: Sized a => v k -> Maybe a -> Branch v k a -> Edge v k a
-  edge' :: Int# -> v k -> Maybe a -> Branch v k a -> Edge v k a
+  edge' :: Int -> v k -> Maybe a -> Branch v k a -> Edge v k a
   root :: Path v k a
   deep :: Path v k a -> v k -> Maybe a -> BHole v k a -> Path v k a
   
@@ -33,14 +33,14 @@ type BHole v k a = Hole k (Edge v k a)
 
 type Branch v k a = TrieMap k (Edge v k a)
 data EView v k a =
-	Edge Int# (v k) (Maybe a) (Branch v k a)
+	Edge Int (v k) (Maybe a) (Branch v k a)
 data EdgeLoc v k a = Loc !( v k) (Branch v k a) (Path v k a)
 data PView v k a = Root
 	| Deep (Path v k a) (v k) (Maybe a) (BHole v k a)
 type MEdge v k a = Maybe (Edge v k a)
 
 instance Sized (EView v k a) where
-  getSize# (Edge sz# _ _ _) = sz#
+  getSize# (Edge (I# sz#) _ _ _) = sz#
 
 instance Label v k => Sized (Edge v k a) where
   {-# SPECIALIZE instance TrieKey k => Sized (Edge V.Vector k a) #-}
@@ -48,17 +48,17 @@ instance Label v k => Sized (Edge v k a) where
 
 instance TrieKey k => Label V.Vector k where
   data Edge V.Vector k a =
-    VEdge Int# !(V()) (V(Branch) a)
-    | VEdgeX Int# !(V()) a (V(Branch) a)
+    VEdge Int !(V()) (V(Branch) a)
+    | VEdgeX Int !(V()) a (V(Branch) a)
   data Path V.Vector k a =
     VRoot
     | VDeep (V(Path) a) !(V()) (V(BHole) a)
     | VDeepX (V(Path) a) !(V()) a (V(BHole) a)
   
   edge !ks Nothing ts = VEdge (sizeM ts) ks ts
-  edge !ks (Just a) ts = VEdgeX (sizeM ts +# getSize# a) ks a ts
-  edge' s# !ks Nothing ts = VEdge s# ks ts
-  edge' s# !ks (Just a) ts = VEdgeX s# ks a ts
+  edge !ks (Just a) ts = VEdgeX (sizeM ts + getSize a) ks a ts
+  edge' s !ks Nothing ts = VEdge s ks ts
+  edge' s !ks (Just a) ts = VEdgeX s ks a ts
   
   root = VRoot
   deep path !ks Nothing tHole = VDeep path ks tHole
@@ -72,15 +72,15 @@ instance TrieKey k => Label V.Vector k where
 
 instance Label S.Vector Word where
   data Edge S.Vector Word a =
-    SEdge Int# !(U()) !(SNode (U(Edge) a))
-    | SEdgeX Int# !(U()) a !(SNode (U(Edge) a))
+    SEdge !Int !(U()) !(SNode (U(Edge) a))
+    | SEdgeX !Int !(U()) a !(SNode (U(Edge) a))
   data Path S.Vector Word a =
     SRoot
     | SDeep (U(Path) a) !(U()) !(U(BHole) a)
     | SDeepX (U(Path) a) !(U()) a !(U(BHole) a)
   
   edge !ks Nothing ts = SEdge (sizeM ts) ks (getWordMap ts)
-  edge !ks (Just v) ts = SEdgeX (getSize# v +# sizeM ts) ks v (getWordMap ts)
+  edge !ks (Just v) ts = SEdgeX (getSize v + sizeM ts) ks v (getWordMap ts)
   edge' sz# !ks Nothing ts = SEdge sz# ks (getWordMap ts)
   edge' sz# !ks (Just v) ts = SEdgeX sz# ks v (getWordMap ts)
   
