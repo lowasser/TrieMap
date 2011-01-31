@@ -1,5 +1,4 @@
-{-# LANGUAGE TemplateHaskell, TypeFamilies, GADTs, ExistentialQuantification, CPP, ViewPatterns, TemplateHaskell, QuasiQuotes,
-	UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell, TypeFamilies, GADTs, ExistentialQuantification, CPP, UndecidableInstances #-}
 
 module Tests (main) where
 
