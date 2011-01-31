@@ -2,8 +2,10 @@
 module Data.TrieMap.Representation.Instances.Basic () where
 
 import Data.TrieMap.Representation.TH
+import Data.TrieMap.Representation.Class
 
 import Control.Monad
+import Data.Word
 
 import Language.Haskell.TH
 
@@ -13,6 +15,10 @@ genOrdRepr ''Float
 genOrdRepr ''Double
 genRepr ''Maybe
 genRepr ''Either
-genRepr ''Bool
-genRepr ''()
 genRepr ''Ordering
+
+instance Repr () where
+	type Rep () = ()
+	toRep _ = ()
+	type RepList () = Word
+	toRepList = fromIntegral . length

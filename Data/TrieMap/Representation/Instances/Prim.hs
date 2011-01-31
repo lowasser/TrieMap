@@ -10,6 +10,7 @@ import Data.Int
 import Data.Char
 import Data.Bits
 import Data.Vector.Storable
+import qualified Data.Vector.Unboxed as U
 import Prelude hiding (map)
 
 #define WDOC(ty) {-| @'Rep' 'ty' = 'Word'@ -}
@@ -63,3 +64,10 @@ IREPR(Int32,Word32)
 IREPR(Int64,Word64)
 -- | @'Rep' 'Int' = 'Word'@, by way of a careful translation of their domains to avoid overflow.
 IREPR(Int,Word)
+
+instance Repr Bool where
+  type Rep Bool = Either () ()
+  toRep False = Left ()
+  toRep True = Right ()
+  type RepList Bool = Rep (U.Vector Bool)
+  toRepList xs = toRep (U.fromList xs)
