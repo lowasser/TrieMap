@@ -9,8 +9,8 @@ import Data.TrieMap.UnitMap ()
 import Control.Applicative
 import Control.Monad
 
-import Data.Foldable (foldr)
-import Prelude hiding (foldr, (^))
+import Data.Foldable (Foldable(..))
+import Prelude hiding (foldr, foldl, (^))
 
 (&) :: (TrieKey k1, TrieKey k2, Sized a) => TrieMap k1 a -> TrieMap k2 a -> TrieMap (Either k1 k2) a
 m1 & m2 = guardNullM m1 ^ guardNullM m2
@@ -33,7 +33,11 @@ singletonR k a = K2 (singletonM k a)
 
 data UView k1 k2 a = UView (Maybe (TrieMap k1 a)) (Maybe (TrieMap k2 a))
 data HView k1 k2 a = Hole1 (Hole k1 a) (Maybe (TrieMap k2 a))
-		    | Hole2 (Maybe (TrieMap k1 a)) (Hole k2 a)
+		    | Hole2 (Maybe (TrieMap k1 a)) (Hole k2 a)		    
+
+instance (TrieKey k1, TrieKey k2) => Foldable (UView k1 k2) where
+  foldr f z (UView m1 m2) = foldr (foldrM f) (foldr (foldrM f) z m2) m1
+  foldl f z (UView m1 m2) = foldr (foldlM f) (foldr (foldlM f) z m1) m2
 
 uView :: TrieMap (Either k1 k2) a -> UView k1 k2 a
 uView Empty = UView Nothing Nothing
@@ -103,9 +107,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	traverseM f (K2 m2) = K2 <$> traverseM f m2
 	traverseM _ _ = pure Empty
 
-	foldrM f (UVIEW m1 m2) z = foldr (foldrM f) (foldr (foldrM f) z m2) m1
-
-	foldlM f (UVIEW m1 m2) z = foldr (foldlM f) (foldr (foldlM f) z m1) m2
+	foldrM f m z = foldr f z (uView m)
+	foldlM f m z = foldl f z (uView m)
 
 	fmapM f (Union _ m1 m2) = fmapM f m1 `union` fmapM f m2
 	fmapM f (K1 m1)		= K1 (fmapM f m1)
