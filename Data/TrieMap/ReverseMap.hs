@@ -1,13 +1,18 @@
-{-# LANGUAGE TypeFamilies, MagicHash, UnboxedTuples, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeFamilies, MagicHash, UnboxedTuples, GeneralizedNewtypeDeriving, FlexibleInstances #-}
 module Data.TrieMap.ReverseMap () where
 
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Ends
 
+import Data.Foldable
+import qualified Data.Monoid as M
+
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Modifiers
 import Data.TrieMap.Sized
+
+import Prelude hiding (foldr, foldl, foldr1, foldl1)
 
 newtype DualPlus m a = DualPlus {runDualPlus :: m a} deriving (Functor, Monad)
 newtype Dual f a = Dual {runDual :: f a} deriving (Functor)
@@ -19,6 +24,13 @@ instance Applicative f => Applicative (Dual f) where
 instance MonadPlus m => MonadPlus (DualPlus m) where
   mzero = DualPlus mzero
   DualPlus m `mplus` DualPlus k = DualPlus (k `mplus` m)
+
+instance TrieKey k => Foldable (TrieMap (Rev k)) where
+  foldMap f (RevMap m) = M.getDual (foldMap (M.Dual . f) m)
+  foldr f z (RevMap m) = foldl (flip f) z m
+  foldl f z (RevMap m) = foldr (flip f) z m
+  foldr1 f (RevMap m) = foldl1 (flip f) m
+  foldl1 f (RevMap m) = foldr1 (flip f) m
 
 -- | @'TrieMap' ('Rev' k) a@ is a wrapper around a @'TrieMap' k a@ that reverses the order of the operations.
 instance TrieKey k => TrieKey (Rev k) where
@@ -37,9 +49,6 @@ instance TrieKey k => TrieKey (Rev k) where
 	
 	fmapM f (RevMap m) = RevMap (fmapM f m)
 	traverseM f (RevMap m) = RevMap <$> runDual (traverseM (Dual . f) m)
-	
-	foldlM f (RevMap m) = foldrM (flip f) m
-	foldrM f (RevMap m) = foldlM (flip f) m
 	
 	mapMaybeM f (RevMap m) = RevMap (mapMaybeM f m)
 	mapEitherM f (RevMap m) = both RevMap RevMap (mapEitherM f) m

@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, PatternGuards, MagicHash, CPP, TupleSections, NamedFieldPuns #-}
+{-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, PatternGuards, MagicHash, CPP, TupleSections, NamedFieldPuns, FlexibleInstances #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.OrdMap () where
 
@@ -7,10 +7,12 @@ import Data.TrieMap.Sized
 import Data.TrieMap.Modifiers
 
 import Control.Applicative
-import Data.Foldable
 import Control.Monad hiding (join)
 
-import Prelude hiding (lookup, foldr, foldl, map)
+import Data.Foldable
+import Data.Monoid
+
+import Prelude hiding (lookup, foldr, foldl, foldr1, foldl1, map)
 
 #define DELTA 5
 #define RATIO 2
@@ -66,8 +68,6 @@ instance Ord k => TrieKey (Ordered k) where
 		_	-> NonSimple
 	sizeM (OrdMap m) = sz m
 	traverseM f (OrdMap m) = OrdMap  <$> traverse f m
-	foldrM f (OrdMap m) z = foldr f z m
-	foldlM f (OrdMap m) z = foldl f z m
 	fmapM f (OrdMap m) = OrdMap (map f m)
 	mapMaybeM f (OrdMap m) = OrdMap (mapMaybe f m)
 	mapEitherM f (OrdMap m) = both OrdMap OrdMap (mapEither f) m
@@ -141,10 +141,28 @@ traverse _ TIP = pure tip
 traverse f BIN(k a l r) = balance k <$> f a <*> traverse f l <*> traverse f r
 
 instance Foldable (SNode k) where
+  foldMap _ TIP = mempty
+  foldMap f BIN(_ a l r) = foldMap f l `mappend` f a `mappend` foldMap f r
+
   foldr _ z TIP	= z
   foldr f z BIN(_ a l r) = foldr f (a `f` foldr f z r) l
   foldl _ z TIP = z
   foldl f z BIN(_ a l r) = foldl f (foldl f z l `f` a) r
+  
+  foldr1 _ TIP = error "Error: cannot call foldr1 on an empty map"
+  foldr1 f BIN(_ a l TIP) = foldr f a l
+  foldr1 f BIN(_ a l r) = foldr f (a `f` foldr1 f r) l
+  
+  foldl1 _ TIP = error "Error: cannot call foldl1 on an empty map"
+  foldl1 f BIN(_ a TIP r) = foldl f a r
+  foldl1 f BIN(_ a l r) = foldl f (foldl1 f l `f` a) r
+
+instance Foldable (TrieMap (Ordered k)) where
+  foldMap f (OrdMap m) = foldMap f m
+  foldr f z (OrdMap m) = foldr f z m
+  foldl f z (OrdMap m) = foldl f z m
+  foldl1 f (OrdMap m) = foldl1 f m
+  foldr1 f (OrdMap m) = foldr1 f m
 
 map :: (Ord k, Sized b) => (a -> b) -> SNode k a -> SNode k b
 map f BIN(k a l r) = join k (f a) (map f l) (map f r)

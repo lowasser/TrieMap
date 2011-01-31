@@ -1,15 +1,17 @@
-{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE MagicHash, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 
 module Data.TrieMap.Sized where
 
+import Data.Foldable
+import Data.Traversable
 import GHC.Exts
 
 class Sized a where
 	getSize# :: a -> Int#
 
-data Assoc k a = Assoc {getK :: k, getValue :: a}
+data Assoc k a = Assoc {getK :: k, getValue :: a} deriving (Functor, Foldable, Traversable)
 
-newtype Elem a = Elem {getElem :: a}
+newtype Elem a = Elem {getElem :: a} deriving (Functor, Foldable, Traversable)
 
 instance Sized (Elem a) where
 	getSize# _ = 1#

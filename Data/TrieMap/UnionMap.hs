@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, TypeFamilies, PatternGuards, ViewPatterns, MagicHash, CPP, BangPatterns #-}
+{-# LANGUAGE UnboxedTuples, TypeFamilies, PatternGuards, ViewPatterns, MagicHash, CPP, BangPatterns, FlexibleInstances #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.UnionMap () where
 
@@ -9,8 +9,9 @@ import Data.TrieMap.UnitMap ()
 import Control.Applicative
 import Control.Monad
 
+import Data.Monoid
 import Data.Foldable (Foldable(..))
-import Prelude hiding (foldr, foldl, (^))
+import Prelude hiding (foldr, foldr1, foldl, foldl1, (^))
 
 (&) :: (TrieKey k1, TrieKey k2, Sized a) => TrieMap k1 a -> TrieMap k2 a -> TrieMap (Either k1 k2) a
 m1 & m2 = guardNullM m1 ^ guardNullM m2
@@ -35,10 +36,6 @@ data UView k1 k2 a = UView (Maybe (TrieMap k1 a)) (Maybe (TrieMap k2 a))
 data HView k1 k2 a = Hole1 (Hole k1 a) (Maybe (TrieMap k2 a))
 		    | Hole2 (Maybe (TrieMap k1 a)) (Hole k2 a)		    
 
-instance (TrieKey k1, TrieKey k2) => Foldable (UView k1 k2) where
-  foldr f z (UView m1 m2) = foldr (foldrM f) (foldr (foldrM f) z m2) m1
-  foldl f z (UView m1 m2) = foldr (foldlM f) (foldr (foldlM f) z m1) m2
-
 uView :: TrieMap (Either k1 k2) a -> UView k1 k2 a
 uView Empty = UView Nothing Nothing
 uView (K1 m1) = UView (Just m1) Nothing
@@ -60,6 +57,29 @@ hole2 Nothing hole2 = Hole0X hole2
 hole2 (Just m1) hole2 = Hole1X m1 hole2
 
 #define UVIEW uView -> UView
+
+instance (TrieKey k1, TrieKey k2) => Foldable (UView k1 k2) where
+  {-# INLINE foldr #-}
+  {-# INLINE foldl #-}
+  {-# INLINE foldMap #-}
+  foldMap f (UView m1 m2) = foldMap (foldMap f) m1 `mappend` foldMap (foldMap f) m2
+  foldr f z (UView m1 m2) = foldl (foldr f) (foldl (foldr f) z m2) m1
+  foldl f z (UView m1 m2) = foldl (foldl f) (foldl (foldl f) z m1) m2
+
+instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (Either k1 k2)) where
+  foldMap f m = foldMap f (uView m)
+  foldr f z m = foldr f z (uView m)
+  foldl f z m = foldl f z (uView m)
+  
+  foldl1 _ Empty = error "Error: cannot call foldl1 on an empty map"
+  foldl1 f (K1 m1) = foldl1 f m1
+  foldl1 f (K2 m2) = foldl1 f m2
+  foldl1 f (Union _ m1 m2) = foldl f (foldl1 f m1) m2
+  
+  foldr1 _ Empty = error "Error: cannot call foldr1 on an empty map"
+  foldr1 f (K1 m1) = foldr1 f m1
+  foldr1 f (K2 m2) = foldr1 f m2
+  foldr1 f (Union _ m1 m2) = foldr f (foldr1 f m2) m1
 
 -- | @'TrieMap' ('Either' k1 k2) a@ is essentially a @(TrieMap k1 a, TrieMap k2 a)@, but
 -- specialized for the cases where one or both maps are empty.
@@ -106,9 +126,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	traverseM f (K1 m1) = K1 <$> traverseM f m1
 	traverseM f (K2 m2) = K2 <$> traverseM f m2
 	traverseM _ _ = pure Empty
-
-	foldrM f m z = foldr f z (uView m)
-	foldlM f m z = foldl f z (uView m)
 
 	fmapM f (Union _ m1 m2) = fmapM f m1 `union` fmapM f m2
 	fmapM f (K1 m1)		= K1 (fmapM f m1)

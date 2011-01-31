@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, TupleSections, PatternGuards, TypeFamilies #-}
+{-# LANGUAGE UnboxedTuples, TupleSections, PatternGuards, TypeFamilies, FlexibleInstances #-}
 
 module Data.TrieMap.ProdMap () where
 
@@ -12,6 +12,13 @@ import Data.Monoid
 
 import Data.Sequence ((|>))
 import qualified Data.Sequence as Seq
+
+import Prelude hiding (foldl, foldl1, foldr, foldr1)
+
+instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (k1, k2)) where
+  foldMap f (PMap m) = foldMap (foldMap f) m
+  foldr f z (PMap m) = foldr (flip $ foldr f) z m
+  foldl f z (PMap m) = foldl (foldl f) z m
 
 -- | @'TrieMap' (k1, k2) a@ is implemented as a @'TrieMap' k1 ('TrieMap' k2 a)@.
 instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
@@ -27,8 +34,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	sizeM (PMap m) = sizeM m
 	lookupM (k1, k2) (PMap m) = lookupM k1 m >>= lookupM k2
 	traverseM f (PMap m) = PMap <$> traverseM (traverseM f) m
-	foldrM f (PMap m) = foldrM (foldrM f) m
-	foldlM f (PMap m) = foldlM (flip $ foldlM f) m
 	fmapM f (PMap m) = PMap (fmapM (fmapM f) m)
 	mapMaybeM f (PMap m) = PMap (mapMaybeM (mapMaybeM' f) m)
 	mapEitherM f (PMap m) = both PMap PMap (mapEitherM (mapEitherM' f)) m
