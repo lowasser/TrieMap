@@ -8,11 +8,9 @@ import Data.TrieMap.Modifiers
 
 import Control.Applicative
 import Data.Foldable
-import Control.Monad hiding (join, fmap)
+import Control.Monad hiding (join)
 
-import Prelude hiding (lookup, foldr, foldl, fmap)
-
-import GHC.Exts
+import Prelude hiding (lookup, foldr, foldl, map)
 
 #define DELTA 5
 #define RATIO 2
@@ -31,11 +29,12 @@ data SNode k a = SNode{sz :: !Int, count :: !Int, node :: Node k a}
 #define BIN(args) SNode{node=Bin args}
 
 instance Sized a => Sized (Node k a) where
-  getSize# Tip = 0#
-  getSize# (Bin _ a l r) = getSize# a +# getSize# l +# getSize# r
+  getSize# m = unbox $ case m of
+    Tip	-> 0
+    Bin _ a l r	-> getSize a + getSize l + getSize r
 
 instance Sized (SNode k a) where
-  getSize# SNode{sz = I# sz#} = sz#
+  getSize# SNode{sz} = unbox sz
 
 nCount :: Node k a -> Int
 nCount Tip = 0
@@ -69,7 +68,7 @@ instance Ord k => TrieKey (Ordered k) where
 	traverseM f (OrdMap m) = OrdMap  <$> traverse f m
 	foldrM f (OrdMap m) z = foldr f z m
 	foldlM f (OrdMap m) z = foldl f z m
-	fmapM f (OrdMap m) = OrdMap (fmap f m)
+	fmapM f (OrdMap m) = OrdMap (map f m)
 	mapMaybeM f (OrdMap m) = OrdMap (mapMaybe f m)
 	mapEitherM f (OrdMap m) = both OrdMap OrdMap (mapEither f) m
 	isSubmapM (<=) (OrdMap m1) (OrdMap m2) = isSubmap (<=) m1 m2
@@ -147,9 +146,9 @@ instance Foldable (SNode k) where
   foldl _ z TIP = z
   foldl f z BIN(_ a l r) = foldl f (foldl f z l `f` a) r
 
-fmap :: (Ord k, Sized b) => (a -> b) -> SNode k a -> SNode k b
-fmap f BIN(k a l r) = join k (f a) (fmap f l) (fmap f r)
-fmap _ _ = tip
+map :: (Ord k, Sized b) => (a -> b) -> SNode k a -> SNode k b
+map f BIN(k a l r) = join k (f a) (map f l) (map f r)
+map _ _ = tip
 
 mapMaybe :: (Ord k, Sized b) => (a -> Maybe b) -> SNode k a -> SNode k b
 mapMaybe f BIN(k a l r) = joinMaybe  k (f a) (mapMaybe f l) (mapMaybe f r)

@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP #-}
+{-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.WordMap (SNode, TrieMap(WordMap), getWordMap) where
 
@@ -12,7 +12,6 @@ import Control.Monad hiding (join)
 import Data.Bits
 import Data.Foldable
 import Data.Maybe hiding (mapMaybe)
-import Data.Word
 
 import GHC.Exts
 
@@ -40,7 +39,7 @@ data Node a = Nil | Tip !Key a | Bin !Prefix !Mask !(SNode a) !(SNode a)
 {-# ANN type Node ForceSpecConstr #-}
 
 instance Sized (SNode a) where
-  getSize# t = unbox (sz t)
+  getSize# SNode{sz} = unbox sz
 
 instance Sized a => Sized (Node a) where
   getSize# t = unbox $ case t of
