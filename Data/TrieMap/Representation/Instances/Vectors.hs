@@ -159,7 +159,8 @@ packStream (Stream step s0 size) = Stream step' s0' size'
 	step' (PackState w i s) = do
 	  s' <- step s
 	  case s' of
-	    Done  		-> return $ Yield (w .<<. (i * bitSize (0 :: w))) (Last (ratio - i))
+	    Done  | i == ratio	-> return $ Skip (Last 0)
+		  | otherwise	-> return $ Yield (w .<<. (i * bitSize (0 :: w))) (Last (ratio - i))
 	    Skip s'		-> return $ Skip (PackState w i s')
 	    Yield ww s'		-> return $ Skip (PackState ((w .<<. bitSize (0 :: w)) .|. fromIntegral ww) (i-1) s')
 
