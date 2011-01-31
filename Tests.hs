@@ -18,9 +18,9 @@ type Val = [Int]
 main :: IO ()
 main = quickCheckWith stdArgs{maxSuccess = 1000} (verify M.empty T.empty .&&. conjoin concretes)
 
-data Key = A (ByteString, Int) | B Int ByteString | C [Bool] | D [Char] | E (Either String Int) deriving (Eq, Ord, Show)
+data Key = A (ByteString, Int) | B Int ByteString | C [Bool] | D [Char] | E (Either String Double) deriving (Eq, Ord, Show)
 
-data Key' = A' (ByteString, Int) | B' Int ByteString | C' [Bool] | D' [Char] | E' (Either String Int) deriving (Eq, Ord, Show)
+data Key' = A' (ByteString, Int) | B' Int ByteString | C' [Bool] | D' [Char] | E' (Either String Double) deriving (Eq, Ord, Show)
 
 hash :: Key -> Int
 hash (A (bs, i)) = BS.foldl' (\ i w -> i * 31 + fromIntegral w) i bs
@@ -28,7 +28,7 @@ hash (B i bs)	= BS.foldl' (\ i w -> i * 61 + fromIntegral w) i bs
 hash (C bs)	= length bs
 hash (D cs)	= foldl' (\ i w -> i * 91 + fromEnum w) 0 cs
 hash (E (Left cs))	= foldl' (\ i w -> i * 255 + fromEnum w) 0 cs
-hash (E (Right i))	= i
+hash (E (Right i))	= fst (properFraction i)
 
 instance Arbitrary Key where
 	arbitrary = oneof [A <$> arbitrary,
@@ -209,7 +209,9 @@ concretes = [
 	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,0], "a")] in T.assocs (T.fromList input) == input),
 	printTestCase "comparisons are correct"
 	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,maxBound], "a")] in T.assocs (T.fromList input) == input),
-	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a =? toRep b))
+	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a =? toRep b)),
+	printTestCase "deleteAt works for OrdMap"
+	  (let input = [(1.4 :: Double, 'a'), (-4.0, 'b')] in T.assocs (T.deleteAt 0 (T.fromList input)) == [(1.4, 'a')])
 	]
 
 $(genRepr ''Key)

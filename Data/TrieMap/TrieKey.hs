@@ -36,7 +36,7 @@ onSnd :: (c -> d) -> (a -> (# b, c #)) -> a -> (# b, d #)
 onSnd g f a = case f a of
 	(# b, c #) -> (# b, g c #)
 
-onThird :: (d -> e) -> (a -> (# Int#, c, d #)) -> a -> (# Int#, c, e #)
+onThird :: (d -> e) -> (a -> (# Int, c, d #)) -> a -> (# Int, c, e #)
 onThird g f a = case f a of
 	(# b, c, d #) -> (# b, c, g d #)
 
@@ -54,7 +54,8 @@ class TrieKey k where
 	emptyM :: TrieMap k a
 	singletonM :: Sized a => k -> a -> TrieMap k a
 	getSimpleM :: TrieMap k a -> Simple a
-	sizeM :: Sized a => TrieMap k a -> Int#
+	sizeM# :: Sized a => TrieMap k a -> Int#
+	sizeM :: Sized a => TrieMap k a -> Int
 	lookupM :: k -> TrieMap k a -> Maybe a
 	insertWithM :: Sized a => (a -> a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
 	fmapM :: Sized b => (a -> b) -> TrieMap k a -> TrieMap k b
@@ -86,7 +87,8 @@ class TrieKey k where
 	afterM :: Sized a => Hole k a -> TrieMap k a
 	afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
 	searchM :: k -> TrieMap k a -> (# Maybe a, Hole k a #)
-	indexM :: Sized a => Int# -> TrieMap k a -> (# Int#, a, Hole k a #)
+	indexM :: Sized a => Int -> TrieMap k a -> (# Int, a, Hole k a #)
+	indexM# :: Sized a => Int# -> TrieMap k a -> (# Int#, a, Hole k a #)
 
 	-- This, combined with the rewrite rules, allows each instance to define only
 	-- extractHoleM, but to obtain automatically specialized firstHoleM and lastHoleM
@@ -94,6 +96,11 @@ class TrieKey k where
 	extractHoleM :: (Functor m, MonadPlus m) => Sized a => TrieMap k a -> m (a, Hole k a)
 	{-# NOINLINE firstHoleM #-}
 	{-# NOINLINE lastHoleM #-}
+	{-# NOINLINE sizeM# #-}
+	{-# NOINLINE indexM# #-}
+	sizeM# m = let !(I# sz#) = inline sizeM m in sz#
+	indexM# i# m = case inline indexM (I# i#) m of
+	  (# I# i'#, a, hole #)	-> (# i'#, a, hole #)
 	firstHoleM :: Sized a => TrieMap k a -> First (a, Hole k a)
 	firstHoleM m = inline extractHoleM m
 	lastHoleM :: Sized a => TrieMap k a -> Last (a, Hole k a)
@@ -109,7 +116,7 @@ class TrieKey k where
 	unifyM :: Sized a => k -> a -> k -> a -> Unified k a
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
-	getSize# = sizeM
+	getSize# = sizeM#
 
 insertWithM' :: (TrieKey k, Sized a) => (a -> a -> a) -> k -> a -> Maybe (TrieMap k a) -> TrieMap k a
 insertWithM' f k a = maybe (singletonM k a) (insertWithM f k a)
@@ -202,13 +209,16 @@ subMaybe _ Nothing _ = True
 subMaybe (<=) (Just a) (Just b) = a <= b
 subMaybe _ _ _ = False
 
-indexFail :: a -> (# Int#, b, c #)
+indexFail :: a -> (# Int, b, c #)
 indexFail _ = (# error err, error err, error err #) where
 	err = "Error: not a valid index"
 
 {-# RULES
   "extractHoleM/First" [0] extractHoleM = firstHoleM;
   "extractHoleM/Last" [0] extractHoleM = lastHoleM;
+  "sizeM" [0] forall m . sizeM m = I# (sizeM# m);
+  "indexM" [0] forall i m . indexM i m = case indexM# (unbox i) m of {
+	(# i'#, a, m #)	-> (# I# i'#, a, m #)};
   "getSimpleM/emptyM" getSimpleM emptyM = Null;
   "getSimpleM/singletonM" forall k a . getSimpleM (singletonM k a) = Singleton a;
   #-}

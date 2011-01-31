@@ -69,5 +69,5 @@ instance Repr Bool where
   type Rep Bool = Either () ()
   toRep False = Left ()
   toRep True = Right ()
-  type RepList Bool = Rep (U.Vector Bool)
+  type RepList Bool = (Vector Word, Word)
   toRepList xs = toRep (U.fromList xs)

@@ -11,7 +11,6 @@ import Control.Monad
 
 import Data.Foldable (foldr)
 import Prelude hiding (foldr, (^))
-import GHC.Exts
 
 (&) :: (TrieKey k1, TrieKey k2, Sized a) => TrieMap k1 a -> TrieMap k2 a -> TrieMap (Either k1 k2) a
 m1 & m2 = guardNullM m1 ^ guardNullM m2
@@ -21,10 +20,10 @@ m1 & m2 = guardNullM m1 ^ guardNullM m2
 Nothing ^ Nothing	= Empty
 Just m1 ^ Nothing	= K1 m1
 Nothing ^ Just m2	= K2 m2
-Just m1 ^ Just m2	= Union (sizeM m1 +# sizeM m2) m1 m2
+Just m1 ^ Just m2	= Union (sizeM m1 + sizeM m2) m1 m2
 
 union :: (TrieKey k1, TrieKey k2, Sized a) => TrieMap k1 a -> TrieMap k2 a -> TrieMap (Either k1 k2) a
-union m1 m2 = Union (getSize# m1 +# getSize# m2) m1 m2
+union m1 m2 = Union (sizeM m1 + getSize m2) m1 m2
 
 singletonL :: (TrieKey k1, TrieKey k2, Sized a) => k1 -> a -> TrieMap (Either k1 k2) a
 singletonL k a = K1 (singletonM k a)
@@ -75,7 +74,7 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		Empty
 		| K1 (TrieMap k1 a)
 		| K2 (TrieMap k2 a)
-		| Union Int# (TrieMap k1 a) (TrieMap k2 a)
+		| Union !Int (TrieMap k1 a) (TrieMap k2 a)
 	data Hole (Either k1 k2) a =
 		HoleX0 (Hole k1 a)
 		| HoleX2 (Hole k1 a) (TrieMap k2 a)
@@ -89,7 +88,7 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		mSimple :: TrieKey k => Maybe (TrieMap k a) -> Simple a
 		mSimple = maybe mzero getSimpleM
 	
-	sizeM Empty = 0#
+	sizeM Empty = 0
 	sizeM (K1 m1) = sizeM m1
 	sizeM (K2 m2) = sizeM m2
 	sizeM (Union s _ _) = s
@@ -159,12 +158,12 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	searchM (Left k) (UVIEW m1 m2) = onSnd (`hole1` m2) (searchM' k) m1
 	searchM (Right k) (UVIEW m1 m2) = onSnd (hole2 m1) (searchM' k) m2
 	
-	indexM i# (K1 m1) = onThird HoleX0 (indexM i#) m1
-	indexM i# (K2 m2) = onThird Hole0X (indexM i#) m2
-	indexM i# (Union _ m1 m2)
-		| i# <# s1# = onThird (`HoleX2` m2) (indexM i#) m1
-		| otherwise = onThird (Hole1X m1) (indexM (i# -# s1#)) m2
-		where !s1# = sizeM m1
+	indexM i (K1 m1) = onThird HoleX0 (indexM i) m1
+	indexM i (K2 m2) = onThird Hole0X (indexM i) m2
+	indexM i (Union _ m1 m2)
+		| i < s1	= onThird (`HoleX2` m2) (indexM i) m1
+		| otherwise	= onThird (Hole1X m1) (indexM (i - s1)) m2
+		where !s1 = sizeM m1
 	indexM _ _ = indexFail ()
 
 	extractHoleM (UVIEW !m1 !m2) = holes1 `mplus` holes2 where

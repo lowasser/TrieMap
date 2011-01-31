@@ -9,8 +9,6 @@ import Data.TrieMap.TrieKey
 import Data.TrieMap.Modifiers
 import Data.TrieMap.Sized
 
-import GHC.Exts
-
 newtype DualPlus m a = DualPlus {runDualPlus :: m a} deriving (Functor, Monad)
 newtype Dual f a = Dual {runDual :: f a} deriving (Functor)
 
@@ -56,8 +54,8 @@ instance TrieKey k => TrieKey (Rev k) where
 	afterM (RHole hole) = RevMap (beforeM hole)
 	afterWithM a (RHole hole) = RevMap (beforeWithM a hole)
 	searchM (Rev k) (RevMap m) = onSnd RHole (searchM k) m
-	indexM i# (RevMap m) = case indexM (revIndex i# m) m of
-		(# i'#, a, hole #) -> (# revIndex i'# a, a, RHole hole #)
+	indexM i (RevMap m) = case indexM (revIndex i m) m of
+		(# i', a, hole #) -> (# revIndex i' a, a, RHole hole #)
 	
 	extractHoleM (RevMap m) = fmap RHole <$> runDualPlus (extractHoleM m)
 	firstHoleM (RevMap m) = First (fmap RHole <$> getLast (lastHoleM m))
@@ -71,5 +69,5 @@ instance TrieKey k => TrieKey (Rev k) where
 	
 	unifyM (Rev k1) a1 (Rev k2) a2 = RevMap <$> unifyM k1 a1 k2 a2
 
-revIndex :: Sized a => Int# -> a -> Int#
-revIndex i# a = getSize# a -# 1# -# i#
+revIndex :: Sized a => Int -> a -> Int
+revIndex i a = getSize a - 1 - i

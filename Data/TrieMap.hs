@@ -969,7 +969,7 @@ index :: TKey k => Int -> TMap k a -> (a, TLocation k a)
 index i m
 	| i < 0 || i >= size m
 		= error "TrieMap.index: index out of range"
-index i (TMap m) = case indexM (unbox i) m of
+index i (TMap m) = case indexM i m of
 	(# _, Assoc k a, hole #) -> (a, TLoc k hole)
 
 {-# INLINE extract #-}

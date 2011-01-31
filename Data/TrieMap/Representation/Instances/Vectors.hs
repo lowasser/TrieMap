@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, ScopedTypeVariables, UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, ScopedTypeVariables, UndecidableInstances, FlexibleContexts #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.Representation.Instances.Vectors (i2w) where
 
@@ -26,6 +26,7 @@ import Data.TrieMap.Utils
 import Data.TrieMap.Representation.Class
 
 import Prelude hiding (length)
+import GHC.Exts
 
 #include "MachDeps.h"
 
@@ -69,7 +70,7 @@ wordSize = bitSize (0 :: Word)
 
 {-# INLINE toHangingVector #-}
 toHangingVector :: (G.Vector v w, Bits w, Integral w, Storable w) => v w -> (S.Vector Word, Word)
-toHangingVector !xs = (unstream (packStream (stream xs)), fromIntegral (G.length xs))
+toHangingVector xs = let !ys = unstream (packStream (stream xs)) in (S.unsafeInit ys, S.unsafeLast ys)
 
 -- | @'Rep' ('S.Vector' 'Word8') = 'S.Vector' 'Word'@, by packing multiple 'Word8's into each 'Word' for space efficiency.
 HANGINSTANCE(Word8)
@@ -106,7 +107,7 @@ instance Repr (S.Vector Word64) where
 #define VEC_INT_INST(vec,iTy,wTy)		\
   instance Repr (vec iTy) where {		\
   	type Rep (vec iTy) = Rep (S.Vector wTy);	\
-  	toRep = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) . convert . G.map (i2w :: iTy -> wTy); \
+  	toRep xs = (toRep :: S.Vector wTy -> Rep (S.Vector wTy)) (convert (G.map (i2w :: iTy -> wTy) xs)); \
   	DefList(vec iTy)}
 #define VEC_INT_INSTANCES(iTy,wTy)	\
 	VEC_INT_INST(S.Vector,iTy,wTy); \
@@ -140,42 +141,49 @@ i2w !i	| i < 0		= mB - fromIntegral (-i)
 	| otherwise	= mB + fromIntegral i
 	where mB = bit (bitSize (0 :: i) - 1) :: w
 
-data PackState s = PackState !Word !Int s | End
+data PackState s = PackState !Word !Int s | Last !Int | End
+{-# ANN type PackState ForceSpecConstr #-}
 
 {-# INLINE packStream #-}
 packStream :: forall m w . (Bits w, Integral w, Storable w, Monad m) => Stream m w -> Stream m Word
 packStream (Stream step s0 size) = Stream step' s0' size'
   where	!ratio = wordSize `quoPow` bitSize (0 :: w)
-	size' = case size of
+	size' = 1 + case size of
 	  Exact n	-> Exact $ (n + ratio - 1) `quoPow` ratio
 	  Max n		-> Max $ (n + ratio - 1) `quoPow` ratio
 	  Unknown	-> Unknown
 	s0' = PackState 0 ratio s0
 	step' End = return Done
+	step' (Last i) = return $ Yield (fromIntegral i) End
 	step' (PackState w 0 s) = return $ Yield w (PackState 0 ratio s)
 	step' (PackState w i s) = do
 	  s' <- step s
 	  case s' of
-	    Done  | i == ratio	-> return Done
-		  | otherwise	-> return $ Yield (w .<<. (i * bitSize (0 :: w))) End
+	    Done  | i == ratio	-> return $ Skip (Last 0)
+		  | otherwise	-> return $ Yield (w .<<. (i * bitSize (0 :: w))) (Last (ratio - i))
 	    Skip s'		-> return $ Skip (PackState w i s')
 	    Yield ww s'		-> return $ Skip (PackState ((w .<<. bitSize (0 :: w)) .|. fromIntegral ww) (i-1) s')
 
 instance Repr (S.Vector Bool) where
   type Rep (S.Vector Bool) = (S.Vector Word, Word)
-  toRep !xs = (unstream (packBoolStream (stream xs)), fromIntegral $ G.length xs)
+  toRep = boolVecToRep
   DefList(S.Vector Bool)
 
 instance Repr (U.Vector Bool) where
   type Rep (U.Vector Bool) = (S.Vector Word, Word)
-  toRep !xs = (unstream (packBoolStream (stream xs)), fromIntegral $ G.length xs)
+  {-# INLINE toRep #-}
+  toRep xs = boolVecToRep xs
   DefList(U.Vector Bool)
+
+{-# INLINE boolVecToRep #-}
+boolVecToRep :: G.Vector v Bool => v Bool -> (S.Vector Word, Word)
+boolVecToRep xs = let !ys = unstream (packBoolStream (stream xs)) in (S.unsafeInit ys, S.unsafeLast ys)
 
 {-# INLINE packBoolStream #-}
 packBoolStream :: Monad m => Stream m Bool -> Stream m Word
 packBoolStream (Stream step s0 size) = Stream step' s0' size'
   where	!ratio = wordSize
-	size' = case size of
+	size' = 1 + case size of
 	  Exact n	-> Exact $ (n + ratio - 1) `quoPow` ratio
 	  Max n		-> Max $ (n + ratio - 1) `quoPow` ratio
 	  Unknown	-> Unknown
@@ -183,11 +191,12 @@ packBoolStream (Stream step s0 size) = Stream step' s0' size'
 	toW False = 0
 	toW True = 1
 	step' End = return Done
+	step' (Last i) = return $ Yield (fromIntegral i) End
 	step' (PackState w 0 s) = return $ Yield w (PackState 0 ratio s)
 	step' (PackState w i s) = do
 	  s' <- step s
 	  case s' of
-	    Done  | i == ratio	-> return Done
-		  | otherwise	-> return $ Yield (w .<<. i) End
+	    Done  | i == ratio	-> return $ Skip (Last 0)
+		  | otherwise	-> return $ Yield (w .<<. i) (Last (ratio - i))
 	    Skip s'		-> return $ Skip (PackState w i s')
 	    Yield ww s'		-> return $ Skip (PackState ((w .<<. 1) .|. toW ww) (i-1) s')

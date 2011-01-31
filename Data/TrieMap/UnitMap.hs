@@ -25,7 +25,7 @@ instance TrieKey () where
 	emptyM = Unit Nothing
 	singletonM _ = single
 	getSimpleM (Unit m) = maybe Null Singleton m
-	sizeM (Unit m) = getSize# m
+	sizeM (Unit m) = getSize m
 	lookupM _ (Unit m) = m
 	insertWithM f _ a (Unit (Just a0)) = single (f a a0)
 	insertWithM _ _ a (Unit Nothing) = single a
