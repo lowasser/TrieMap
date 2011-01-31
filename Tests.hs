@@ -4,6 +4,7 @@ module Tests (main) where
 
 import Control.Monad
 import Control.Applicative
+import Data.TrieMap.TrieKey
 import qualified Data.TrieMap as T
 import qualified Data.Map as M
 import Data.List (foldl')
@@ -19,6 +20,8 @@ main = quickCheckWith stdArgs{maxSuccess = 1000} (verify M.empty T.empty .&&. co
 
 data Key = A (ByteString, Int) | B Int ByteString | C [Bool] | D [Char] | E (Either String Int) deriving (Eq, Ord, Show)
 
+data Key' = A' (ByteString, Int) | B' Int ByteString | C' [Bool] | D' [Char] | E' (Either String Int) deriving (Eq, Ord, Show)
+
 hash :: Key -> Int
 hash (A (bs, i)) = BS.foldl' (\ i w -> i * 31 + fromIntegral w) i bs
 hash (B i bs)	= BS.foldl' (\ i w -> i * 61 + fromIntegral w) i bs
@@ -33,6 +36,13 @@ instance Arbitrary Key where
 				C <$> arbitrary,
 				D <$> arbitrary,
 				E <$> arbitrary]
+
+instance Arbitrary Key' where
+	arbitrary = oneof [A' <$> arbitrary,
+				B' <$> arbitrary <*> arbitrary,
+				C' <$> arbitrary,
+				D' <$> arbitrary,
+				E' <$> arbitrary]
 
 instance Arbitrary ByteString where
 	arbitrary = liftM pack arbitrary
@@ -198,8 +208,9 @@ concretes = [
 	printTestCase "comparisons are correct"
 	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,0], "a")] in T.assocs (T.fromList input) == input),
 	printTestCase "comparisons are correct"
-	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,maxBound], "a")] in T.assocs (T.fromList input) == input)
+	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,maxBound], "a")] in T.assocs (T.fromList input) == input),
+	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a =? toRep b))
 	]
 
 $(genRepr ''Key)
->>>>>>> 46eeaf5a7b259df1a9c17f57d431194247c3f35c
+$(genOptRepr ''Key')
