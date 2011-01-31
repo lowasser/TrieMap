@@ -296,17 +296,15 @@ join kx x l@(SNode _ sL (Bin ky y ly ry)) r@(SNode _ sR (Bin kz z lz rz))
 
 -- insertMin and insertMax don't perform potentially expensive comparisons.
 insertMax,insertMin :: Sized a => k -> a -> SNode k a -> SNode k a
-insertMax kx x SNode{node}
-  = case node of
-      Tip -> singleton kx x
-      Bin ky y l r
-          -> balance ky y l (insertMax kx x r)
+insertMax kx x = insMax where
+  insMax TIP	= singleton kx x
+  insMax BIN(ky y l r)
+		= balance ky y l (insMax r)
              
-insertMin kx x SNode{node}
-  = case node of
-      Tip -> singleton kx x
-      Bin ky y l r
-          -> balance ky y (insertMin kx x l) r
+insertMin kx x = insMin where
+  insMin TIP	= singleton kx x
+  insMin BIN(ky y l r)
+  		= balance ky y (insMin l) r
              
 {--------------------------------------------------------------------
   [merge l r]: merges two trees.
@@ -360,7 +358,7 @@ rotateL k x l r@BIN(_ _ ly ry)
   | otherwise		= doubleL k x l r
   where	!sL = count ly
   	!sR = count ry
-rotateL _ _ _ TIP = error "rotateL Tip"
+rotateL k x l TIP	= insertMax k x l
 
 rotateR :: Sized a => k -> a -> SNode k a -> SNode k a -> SNode k a
 rotateR k x l@BIN(_ _ ly ry) r
@@ -368,7 +366,7 @@ rotateR k x l@BIN(_ _ ly ry) r
   | otherwise		= doubleR k x l r
   where	!sL = count ly
   	!sR = count ry
-rotateR _ _ _ _ = error "rotateR Tip"
+rotateR k x TIP r	= insertMin k x r
 
 -- basic rotations
 singleL, singleR :: Sized a => k -> a -> SNode k a -> SNode k a -> SNode k a
