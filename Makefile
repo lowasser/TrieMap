@@ -10,7 +10,7 @@ OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
   -fmax-worker-args=100 -fno-liberate-case-threshold -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
 HP2PS_OPTS := -c -s -m12
-RTS_OPTS := -H256M -s
+RTS_OPTS := -H256M -A32M -s
 BENCH_SAMPLES := 30
 BPROF_SAMPLES := 5
 
@@ -139,6 +139,7 @@ $(FAST_DIR)/Data/TrieMap/Key.o : $(FAST_DIR)/Data/TrieMap/Sized.o
 $(FAST_DIR)/Data/TrieMap/Key.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
 $(FAST_DIR)/Data/TrieMap/Key.o : $(FAST_DIR)/Data/TrieMap/Class.o
 
+$(FAST_DIR)/Data/TrieMap/WordMap.o : $(FAST_DIR)/Data/TrieMap/Utils.o
 $(FAST_DIR)/Data/TrieMap/WordMap.o : $(FAST_DIR)/Data/TrieMap/Sized.o
 $(FAST_DIR)/Data/TrieMap/WordMap.o : $(FAST_DIR)/Data/TrieMap/TrieKey.o
 
@@ -275,6 +276,7 @@ $(OPTIMIZED_DIR)/Data/TrieMap/Key.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Key.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Key.o : $(OPTIMIZED_DIR)/Data/TrieMap/Class.o
 
+$(OPTIMIZED_DIR)/Data/TrieMap/WordMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Utils.o
 $(OPTIMIZED_DIR)/Data/TrieMap/WordMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
 $(OPTIMIZED_DIR)/Data/TrieMap/WordMap.o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o
 
@@ -411,6 +413,7 @@ $(FAST_DIR)/Data/TrieMap/Key.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
 $(FAST_DIR)/Data/TrieMap/Key.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
 $(FAST_DIR)/Data/TrieMap/Key.p_o : $(FAST_DIR)/Data/TrieMap/Class.p_o
 
+$(FAST_DIR)/Data/TrieMap/WordMap.p_o : $(FAST_DIR)/Data/TrieMap/Utils.p_o
 $(FAST_DIR)/Data/TrieMap/WordMap.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
 $(FAST_DIR)/Data/TrieMap/WordMap.p_o : $(FAST_DIR)/Data/TrieMap/TrieKey.p_o
 
@@ -547,6 +550,7 @@ $(OPTIMIZED_DIR)/Data/TrieMap/Key.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Key.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Key.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Class.p_o
 
+$(OPTIMIZED_DIR)/Data/TrieMap/WordMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Utils.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/WordMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/WordMap.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o
 

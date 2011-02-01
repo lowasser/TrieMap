@@ -34,6 +34,9 @@ n `quoPow` k = n `quot` k
 remPow :: Int -> Int -> Int
 n `remPow` k = if k .&. (k-1) == 0 then n .&. (k-1) else n `rem` k
 
+compl :: Word -> Word
+compl (W# w#) = W# (not# w#)
+
 (.<<.) :: Word -> Int -> Word
 W# w# .<<. I# i# = W# (uncheckedShiftL# w# i#)
 

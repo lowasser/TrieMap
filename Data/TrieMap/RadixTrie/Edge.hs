@@ -43,18 +43,18 @@ lookupEdge = lookupE where
       U() -> U(Edge) a -> U(Path) a -> (Maybe a, U(EdgeLoc) a) #-}
 searchEdge :: (Eq k, Label v k) => v k -> Edge v k a -> Path v k a -> (Maybe a, EdgeLoc v k a)
 searchEdge = searchE where
-	searchE !ks !e@(eView -> Edge _ ls v ts) path = iMatchSlice matcher matches ks ls where
-	  matcher i k l z
-	    | k == l	= z
-	    | (# _, tHole #) <- searchM k (singletonM l (dropEdge (i+1) e))
-			= (Nothing, Loc (dropSlice (i+1) ks) emptyM (deep path (takeSlice i ls) Nothing tHole))
-	  matches kLen lLen = case compare kLen lLen of
-		  EQ	-> (v, Loc ls ts path)
-		  LT	-> let (lPre, !l, _) = splitSlice kLen ls in 
-		      (Nothing, Loc lPre (singletonM l (dropEdge (kLen + 1) e)) path)
-		  GT	-> let (_, !k, ks') =  splitSlice lLen ks in case searchM k ts of
-		      (# Nothing, tHole #) -> (Nothing, Loc ks' emptyM (deep path ls v tHole))
-		      (# Just e', tHole #) -> searchE ks' e' (deep path ls v tHole)
+  searchE !ks !e@(eView -> Edge _ ls !v ts) path = iMatchSlice matcher matches ks ls where
+    matcher i k l z
+      | k == l	= z
+      | (# _, tHole #) <- searchM k (singletonM l (dropEdge (i+1) e))
+		  = (Nothing, Loc (dropSlice (i+1) ks) emptyM (deep path (takeSlice i ls) Nothing tHole))
+    matches kLen lLen = case compare kLen lLen of
+	    EQ	-> (v, Loc ls ts path)
+	    LT	-> let (lPre, !l, _) = splitSlice kLen ls in 
+		(Nothing, Loc lPre (singletonM l (dropEdge (kLen + 1) e)) path)
+	    GT	-> let (_, !k, ks') =  splitSlice lLen ks in case searchM k ts of
+		(# Nothing, tHole #) -> (Nothing, Loc ks' emptyM (deep path ls v tHole))
+		(# Just e', tHole #) -> searchE ks' e' (deep path ls v tHole)
 
 {-# SPECIALIZE mapEdge ::
       (TrieKey k, Sized b) => (a -> b) -> V(Edge) a -> V(Edge) b,

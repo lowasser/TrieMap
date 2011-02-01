@@ -13,6 +13,7 @@ import Data.Bits
 import Data.Foldable
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
+import Data.TrieMap.Utils
 
 import GHC.Exts
 
@@ -54,7 +55,7 @@ sNode !n = SNode (getSize n) n
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
 	newtype TrieMap Word a = WordMap {getWordMap :: SNode a}
-        data Hole Word a = Hole !Key !(Path a)
+        data Hole Word a = Hole !Key (Path a)
 	emptyM = WordMap nil
 	singletonM k a = WordMap (singleton k a)
 	getSimpleM (WordMap (SNode _ n)) = case n of
@@ -323,7 +324,7 @@ zeroN i m = (i .&. m) == 0
 
 maskW :: Nat -> Nat -> Prefix
 maskW i m
-  = i .&. (complement (m-1) `xor` m)
+  = i .&. (compl (m-1) `xor` m)
 
 shorter :: Mask -> Mask -> Bool
 shorter m1 m2
