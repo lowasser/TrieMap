@@ -49,6 +49,7 @@ instance Sized a => Sized (Node a) where
     Tip _ a	-> getSize a
     Bin _ _ l r	-> getSize l + getSize r
 
+{-# INLINE sNode #-}
 sNode :: Sized a => Node a -> SNode a
 sNode !n = SNode (getSize n) n
 
@@ -149,17 +150,6 @@ branchHole !k !p path t
   | otherwise	= RightBin p' m t path
   where	m = branchMask k p
   	p' = mask k m
-
-shiftRL :: Nat -> Key -> Nat
--- #if __GLASGOW_HASKELL__
-{--------------------------------------------------------------------
-  GHC: use unboxing to get @shiftRL@ inlined.
---------------------------------------------------------------------}
--- shiftRL (W# x) (I# i)
---   = W# (shiftRL# x i)
--- #else
-shiftRL x i   = shiftR x (fromIntegral i)
--- #endif
 
 lookup :: Key -> SNode a -> Maybe a
 lookup !k BIN(_ m l r) = lookup k (if zeroN k m then l else r)
@@ -314,10 +304,6 @@ isSubmapOfBy _ BIN(_ _ _ _) _	= False
 isSubmapOfBy (<=) TIP(k x) t2	= maybe False (x <=) (lookup k t2)
 isSubmapOfBy _ NIL _		= True
 
-mask :: Key -> Mask -> Prefix
-mask i m
-  = maskW i m
-
 zero :: Key -> Mask -> Bool
 zero i m
   = i .&. m == 0
@@ -332,9 +318,9 @@ match i p m
 zeroN :: Nat -> Nat -> Bool
 zeroN i m = (i .&. m) == 0
 
-maskW :: Nat -> Nat -> Prefix
-maskW i m
-  = i .&. (compl (m-1) `xor` m)
+mask :: Nat -> Nat -> Prefix
+mask i m
+  = i .&. compl ((m-1) .|. m)
 
 shorter :: Mask -> Mask -> Bool
 shorter m1 m2
@@ -346,17 +332,13 @@ branchMask p1 p2
 
 highestBitMask :: Nat -> Nat
 highestBitMask x0
-  = case (x0 .|. shiftRL x0 1) of
-     x1 -> case (x1 .|. shiftRL x1 2) of
-      x2 -> case (x2 .|. shiftRL x2 4) of
-       x3 -> case (x3 .|. shiftRL x3 8) of
-        x4 -> case (x4 .|. shiftRL x4 16) of
-#if WORD_SIZE_IN_BITS > 32
-         x5 -> case (x5 .|. shiftRL x5 32) of   -- for 64 bit platforms
-          x6 -> (x6 `xor` (shiftRL x6 1))
-#else
-	 x5 -> x5 `xor` shiftRL x5 1
-#endif
+  = case (x0 .|. shiftR x0 1) of
+     x1 -> case (x1 .|. shiftR x1 2) of
+      x2 -> case (x2 .|. shiftR x2 4) of
+       x3 -> case (x3 .|. shiftR x3 8) of
+        x4 -> case (x4 .|. shiftR x4 16) of
+         x5 -> case (x5 .|. shiftR x5 32) of   -- for 64 bit platforms
+          x6 -> (x6 `xor` (shiftR x6 1))
 
 {-# INLINE join #-}
 join :: Prefix -> SNode a -> Prefix -> SNode a -> SNode a

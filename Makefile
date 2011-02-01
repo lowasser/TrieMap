@@ -9,7 +9,7 @@ DEBUG_GHC_OPTS := -prof -hisuf p_hi -auto-all  -rtsopts -osuf p_o  $(FAST_GHC_OP
 OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
   -fmax-worker-args=100 -fno-liberate-case-threshold -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
-HP2PS_OPTS := -c -s -m12
+HP2PS_OPTS := -c -s -m12 -d
 RTS_OPTS := -H256M -A32M -s
 BENCH_SAMPLES := 30
 BPROF_SAMPLES := 5

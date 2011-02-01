@@ -42,3 +42,8 @@ W# w# .<<. I# i# = W# (uncheckedShiftL# w# i#)
 
 (.:) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
 (f .: g) a b = f (g a b)
+
+{-# RULES
+	"or 0" forall w# . or# w# 0## = w#;
+	"0 or" forall w# . or# 0## w# = w#;
+	#-}

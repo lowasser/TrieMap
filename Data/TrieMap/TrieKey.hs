@@ -32,10 +32,12 @@ instance MonadPlus Simple where
 	simple `mplus` Null	= simple
 	_ `mplus` _		= NonSimple
 
+{-# INLINE onSnd #-}
 onSnd :: (c -> d) -> (a -> (# b, c #)) -> a -> (# b, d #)
 onSnd g f a = case f a of
 	(# b, c #) -> (# b, g c #)
 
+{-# INLINE onThird #-}
 onThird :: (d -> e) -> (a -> (# Int, c, d #)) -> a -> (# Int, c, e #)
 onThird g f a = case f a of
 	(# b, c, d #) -> (# b, c, g d #)
