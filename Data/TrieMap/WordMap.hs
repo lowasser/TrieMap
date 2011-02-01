@@ -73,7 +73,6 @@ instance TrieKey Word where
 	  _		-> NonSimple
 	sizeM (WordMap t) = getSize t
 	lookupM k (WordMap m) = lookup k m
-	insertWithM f k a (WordMap m) = WordMap (insertWith f k a m)
 	traverseM f (WordMap m) = WordMap <$> traverse f m
 	fmapM f (WordMap m) = WordMap (map f m)
 	mapMaybeM f (WordMap m) = WordMap (mapMaybe f m)
@@ -89,7 +88,10 @@ instance TrieKey Word where
 	afterM HOLE(_ path) = WordMap (after nil path)
 	afterWithM a HOLE(k path) = WordMap (after (singleton k a) path)
 
-	searchM !k (WordMap t) = onSnd (hole k) (search k Root) t
+	{-# INLINE searchMC #-}
+	searchMC !k (WordMap t) f g = searchC k t f' g' where
+		f' path = f (hole k path)
+		g' a path = g a (hole k path)
 	indexM i (WordMap m) = indexT i m Root where
 		indexT !i TIP(kx x) path = (# i, x, hole kx path #)
 		indexT !i BIN(p m l r) path
@@ -111,17 +113,19 @@ instance TrieKey Word where
 	{-# INLINE unifierM #-}
 	unifierM k' k a = Hole <$> unifier k' k a
 
-search :: Key -> Path a -> SNode a -> (# Maybe a, Path a #)
-search !k path t@BIN(p m l r)
-	| nomatch k p m	= (# Nothing, branchHole k p path t #)
+{-# INLINE searchC #-}
+searchC :: Key -> SNode a -> (Path a -> r) -> (a -> Path a -> r) -> r
+searchC !k t f g = seek Root t where
+  seek path t@BIN(p m l r)
+	| nomatch k p m	= f (branchHole k p path t)
 	| zero k m
-		= search k (LeftBin p m path r) l
+		= seek (LeftBin p m path r) l
 	| otherwise
-		= search k (RightBin p m l path) r
-search !k path t@TIP(ky y)
-	| k == ky	= (# Just y, path #)
-	| otherwise	= (# Nothing, branchHole k ky path t #)
-search _ path _ = (# Nothing, path #)
+		= seek (RightBin p m l path) r
+  seek path t@TIP(ky y)
+	| k == ky	= g y path
+	| otherwise	= f (branchHole k ky path t)
+  seek path NIL = f path
 
 before, after :: SNode a -> Path a -> SNode a
 before !t Root = t
@@ -156,18 +160,6 @@ lookup !k BIN(_ m l r) = lookup k (if zeroN k m then l else r)
 lookup k TIP(kx x)
 	| k == kx	= Just x
 lookup _ _ = Nothing
-
-insertWith :: Sized a => (a -> a -> a) -> Key -> a -> SNode a -> SNode a
-insertWith f !k a = ins where
-  !tip = singleton k a
-  ins NIL	= tip
-  ins t@TIP(kx x)
-      | k == kx		= singleton k (f a x)
-      | otherwise	= join kx t k tip
-  ins t@BIN(p m l r)
-      | nomatch k p m	= join p t k tip
-      | zero k m	= bin' p m (ins l) r
-      | otherwise	= bin' p m l (ins r)
 
 singleton :: Sized a => Key -> a -> SNode a
 singleton k a = sNode (Tip k a)

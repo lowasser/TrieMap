@@ -48,11 +48,13 @@ instance TrieKey k => TrieKey (Vector k) where
 	isSubmapM (<=) (Radix m1) (Radix m2) = subMaybe (isSubEdge (<=)) m1 m2
 
 	singleHoleM ks = Hole (singleLoc ks)
-	searchM ks (Radix (Just e)) = case searchEdge ks e root of
-		(a, loc) -> (# a, Hole loc #)
-	searchM ks _ = (# Nothing, singleHoleM ks #)
+	{-# INLINE searchMC #-}
+	searchMC ks (Radix (Just e)) f g = searchEdgeC ks e f' g' where
+	  f' loc = f (Hole loc)
+	  g' a loc = g a (Hole loc)
+	searchMC ks _ f _ = f (singleHoleM ks)
 	indexM i (Radix (Just e)) = onThird Hole (indexEdge i e) root
-	indexM _ (Radix Nothing) = indexFail ()
+	indexM _ _ = indexFail ()
 
 	clearM (Hole loc) = Radix (clearEdge loc)
 	assignM a (Hole loc) = Radix (Just (assignEdge a loc))
@@ -66,9 +68,6 @@ instance TrieKey k => TrieKey (Vector k) where
 	afterWithM a (Hole loc) = Radix (afterEdge (Just a) loc)
 	
 	unifyM ks1 a1 ks2 a2 = fmap (Radix . Just) (unifyEdge ks1 a1 ks2 a2)
-	
-	insertWithM f ks a (Radix (Just e)) = Radix (Just (insertEdge f ks a e))
-	insertWithM _ ks a (Radix Nothing) = singletonM ks a
 
 type WordVec = S.Vector Word
 
@@ -97,20 +96,23 @@ instance TrieKey (S.Vector Word) where
 	unionM f (WRadix m1) (WRadix m2) = WRadix (unionMaybe (unionEdge f) m1 m2)
 	isectM f (WRadix m1) (WRadix m2) = WRadix (isectMaybe (isectEdge f) m1 m2)
 	diffM f (WRadix m1) (WRadix m2) = WRadix (diffMaybe (diffEdge f) m1 m2)
-	
+
 	isSubmapM (<=) (WRadix m1) (WRadix m2) = subMaybe (isSubEdge (<=)) m1 m2
 
 	singleHoleM ks = WHole (singleLoc ks)
-	searchM ks (WRadix (Just e)) = case searchEdge ks e root of
-		(a, loc) -> (# a, WHole loc #)
-	searchM ks _ = (# Nothing, singleHoleM ks #)
-	indexM i (WRadix (Just e)) = case indexEdge i e root of
-		(# i', a, loc #) -> (# i', a, WHole loc #)
+	{-# INLINE searchMC #-}
+	searchMC ks (WRadix (Just e)) f g = searchEdgeC ks e f' g' where
+	  f' loc = f (WHole loc)
+	  g' a loc = g a (WHole loc)
+	searchMC ks _ f _ = f (singleHoleM ks)
+	indexM i (WRadix (Just e)) = onThird WHole (indexEdge i e) root
 	indexM _ (WRadix Nothing) = indexFail ()
 
 	clearM (WHole loc) = WRadix (clearEdge loc)
+
+	{-# INLINE assignM #-}
 	assignM a (WHole loc) = WRadix (Just (assignEdge a loc))
-	
+
 	extractHoleM (WRadix (Just e)) = do
 		(a, loc) <- extractEdgeLoc e root
 		return (a, WHole loc)

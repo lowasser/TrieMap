@@ -46,4 +46,5 @@ W# w# .<<. I# i# = W# (uncheckedShiftL# w# i#)
 {-# RULES
 	"or 0" forall w# . or# w# 0## = w#;
 	"0 or" forall w# . or# 0## w# = w#;
+	"plusAddr 0" forall a# . plusAddr# a# 0# = a#;
 	#-}

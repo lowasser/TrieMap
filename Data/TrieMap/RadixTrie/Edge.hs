@@ -40,22 +40,30 @@ lookupEdge = lookupE where
 		  | kLen == lLen  = v
 		  | (_, k, ks') <- splitSlice lLen ks = lookupM k ts >>= lookupE ks'
 
-{-# SPECIALIZE searchEdge :: 
-      TrieKey k => V() -> V(Edge) a -> V(Path) a -> (Maybe a, V(EdgeLoc) a),
-      U() -> U(Edge) a -> U(Path) a -> (Maybe a, U(EdgeLoc) a) #-}
-searchEdge :: (Eq k, Label v k) => v k -> Edge v k a -> Path v k a -> (Maybe a, EdgeLoc v k a)
-searchEdge = searchE where
-  searchE !ks !e@EDGE(_ ls !v ts) path = iMatchSlice matcher matches ks ls where
-    matcher i k l z = case unifierM k l (dropEdge (i+1) e) of
-      Nothing	-> z
-      Just tHole -> (Nothing, loc (dropSlice (i+1) ks) emptyM (deep path (takeSlice i ls) Nothing tHole))
-    matches kLen lLen = case compare kLen lLen of
-	    EQ	-> (v, loc ls ts path)
-	    LT	-> let lPre = takeSlice kLen ls; l = ls !$ kLen; e' = dropEdge (kLen + 1) e in
-		(Nothing, loc lPre (singletonM l e') path)
-	    GT	-> let k = ks !$ lLen; ks' = dropSlice (lLen + 1) ks in case searchM k ts of
-		(# Nothing, tHole #) -> (Nothing, loc ks' emptyM (deep path ls v tHole))
-		(# Just e', tHole #) -> searchE ks' e' (deep path ls v tHole)
+{-# INLINE searchEdgeC #-}
+searchEdgeC :: (Eq k, Label v k) => v k -> Edge v k a -> (EdgeLoc v k a -> r) -> (a -> EdgeLoc v k a -> r) -> r
+searchEdgeC ks0 e f g = searchE ks0 e root where
+  searchE !ks !e@EDGE(_ !ls !v ts) path = matcher 0 where
+    !kLen = length ks
+    !lLen = length ls
+    !len = min kLen lLen
+    {-# INLINE kk #-}
+    kk = ks !$ lLen
+    matcher !i
+      | i < len	= let k = ks !$ i; l = ls !$ i in case unifierM k l (dropEdge (i+1) e) of
+	  Nothing	-> matcher (i+1)
+	  Just tHole	-> f (loc (dropSlice (i+1) ks) emptyM (deep path (takeSlice i ls) Nothing tHole))
+    matcher _ 
+      | kLen < lLen
+	  = let lPre = takeSlice kLen ls; l = ls !$ kLen; e' = dropEdge (kLen + 1) e in
+	      f (loc lPre (singletonM l e') path)
+      | kLen == lLen
+	  = maybe f g v (loc ls ts path)
+      | otherwise = let
+	  ks' = dropSlice (lLen + 1) ks
+	  f' tHole = f (loc ks' emptyM (deep path ls v tHole))
+	  g' e' tHole = searchE ks' e' (deep path ls v tHole)
+	  in searchMC kk ts f' g'
 
 {-# SPECIALIZE mapEdge ::
       (TrieKey k, Sized b) => (a -> b) -> V(Edge) a -> V(Edge) b,
@@ -107,12 +115,15 @@ instance Label v k => Foldable (Edge v k) where
   foldr f z e = foldr f z (eView e)
   foldl f z e = foldl f z (eView e)
 
-{-# SPECIALIZE assignEdge ::
-      (TrieKey k, Sized a) => a -> V(EdgeLoc) a -> V(Edge) a,
-      Sized a => a -> U(EdgeLoc) a -> U(Edge) a #-}
+{-# INLINE assignEdge #-}
 assignEdge :: (Label v k, Sized a) => a -> EdgeLoc v k a -> Edge v k a
-assignEdge v LOC(ks ts path) = assign (edge ks (Just v) ts) path where
-  assign e path = case pView path of
+assignEdge v LOC(ks ts path) = assign (edge ks (Just v) ts) path
+
+{-# SPECIALIZE assign ::
+      (TrieKey k, Sized a) => V(Edge) a -> V(Path) a -> V(Edge) a,
+      Sized a => U(Edge) a -> U(Path) a -> U(Edge) a #-}
+assign :: (Label v k, Sized a) => Edge v k a -> Path v k a -> Edge v k a
+assign !e path = case pView path of
     Root	-> e
     Deep path ks v tHole
 		-> assign (edge ks v (assignM e tHole)) path
@@ -259,22 +270,3 @@ unifyEdge ks1 a1 ks2 a2 = iMatchSlice matcher matches ks1 ks2 where
 		GT	-> let (_,k1,ks1') = splitSlice len2 ks1 in 
 			      Just (edge ks2 (Just a2) (singletonM k1 (singletonEdge ks1' a1)))
 		_	-> Nothing
-
-{-# SPECIALIZE insertEdge :: 
-      (TrieKey k, Sized a) => (a -> a -> a) -> V() -> a -> V(Edge) a -> V(Edge) a,
-      Sized a => (a -> a -> a) -> U() -> a -> U(Edge) a -> U(Edge) a #-}
-insertEdge :: (Label v k, Sized a) => (a -> a -> a) -> v k -> a -> Edge v k a -> Edge v k a
-insertEdge f ks a = insertE ks where
-  !sa = getSize a
-  insertE ks !e@EDGE(_ ls !v ts) = iMatchSlice matcher matches ks ls where
-    single n = edge' sa (dropSlice n ks) (Just a) emptyM
-    matcher !i k l z = case unifyM k (single (i+1)) l (dropEdge (i+1) e) of
-      Nothing	-> z
-      Just ts	-> edge (takeSlice i ks) Nothing ts
-    matches lenK lenL = case compare lenK lenL of
-      LT	-> edge ks (Just a) $ singletonM (ls !$ lenK) $ dropEdge (lenK+1) e
-      EQ	-> edge ls (Just (maybe a (f a) v)) ts
-      GT	->
-	let	ks' = dropSlice (lenL + 1) ks
-		g _ e' = insertE ks' e'
-		in edge ls v $ insertWithM g (ks !$ lenL) (single (lenL+1)) ts

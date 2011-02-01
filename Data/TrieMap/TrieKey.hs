@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts, TupleSections #-}
 
 module Data.TrieMap.TrieKey where
 
@@ -67,8 +67,7 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	fromListM, fromAscListM :: Sized a => (a -> a -> a) -> [(k, a)] -> TrieMap k a
 	fromDistAscListM :: Sized a => [(k, a)] -> TrieMap k a
 	
-	insertWithM f k a m = case inline searchM k m of
-		(# a', hole #)	-> inline assignM (maybe a (f a) a') hole
+	insertWithM f k a m = inline searchMC k m (assignM a) (assignM . f a)
 	fromListM f = foldr (\ (k, a) -> inline insertWithM f k a) emptyM
 	fromAscListM = fromListM
 	fromDistAscListM = fromAscListM const
@@ -78,6 +77,11 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
 	beforeWithM, afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
 	searchM :: k -> TrieMap k a -> (# Maybe a, Hole k a #)
+	searchMC :: k -> TrieMap k a -> (Hole k a -> r) -> (a -> Hole k a -> r) -> r
+	searchMC k m f g = case searchM k m of
+	  (# a, hole #)	-> maybe f g a hole
+	searchM k m = case searchMC k m (Nothing,) ((,) . Just) of
+	  (a, hole) -> (# a, hole #)
 	indexM :: Sized a => Int -> TrieMap k a -> (# Int, a, Hole k a #)
 	indexM# :: Sized a => Int# -> TrieMap k a -> (# Int#, a, Hole k a #)
 
