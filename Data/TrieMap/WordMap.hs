@@ -1,6 +1,6 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances #-}
 {-# OPTIONS -funbox-strict-fields #-}
-module Data.TrieMap.WordMap (SNode, TrieMap(WordMap), getWordMap) where
+module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), getWordMap, getHole) where
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
@@ -52,10 +52,18 @@ instance Sized a => Sized (Node a) where
 sNode :: Sized a => Node a -> SNode a
 sNode !n = SNode (getSize n) n
 
+data WHole a = WHole !Key (Path a)
+
+{-# INLINE hole #-}
+hole :: Key -> Path a -> Hole Word a
+hole k path = Hole (WHole k path)
+
+#define HOLE(args) (Hole (WHole args))
+
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
 	newtype TrieMap Word a = WordMap {getWordMap :: SNode a}
-        data Hole Word a = Hole !Key (Path a)
+        newtype Hole Word a = Hole {getHole :: WHole a}
 	emptyM = WordMap nil
 	singletonM k a = WordMap (singleton k a)
 	getSimpleM (WordMap (SNode _ n)) = case n of
@@ -74,15 +82,15 @@ instance TrieKey Word where
 	diffM f (WordMap m1) (WordMap m2) = WordMap (differenceWith f m1 m2)
 	isSubmapM (<=) (WordMap m1) (WordMap m2) = isSubmapOfBy (<=) m1 m2
 	
-	singleHoleM k = Hole k Root
-	beforeM (Hole _ path) = WordMap (before nil path)
-	beforeWithM a (Hole k path) = WordMap (before (singleton k a) path)
-	afterM (Hole _ path) = WordMap (after nil path)
-	afterWithM a (Hole k path) = WordMap (after (singleton k a) path)
+	singleHoleM k = hole k Root
+	beforeM HOLE(_ path) = WordMap (before nil path)
+	beforeWithM a HOLE(k path) = WordMap (before (singleton k a) path)
+	afterM HOLE(_ path) = WordMap (after nil path)
+	afterWithM a HOLE(k path) = WordMap (after (singleton k a) path)
 
-	searchM !k (WordMap t) = onSnd (Hole k) (search k Root) t
+	searchM !k (WordMap t) = onSnd (hole k) (search k Root) t
 	indexM i (WordMap m) = indexT i m Root where
-		indexT !i TIP(kx x) path = (# i, x, Hole kx path #)
+		indexT !i TIP(kx x) path = (# i, x, hole kx path #)
 		indexT !i BIN(p m l r) path
 			| i < sl	= indexT i l (LeftBin p m path r)
 			| otherwise	= indexT (i - sl) r (RightBin p m l path)
@@ -90,26 +98,28 @@ instance TrieKey Word where
 		indexT _ NIL _		= indexFail ()
 	extractHoleM (WordMap m) = extractHole Root m where
 		extractHole _ (SNode _ Nil) = mzero
-		extractHole path TIP(kx x) = return (x, Hole kx path)
+		extractHole path TIP(kx x) = return (x, hole kx path)
 		extractHole path BIN(p m l r) =
 			extractHole (LeftBin p m path r) l `mplus`
 				extractHole (RightBin p m l path) r
-	clearM (Hole _ path) = WordMap (assign nil path)
-	assignM v (Hole kx path) = WordMap (assign (singleton kx v) path)
+	clearM HOLE(_ path) = WordMap (assign nil path)
+	assignM v HOLE(kx path) = WordMap (assign (singleton kx v) path)
 
 	{-# INLINE unifyM #-}
 	unifyM k1 a1 k2 a2 = WordMap <$> unify k1 a1 k2 a2
+	{-# INLINE unifierM #-}
+	unifierM k' k a = Hole <$> unifier k' k a
 
 search :: Key -> Path a -> SNode a -> (# Maybe a, Path a #)
-search !k path n@BIN(p m l r)
-	| nomatch k p m	= (# Nothing, branchHole k p path n #)
+search !k path t@BIN(p m l r)
+	| nomatch k p m	= (# Nothing, branchHole k p path t #)
 	| zero k m
 		= search k (LeftBin p m path r) l
 	| otherwise
 		= search k (RightBin p m l path) r
-search !k path n@(SNode _ (Tip ky y))
+search !k path t@TIP(ky y)
 	| k == ky	= (# Just y, path #)
-	| otherwise	= (# Nothing, branchHole k ky path n #)
+	| otherwise	= (# Nothing, branchHole k ky path t #)
 search _ path _ = (# Nothing, path #)
 
 before, after :: SNode a -> Path a -> SNode a
@@ -376,3 +386,9 @@ unify :: Sized a => Key -> a -> Key -> a -> Maybe (SNode a)
 unify k1 a1 k2 a2
     | k1 == k2	= Nothing
     | otherwise	= Just (join k1 (singleton k1 a1) k2 (singleton k2 a2))
+
+{-# INLINE unifier #-}
+unifier :: Sized a => Key -> Key -> a -> Maybe (WHole a)
+unifier k' k a
+    | k' == k	= Nothing
+    | otherwise	= Just (WHole k' $ branchHole k' k Root (singleton k a))

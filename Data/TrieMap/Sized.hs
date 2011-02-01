@@ -23,8 +23,10 @@ instance Sized a => Sized (Maybe a) where
 	getSize# (Just a) = getSize# a
 	getSize# _ = 0#
 
+{-# INLINE getSize #-}
 getSize :: Sized a => a -> Int
 getSize a = I# (getSize# a)
 
+{-# INLINE unbox #-}
 unbox :: Int -> Int#
 unbox (I# i#) = i#

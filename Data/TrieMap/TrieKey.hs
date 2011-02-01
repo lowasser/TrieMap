@@ -103,6 +103,10 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	clearM = fillHoleM Nothing
 	
 	unifyM :: Sized a => k -> a -> k -> a -> Unified k a
+	unifierM :: Sized a => k -> k -> a -> Maybe (Hole k a)
+	unifierM k' k a = case searchM k' (singletonM k a) of
+	  (# Nothing, hole #)	-> Just hole
+	  (# Just{}, _ #)	-> Nothing
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM#
