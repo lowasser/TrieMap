@@ -4,7 +4,6 @@ module Tests (main) where
 
 import Control.Monad
 import Control.Applicative
-import Data.TrieMap.TrieKey
 import qualified Data.TrieMap as T
 import qualified Data.Map as M
 import Data.List (foldl')
@@ -209,7 +208,7 @@ concretes = [
 	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,0], "a")] in T.assocs (T.fromList input) == input),
 	printTestCase "comparisons are correct"
 	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,maxBound], "a")] in T.assocs (T.fromList input) == input),
-	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a =? toRep b)),
+	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a == toRep b)),
 	printTestCase "deleteAt works for OrdMap"
 	  (let input = [(1.4 :: Double, 'a'), (-4.0, 'b')] in T.assocs (T.deleteAt 0 (T.fromList input)) == [(1.4, 'a')])
 	]

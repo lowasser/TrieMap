@@ -42,10 +42,7 @@ onThird g f a = case f a of
 
 -- | A @TrieKey k@ instance implies that @k@ is a standardized representation for which a
 -- generalized trie structure can be derived.
-class Foldable (TrieMap k) => TrieKey k where
-	(=?) :: k -> k -> Bool
-	cmp :: k -> k -> Ordering
-
+class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	data TrieMap k :: * -> *
 	emptyM :: TrieMap k a
 	singletonM :: Sized a => k -> a -> TrieMap k a
@@ -68,18 +65,16 @@ class Foldable (TrieMap k) => TrieKey k where
 	fromListM, fromAscListM :: Sized a => (a -> a -> a) -> [(k, a)] -> TrieMap k a
 	fromDistAscListM :: Sized a => [(k, a)] -> TrieMap k a
 	
-	insertWithM f k a m = case searchM k m of
-		(# a', hole #)	-> assignM (maybe a (f a) a') hole
-	fromListM f = foldr (\ (k, a) -> insertWithM f k a) emptyM
+	insertWithM f k a m = case inline searchM k m of
+		(# a', hole #)	-> inline assignM (maybe a (f a) a') hole
+	fromListM f = foldr (\ (k, a) -> inline insertWithM f k a) emptyM
 	fromAscListM = fromListM
 	fromDistAscListM = fromAscListM const
 	
 	data Hole k :: * -> *
 	singleHoleM :: k -> Hole k a
-	beforeM :: Sized a => Hole k a -> TrieMap k a
-	beforeWithM :: Sized a => a -> Hole k a -> TrieMap k a
-	afterM :: Sized a => Hole k a -> TrieMap k a
-	afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
+	beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
+	beforeWithM, afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
 	searchM :: k -> TrieMap k a -> (# Maybe a, Hole k a #)
 	indexM :: Sized a => Int -> TrieMap k a -> (# Int, a, Hole k a #)
 	indexM# :: Sized a => Int# -> TrieMap k a -> (# Int#, a, Hole k a #)

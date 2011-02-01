@@ -9,13 +9,7 @@ import Data.Functor
 import Data.Foldable (Foldable(..))
 import Control.Monad
 
-import Foreign.Storable
-
-import Data.Monoid
-import Data.Ord
-import Data.Vector.Generic hiding (Vector, cmp, foldl, foldr)
 import Data.Vector (Vector)
-import qualified Data.Vector as V
 import qualified Data.Vector.Storable as S
 import Data.Traversable
 import Data.Word
@@ -32,9 +26,6 @@ instance TrieKey k => Foldable (TrieMap (Vector k)) where
 
 -- | @'TrieMap' ('Vector' k) a@ is a traditional radix trie.
 instance TrieKey k => TrieKey (Vector k) where
-	ks =? ls	= length ks == length ls && and (zipWith (=?) ks ls)
-	ks `cmp` ls	= V.foldr (\ (k, l) z -> (k `cmp` l) `mappend` z) (comparing length ks ls) (zip ks ls)
-
 	newtype TrieMap (Vector k) a = Radix (MEdge Vector k a)
 	newtype Hole (Vector k) a = Hole (EdgeLoc Vector k a)
 	
@@ -81,9 +72,6 @@ instance TrieKey k => TrieKey (Vector k) where
 
 type WordVec = S.Vector Word
 
-vZipWith :: (Storable a, Storable b) => (a -> b -> c) -> S.Vector a -> S.Vector b -> Vector c
-vZipWith f xs ys = V.zipWith f (convert xs) (convert ys)
-
 instance Foldable (TrieMap (S.Vector Word)) where
   foldMap f (WRadix m) = foldMap (foldMap f) m
   foldr f z (WRadix m) = foldl (foldr f) z m
@@ -91,9 +79,6 @@ instance Foldable (TrieMap (S.Vector Word)) where
 
 -- | @'TrieMap' ('S.Vector' Word) a@ is a traditional radix trie specialized for word arrays.
 instance TrieKey (S.Vector Word) where
-	ks =? ls	= length ks == length ls && and (vZipWith (=?) ks ls)
-	ks `cmp` ls	= V.foldr (\ (k, l) z -> (k `cmp` l) `mappend` z) (comparing length ks ls) (vZipWith (,) ks ls)
-
 	newtype TrieMap WordVec a = WRadix (MEdge S.Vector Word a)
 	newtype Hole WordVec a = WHole (EdgeLoc S.Vector Word a)
 	

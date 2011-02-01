@@ -37,9 +37,6 @@ instance TrieKey k => TrieKey (Rev k) where
 	newtype TrieMap (Rev k) a = RevMap (TrieMap k a)
 	newtype Hole (Rev k) a = RHole (Hole k a)
 
-	Rev k1 =? Rev k2 = k1 =? k2
-	Rev k1 `cmp` Rev k2 = k2 `cmp` k1
-	
 	emptyM = RevMap emptyM
 	singletonM (Rev k) a = RevMap (singletonM k a)
 	lookupM (Rev k) (RevMap m) = lookupM k m

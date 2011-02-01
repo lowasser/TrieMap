@@ -53,9 +53,6 @@ sNode !n = SNode (getSize n) n
 
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
-	(=?) = (==)
-	cmp = compare
-
 	newtype TrieMap Word a = WordMap {getWordMap :: SNode a}
         data Hole Word a = Hole !Key !(Path a)
 	emptyM = WordMap nil

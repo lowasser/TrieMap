@@ -23,9 +23,6 @@ instance Foldable (TrieMap ()) where
 
 -- | @'TrieMap' () a@ is implemented as @'Maybe' a@.
 instance TrieKey () where
-	_ =? _ = True
-	_ `cmp` _ = EQ
-  
 	newtype TrieMap () a = Unit (Maybe a)
 	data Hole () a = Hole
 	

@@ -50,9 +50,6 @@ tip = SNode 0 0 Tip
 
 -- | @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
 instance Ord k => TrieKey (Ordered k) where
-	Ord k1 =? Ord k2	= k1 == k2
-	Ord k1 `cmp` Ord k2	= k1 `compare` k2
-  
 	newtype TrieMap (Ordered k) a = OrdMap (SNode k a)
         data Hole (Ordered k) a = 
         	Empty k !(Path k a)

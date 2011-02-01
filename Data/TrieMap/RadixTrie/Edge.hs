@@ -11,7 +11,7 @@ import Data.TrieMap.RadixTrie.Slice
 import Control.Applicative
 import Control.Monad
 
-import Data.Foldable (Foldable(..))
+import Data.Foldable
 import Data.Monoid
 import Data.Word
 
@@ -26,13 +26,13 @@ import Prelude hiding (length, foldr, foldl, zip, take)
 {-# SPECIALIZE lookupEdge ::
       TrieKey k => V() -> V(Edge) a -> Maybe a,
       U() -> U(Edge) a -> Maybe a #-}
-lookupEdge :: Label v k => v k -> Edge v k a -> Maybe a
+lookupEdge :: (Eq k, Label v k) => v k -> Edge v k a -> Maybe a
 lookupEdge = lookupE where
 	lookupE !ks !(eView -> Edge _ ls v ts) = if kLen < lLen then Nothing else matchSlice matcher matches ks ls where
 	  !kLen = length ks
 	  !lLen = length ls
 	  matcher k l z
-		  | k =? l	  = z
+		  | k == l	  = z
 		  | otherwise	  = Nothing
 	  matches _ _
 		  | kLen == lLen  = v
@@ -41,11 +41,11 @@ lookupEdge = lookupE where
 {-# SPECIALIZE searchEdge :: 
       TrieKey k => V() -> V(Edge) a -> V(Path) a -> (Maybe a, V(EdgeLoc) a),
       U() -> U(Edge) a -> U(Path) a -> (Maybe a, U(EdgeLoc) a) #-}
-searchEdge :: Label v k => v k -> Edge v k a -> Path v k a -> (Maybe a, EdgeLoc v k a)
+searchEdge :: (Eq k, Label v k) => v k -> Edge v k a -> Path v k a -> (Maybe a, EdgeLoc v k a)
 searchEdge = searchE where
 	searchE !ks !e@(eView -> Edge _ ls v ts) path = iMatchSlice matcher matches ks ls where
 	  matcher i k l z
-	    | k =? l	= z
+	    | k == l	= z
 	    | (# _, tHole #) <- searchM k (singletonM l (dropEdge (i+1) e))
 			= (Nothing, Loc (dropSlice (i+1) ks) emptyM (deep path (takeSlice i ls) Nothing tHole))
 	  matches kLen lLen = case compare kLen lLen of
@@ -150,11 +150,11 @@ unionEdge f = unionE where
 {-# SPECIALIZE isectEdge ::
       (TrieKey k, Sized c) => (a -> b -> Maybe c) -> V(Edge) a -> V(Edge) b -> V(MEdge) c,
       Sized c => (a -> b -> Maybe c) -> U(Edge) a -> U(Edge) b -> U(MEdge) c #-}
-isectEdge :: (Label v k, Sized c) =>
+isectEdge :: (Eq k, Label v k, Sized c) =>
 	(a -> b -> Maybe c) -> Edge v k a -> Edge v k b -> MEdge v k c
 isectEdge f = isectE where
   isectE !eK@(eView -> Edge _ ks0 vK tsK) !eL@(eView -> Edge _ ls0 vL tsL) = matchSlice matcher matches ks0 ls0 where
-    matcher k l z = guard (k =? l) >> z
+    matcher k l z = guard (k == l) >> z
     matches kLen lLen = case compare kLen lLen of
       EQ -> compact $ edge ks0 (isectMaybe f vK vL) $ isectM isectE tsK tsL
       LT -> let l = ls0 !$ kLen in do
@@ -169,12 +169,12 @@ isectEdge f = isectE where
 {-# SPECIALIZE diffEdge ::
       (TrieKey k, Sized a) => (a -> b -> Maybe a) -> V(Edge) a -> V(Edge) b -> V(MEdge) a,
       Sized a => (a -> b -> Maybe a) -> U(Edge) a -> U(Edge) b -> U(MEdge) a #-}
-diffEdge :: (Label v k, Sized a) =>
+diffEdge :: (Eq k, Label v k, Sized a) =>
 	(a -> b -> Maybe a) -> Edge v k a -> Edge v k b -> MEdge v k a
 diffEdge f = diffE where
   diffE !eK@(eView -> Edge _ ks0 vK tsK) !eL@(eView -> Edge _ ls0 vL tsL) = matchSlice matcher matches ks0 ls0 where
     matcher k l z
-      | k =? l		= z
+      | k == l		= z
       | otherwise	= Just eK
     matches kLen lLen = case compare kLen lLen of
       EQ -> cEdge ks0 (diffMaybe f vK vL) $ diffM diffE tsK tsL
@@ -188,10 +188,10 @@ diffEdge f = diffE where
 {-# SPECIALIZE isSubEdge ::
       TrieKey k => LEq a b -> LEq (V(Edge) a) (V(Edge) b),
       LEq a b -> LEq (U(Edge) a) (U(Edge) b) #-}
-isSubEdge :: Label v k => LEq a b -> LEq (Edge v k a) (Edge v k b)
+isSubEdge :: (Eq k, Label v k) => LEq a b -> LEq (Edge v k a) (Edge v k b)
 isSubEdge (<=) = isSubE where
   isSubE !eK@(eView -> Edge _ ks0 vK tsK) !(eView -> Edge _ ls0 vL tsL) = matchSlice matcher matches ks0 ls0 where
-    matcher k l z = k =? l && z
+    matcher k l z = k == l && z
     matches kLen lLen = case compare kLen lLen of
       LT	-> False
       EQ	-> subMaybe (<=) vK vL && isSubmapM isSubE tsK tsL

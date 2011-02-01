@@ -8,7 +8,6 @@ import Data.TrieMap.TrieKey
 import Control.Monad
 import Data.Functor
 import Data.Foldable hiding (foldlM, foldrM)
-import Data.Monoid
 
 import Data.Sequence ((|>))
 import qualified Data.Sequence as Seq
@@ -22,9 +21,6 @@ instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (k1, k2)) where
 
 -- | @'TrieMap' (k1, k2) a@ is implemented as a @'TrieMap' k1 ('TrieMap' k2 a)@.
 instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
-	(k11, k12) =? (k21, k22) = k11 =? k21 && k12 =? k22
-	(k11, k12) `cmp` (k21, k22) = (k11 `cmp` k21) `mappend` (k12 `cmp` k22)
-
 	newtype TrieMap (k1, k2) a = PMap (TrieMap k1 (TrieMap k2 a))
 	data Hole (k1, k2) a = PHole (Hole k1 (TrieMap k2 a)) (Hole k2 a)
 
@@ -74,10 +70,10 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
 gNull = (guardNullM .)
 
-breakFst :: TrieKey k1 => [((k1, k2), a)] -> [(k1, Elem [(k2, a)])]
+breakFst :: Eq k1 => [((k1, k2), a)] -> [(k1, Elem [(k2, a)])]
 breakFst [] = []
 breakFst (((a, b),v):xs) = breakFst' a (Seq.singleton (b, v)) xs where
 	breakFst' a vs (((a', b'), v'):xs)
-		| a =? a'	= breakFst' a' (vs |> (b', v')) xs
+		| a == a'	= breakFst' a' (vs |> (b', v')) xs
 		| otherwise	= (a, Elem $ toList vs):breakFst' a' (Seq.singleton (b', v')) xs
 	breakFst' a vs [] = [(a, Elem $ toList vs)]

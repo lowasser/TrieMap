@@ -84,16 +84,7 @@ instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (Either k1 k2)) where
 -- | @'TrieMap' ('Either' k1 k2) a@ is essentially a @(TrieMap k1 a, TrieMap k2 a)@, but
 -- specialized for the cases where one or both maps are empty.
 instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
-	{-# SPECIALIZE instance TrieKey (Either () ()) #-}
-  	Left k1 =? Left k2	= k1 =? k2
-  	Right k1 =? Right k2	= k1 =? k2
-  	_ =? _			= False
-  	
-  	Left k1 `cmp` Left k2	= k1 `cmp` k2
-  	Left{} `cmp` Right{}	= LT
-  	Right k1 `cmp` Right k2	= k1 `cmp` k2
-  	Right{} `cmp` Left{}	= GT
-  
+	{-# SPECIALIZE instance TrieKey (Either () ()) #-}  
 	data TrieMap (Either k1 k2) a = 
 		Empty
 		| K1 (TrieMap k1 a)
