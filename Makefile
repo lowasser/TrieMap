@@ -1,5 +1,5 @@
 
-.PHONY : opt bench clean install prof test debug benchprof BenchmarkP.prof
+.PHONY : opt bench clean install prof test debug benchprof BenchmarkP.prof threadscope
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
@@ -8,11 +8,13 @@ FAST_GHC_OPTS := -O0 -ddump-minimal-imports -odir $(FAST_DIR) $(GHC_OPTS)
 DEBUG_GHC_OPTS := -prof -hisuf p_hi -auto-all  -rtsopts -osuf p_o  $(FAST_GHC_OPTS) $(GHC_OPTS)
 OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
   -fmax-worker-args=100 -fno-liberate-case-threshold -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
+THREADSCOPE_OPTS := $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS) -eventlog
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
 HP2PS_OPTS := -c -s -m12 -d
 RTS_OPTS := -H256M -A32M -s
 BENCH_SAMPLES := 30
 BPROF_SAMPLES := 5
+THREADSCOPE_SAMPLES := 10
 
 fast : $(FAST_DIR)/Data/TrieSet.o $(FAST_DIR)/Data/TrieMap.o
 debug: $(FAST_DIR)/Data/TrieSet.p_o $(FAST_DIR)/Data/TrieMap.p_o
@@ -33,6 +35,9 @@ bench : Benchmark
 benchprof : BenchmarkP.prof BenchmarkP.ps
 	less BenchmarkP.prof
 
+threadscope: Benchlog.eventlog
+	threadscope Benchlog.eventlog
+
 BenchmarkP.ps : BenchmarkP.hp
 	hp2ps $(HP2PS_OPTS) $<
 
@@ -40,6 +45,9 @@ BenchmarkP.hp : BenchmarkP.prof
 
 BenchmarkP.prof : BenchmarkP
 	./BenchmarkP -s $(BPROF_SAMPLES) +RTS -P -hd $(RTS_OPTS) -RTS
+
+Benchlog.eventlog : Benchlog
+	./Benchlog -s $(THREADSCOPE_SAMPLES) +RTS $(RTS_OPTS) -ls -RTS
 
 Tests : fast
 	ghc $(FAST_GHC_OPTS) Tests -o Tests -main-is Tests.main
@@ -52,6 +60,9 @@ BenchmarkP : opt prof
 
 Benchmark : opt
 	ghc $(OPTIMIZED_GHC_OPTS) Benchmark -o Benchmark -main-is Benchmark.main
+
+Benchlog : opt
+	ghc $(THREADSCOPE_OPTS) Benchmark -o Benchlog -main-is Benchmark.main
 
 clean:
 	rm -f *.imports
