@@ -40,7 +40,6 @@ instance TrieKey k => TrieKey (Rev k) where
 	emptyM = RevMap emptyM
 	singletonM (Rev k) a = RevMap (singletonM k a)
 	lookupM (Rev k) (RevMap m) = lookupM k m
-	insertWithM f (Rev k) a (RevMap m) = RevMap (insertWithM f k a m)
 	sizeM (RevMap m) = sizeM m
 	getSimpleM (RevMap m) = getSimpleM m
 	
@@ -59,7 +58,7 @@ instance TrieKey k => TrieKey (Rev k) where
 	beforeWithM a (RHole hole) = RevMap (afterWithM a hole)
 	afterM (RHole hole) = RevMap (beforeM hole)
 	afterWithM a (RHole hole) = RevMap (beforeWithM a hole)
-	searchM (Rev k) (RevMap m) = onSnd RHole (searchM k) m
+	searchMC (Rev k) (RevMap m) = mapSearch RHole (searchMC k m)
 	indexM i (RevMap m) = case indexM (revIndex i m) m of
 		(# i', a, hole #) -> (# revIndex i' a, a, RHole hole #)
 	  where	revIndex :: Sized a => Int -> a -> Int
@@ -70,9 +69,11 @@ instance TrieKey k => TrieKey (Rev k) where
 	lastHoleM (RevMap m) = Last (fmap RHole <$> getFirst (firstHoleM m))
 	
 	assignM v (RHole m) = RevMap (assignM v m)
+	clearM (RHole m) = RevMap (clearM m)
 	
+	insertWithM f (Rev k) a (RevMap m) = RevMap (insertWithM f k a m)
 	fromListM f xs = RevMap (fromListM f [(k, a) | (Rev k, a) <- xs])
 	fromAscListM f xs = RevMap (fromAscListM (flip f) [(k, a) | (Rev k, a) <- reverse xs])
 	fromDistAscListM xs = RevMap (fromDistAscListM [(k, a) | (Rev k, a) <- reverse xs])
 	
-	unifyM (Rev k1) a1 (Rev k2) a2 = RevMap <$> unifyM k1 a1 k2 a2
+	unifierM (Rev k') (Rev k) a = RHole <$> unifierM k' k a

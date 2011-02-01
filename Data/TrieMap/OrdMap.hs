@@ -57,7 +57,6 @@ instance Ord k => TrieKey (Ordered k) where
 	emptyM = OrdMap tip
 	singletonM (Ord k) a = OrdMap (singleton k a)
 	lookupM (Ord k) (OrdMap m) = lookup k m
-	insertWithM f (Ord k) a (OrdMap m) = OrdMap (insertWith f k a m)
 	getSimpleM (OrdMap m) = case m of
 		TIP	-> Null
 		BIN(_ a TIP TIP)
@@ -84,7 +83,7 @@ instance Ord k => TrieKey (Ordered k) where
 	afterM (Full _ path _ r) = OrdMap $ after r path
 	afterWithM a (Empty k path) = OrdMap $ after (singleton k a) path
 	afterWithM a (Full k path _ r) = OrdMap $ after (insertMin k a r) path
-	searchM (Ord k) (OrdMap m) = search k Root m
+	searchMC (Ord k) (OrdMap m) = search k m
 	indexM i (OrdMap m) = indexT Root i m where
 		indexT path i BIN(kx x l r) 
 		  | i < sl	= indexT (LeftBin kx x path r) i l
@@ -105,10 +104,10 @@ instance Ord k => TrieKey (Ordered k) where
 	assignM x (Empty k path) = OrdMap $ rebuild (singleton k x) path
 	assignM x (Full k path l r) = OrdMap $ rebuild (join k x l r) path
 	
-	unifyM (Ord k1) a1 (Ord k2) a2 = case compare k1 k2 of
+	unifierM (Ord k') (Ord k) a = case compare k' k of
 		EQ	-> Nothing
-		LT	-> Just $ OrdMap $ bin k1 a1 tip (singleton k2 a2)
-		GT	-> Just $ OrdMap $ bin k1 a1 (singleton k2 a2) tip
+		LT	-> Just $ Empty k' (LeftBin k a Root tip)
+		GT	-> Just $ Empty k' (RightBin k a tip Root)
 
 rebuild :: Sized a => SNode k a -> Path k a -> SNode k a
 rebuild t Root = t
@@ -121,14 +120,6 @@ lookup k BIN(kx x l r) = case compare k kx of
 	EQ	-> Just x
 	GT	-> lookup k r
 lookup _ _ = Nothing
-
-insertWith :: (Ord k, Sized a) => (a -> a -> a) -> k -> a -> SNode k a -> SNode k a
-insertWith f k a = ins where
-  ins TIP = singleton k a
-  ins BIN(kx x l r) = case compare k kx of
-    LT	-> join kx x (ins l) r
-    EQ	-> bin kx (f a x) l r
-    GT	-> join kx x l (ins r)
 
 singleton :: Sized a => k -> a -> SNode k a
 singleton k a = bin k a tip tip
@@ -175,17 +166,17 @@ mapEither f BIN(k a l r) = (# joinMaybe k aL lL rL, joinMaybe k aR lR rR #)
   where !(# aL, aR #) = f a; !(# lL, lR #) = mapEither f l; !(# rL, rR #) = mapEither f r
 mapEither _ _ = (# tip, tip #)
 
-splitLookup :: (Ord k, Sized a) => k -> SNode k a -> (# SNode k a, Maybe a, SNode k a #)
-splitLookup k t = case search k Root t of
-  (# v, Empty _ path #)	-> (# before tip path, v, after tip path #)
-  (# v, Full _ path l r #) -> (# before l path, v, after r path #)
+splitLookup :: (Ord k, Sized a) => k -> SNode k a -> (SNode k a -> Maybe a -> SNode k a -> r) -> r
+splitLookup k t cont = search k t (split Nothing) (split . Just) where
+  split v (Empty _ path) = cont (before tip path) v (after tip path)
+  split v (Full _ path l r) = cont (before l path) v (after r path)
 
 isSubmap :: (Ord k, Sized a, Sized b) => LEq a b -> LEq (SNode k a) (SNode k b)
 isSubmap _ TIP _ = True
 isSubmap _ _ TIP = False
-isSubmap (<=) BIN(kx x l r) t = case splitLookup kx t of
-  (# _, Nothing, _ #)	-> False
-  (# tl, Just y, tr #)	-> x <= y && isSubmap (<=) l tl && isSubmap (<=) r tr
+isSubmap (<=) BIN(kx x l r) t = splitLookup kx t result
+  where	result _ Nothing _	= False
+  	result tl (Just y) tr	= x <= y && isSubmap (<=) l tl && isSubmap (<=) r tr
 
 fromAscList :: (Eq k, Sized a) => (a -> a -> a) -> [(k, a)] -> SNode k a
 fromAscList f xs = fromDistinctAscList (combineEq xs) where
@@ -271,8 +262,8 @@ trimLookupLo lo cmphi t@BIN(kx x l r)
       EQ -> (Just (kx,x),trim (compare lo) cmphi r)
 
 isect :: (Ord k, Sized a, Sized b, Sized c) => (a -> b -> Maybe c) -> SNode k a -> SNode k b -> SNode k c
-isect f t1@BIN(_ _ _ _) BIN(k2 x2 l2 r2) = case splitLookup  k2 t1 of
-  (# tl, found, tr #)	-> joinMaybe k2 (found >>= \ x1' -> f x1' x2) (isect f tl l2) (isect f tr r2)
+isect f t1@BIN(_ _ _ _) BIN(k2 x2 l2 r2) = splitLookup k2 t1 result where
+  result tl found tr = joinMaybe k2 (found >>= \ x1' -> f x1' x2) (isect f tl l2) (isect f tr r2)
 isect _ _ _ = tip
 
 hedgeDiff :: (Ord k, Sized a)
@@ -409,9 +400,10 @@ after t (LeftBin k a path r) = after (join k a t r) path
 after t (RightBin _ _ _ path) = after t path
 after t _ = t
 
-search :: Ord k => k -> Path k a -> SNode k a -> (# Maybe a, Hole (Ordered k) a #)
-search k path TIP = (# Nothing, Empty k path #)
-search k path BIN(kx x l r) = case compare k kx of
-	LT	-> search k (LeftBin kx x path r) l
-	EQ	-> (# Just x, Full k path l r #)
-	GT	-> search k (RightBin kx x l path) r
+search :: Ord k => k -> SNode k a -> SearchCont (Hole (Ordered k) a) a r
+search k t f g = searcher Root t where
+  searcher path TIP = f (Empty k path)
+  searcher path BIN(kx x l r) = case compare k kx of
+	LT	-> searcher (LeftBin kx x path r) l
+	EQ	-> g x (Full k path l r)
+	GT	-> searcher (RightBin kx x l path) r

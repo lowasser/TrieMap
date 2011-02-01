@@ -49,14 +49,13 @@ instance TrieKey k => TrieKey (Vector k) where
 
 	singleHoleM ks = Hole (singleLoc ks)
 	{-# INLINE searchMC #-}
-	searchMC ks (Radix (Just e)) f g = searchEdgeC ks e f' g' where
-	  f' loc = f (Hole loc)
-	  g' a loc = g a (Hole loc)
-	searchMC ks _ f _ = f (singleHoleM ks)
+	searchMC ks (Radix (Just e)) = mapSearch Hole (searchEdgeC ks e)
+	searchMC ks _ = \ f _ -> f (singleHoleM ks)
 	indexM i (Radix (Just e)) = onThird Hole (indexEdge i e) root
 	indexM _ _ = indexFail ()
 
 	clearM (Hole loc) = Radix (clearEdge loc)
+	{-# INLINE assignM #-}
 	assignM a (Hole loc) = Radix (Just (assignEdge a loc))
 	
 	extractHoleM (Radix (Just e)) = fmap Hole <$> extractEdgeLoc e root
@@ -67,8 +66,12 @@ instance TrieKey k => TrieKey (Vector k) where
 	afterM (Hole loc) = Radix (afterEdge Nothing loc)
 	afterWithM a (Hole loc) = Radix (afterEdge (Just a) loc)
 	
-	unifyM ks1 a1 ks2 a2 = fmap (Radix . Just) (unifyEdge ks1 a1 ks2 a2)
-
+	insertWithM f ks v (Radix e) = Radix (Just (maybe (singletonEdge ks v) (insertEdge f ks v) e))
+	fromListM _ [] = emptyM
+	fromListM f ((k, a):xs) = Radix (Just (roll (singletonEdge k a) xs)) where
+	  roll !e [] = e
+	  roll !e ((ks, a):xs) = roll (insertEdge (f a) ks a e) xs
+	
 type WordVec = S.Vector Word
 
 instance Foldable (TrieMap (S.Vector Word)) where
@@ -109,7 +112,6 @@ instance TrieKey (S.Vector Word) where
 	indexM _ (WRadix Nothing) = indexFail ()
 
 	clearM (WHole loc) = WRadix (clearEdge loc)
-
 	{-# INLINE assignM #-}
 	assignM a (WHole loc) = WRadix (Just (assignEdge a loc))
 
@@ -123,4 +125,9 @@ instance TrieKey (S.Vector Word) where
 	afterM (WHole loc) = WRadix (afterEdge Nothing loc)
 	afterWithM a (WHole loc) = WRadix (afterEdge (Just a) loc)
 	
-	unifyM ks1 a1 ks2 a2 = fmap (WRadix . Just) (unifyEdge ks1 a1 ks2 a2)
+	insertWithM f ks v (WRadix e) = WRadix (Just (maybe (singletonEdge ks v) (insertEdge f ks v) e))
+	{-# INLINE fromListM #-}
+	fromListM _ [] = emptyM
+	fromListM f ((k, a):xs) = WRadix (Just (roll (singletonEdge k a) xs)) where
+	  roll !e [] = e
+	  roll !e ((ks, a):xs) = roll (insertEdge (f a) ks a e) xs

@@ -10,13 +10,14 @@ import Control.Monad
 import Control.Monad.Ends
 
 import Data.Foldable hiding (foldrM, foldlM)
+import qualified Data.List as L
 
 import Prelude hiding (foldr, foldl)
 
 import GHC.Exts
 
 type LEq a b = a -> b -> Bool
-type Unified k a = Maybe (TrieMap k a)
+type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
 
 data Simple a = Null | Singleton a | NonSimple
 
@@ -52,7 +53,6 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	sizeM# :: Sized a => TrieMap k a -> Int#
 	sizeM :: Sized a => TrieMap k a -> Int
 	lookupM :: k -> TrieMap k a -> Maybe a
-	insertWithM :: Sized a => (a -> a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
 	fmapM :: Sized b => (a -> b) -> TrieMap k a -> TrieMap k b
 	traverseM :: (Applicative f, Sized b) =>
 		(a -> f b) -> TrieMap k a -> f (TrieMap k b)
@@ -66,34 +66,24 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	
 	fromListM, fromAscListM :: Sized a => (a -> a -> a) -> [(k, a)] -> TrieMap k a
 	fromDistAscListM :: Sized a => [(k, a)] -> TrieMap k a
-	
-	insertWithM f k a m = inline searchMC k m (assignM a) (assignM . f a)
-	fromListM f = foldr (\ (k, a) -> inline insertWithM f k a) emptyM
-	fromAscListM = fromListM
-	fromDistAscListM = fromAscListM const
+	insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
 	
 	data Hole k :: * -> *
 	singleHoleM :: k -> Hole k a
 	beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
 	beforeWithM, afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
-	searchM :: k -> TrieMap k a -> (# Maybe a, Hole k a #)
-	searchMC :: k -> TrieMap k a -> (Hole k a -> r) -> (a -> Hole k a -> r) -> r
-	searchMC k m f g = case searchM k m of
-	  (# a, hole #)	-> maybe f g a hole
-	searchM k m = case searchMC k m (Nothing,) ((,) . Just) of
-	  (a, hole) -> (# a, hole #)
+	searchMC :: k -> TrieMap k a -> SearchCont (Hole k a) a r
 	indexM :: Sized a => Int -> TrieMap k a -> (# Int, a, Hole k a #)
 	indexM# :: Sized a => Int# -> TrieMap k a -> (# Int#, a, Hole k a #)
 
-	-- This, combined with the rewrite rules, allows each instance to define only
-	-- extractHoleM, but to obtain automatically specialized firstHoleM and lastHoleM
-	-- implementations.
+	-- By combining rewrite rules and these NOINLINE pragmas, we automatically derive
+	-- specializations of functions for every instance of TrieKey.
 	extractHoleM :: (Functor m, MonadPlus m) => Sized a => TrieMap k a -> m (a, Hole k a)
 	{-# NOINLINE firstHoleM #-}
 	{-# NOINLINE lastHoleM #-}
 	{-# NOINLINE sizeM# #-}
 	{-# NOINLINE indexM# #-}
-	sizeM# m = let !(I# sz#) = inline sizeM m in sz#
+	sizeM# m = unbox (inline sizeM m)
 	indexM# i# m = case inline indexM (I# i#) m of
 	  (# I# i'#, a, hole #)	-> (# i'#, a, hole #)
 	firstHoleM :: Sized a => TrieMap k a -> First (a, Hole k a)
@@ -101,23 +91,37 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	lastHoleM :: Sized a => TrieMap k a -> Last (a, Hole k a)
 	lastHoleM m = inline extractHoleM m
 	
-	fillHoleM :: Sized a => Maybe a -> Hole k a -> TrieMap k a
+	insertWithM f k a m = inline searchMC k m (assignM a) (assignM . f)
+	
 	assignM :: Sized a => a -> Hole k a -> TrieMap k a
 	clearM :: Sized a => Hole k a -> TrieMap k a
-	fillHoleM = maybe clearM assignM
-	assignM = fillHoleM . Just
-	clearM = fillHoleM Nothing
-	
-	unifyM :: Sized a => k -> a -> k -> a -> Unified k a
 	unifierM :: Sized a => k -> k -> a -> Maybe (Hole k a)
-	unifierM k' k a = case searchM k' (singletonM k a) of
-	  (# Nothing, hole #)	-> Just hole
-	  (# Just{}, _ #)	-> Nothing
+	
+	fromListM f = L.foldl' (\ m (k, a) -> insertWithM (f a) k a m) emptyM
+	fromAscListM = fromListM
+	fromDistAscListM = fromAscListM const
+	unifierM k' k a = searchMC k' (singletonM k a) Just (\ _ _ -> Nothing)
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM#
 
-insertWithM' :: (TrieKey k, Sized a) => (a -> a -> a) -> k -> a -> Maybe (TrieMap k a) -> TrieMap k a
+{-# INLINE fillHoleM #-}
+fillHoleM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
+fillHoleM = maybe clearM assignM
+
+{-# INLINE mapSearch #-}
+mapSearch :: (hole -> hole') -> SearchCont hole a r -> SearchCont hole' a r
+mapSearch f run nomatch match = run nomatch' match' where
+  nomatch' hole = nomatch (f hole)
+  match' a hole = match a (f hole)
+
+{-# INLINE unifyM #-}
+unifyM :: (TrieKey k, Sized a) => k -> a -> k -> a -> Maybe (TrieMap k a)
+unifyM k1 a1 k2 a2 = case unifierM k1 k2 a2 of
+  Nothing	-> Nothing
+  Just hole	-> Just $ inline assignM a1 hole
+
+insertWithM' :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> Maybe (TrieMap k a) -> TrieMap k a
 insertWithM' f k a = maybe (singletonM k a) (insertWithM f k a)
 
 mapMaybeM' :: (TrieKey k, Sized b) => (a -> Maybe b) -> TrieMap k a -> Maybe (TrieMap k b)
@@ -148,20 +152,21 @@ beforeMM = maybe beforeM beforeWithM
 afterMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
 afterMM = maybe afterM afterWithM
 
-searchM' :: TrieKey k => k -> Maybe (TrieMap k a) -> (# Maybe a, Hole k a #)
-searchM' k Nothing = (# Nothing, singleHoleM k #)
-searchM' k (Just m) = searchM k m
-
 clearM' :: (TrieKey k, Sized a) => Hole k a -> Maybe (TrieMap k a)
 clearM' hole = guardNullM (clearM hole)
 
 {-# INLINE alterM #-}
 alterM :: (TrieKey k, Sized a) => (Maybe a -> Maybe a) -> k -> TrieMap k a -> TrieMap k a
-alterM f k m = case searchM k m of
-	(# Nothing, hole #)	-> case f Nothing of
-		Nothing		-> m
-		Just a		-> assignM a hole
-	(# a, hole #)		-> fillHoleM (f a) hole
+alterM f k m = searchMC k m g h where
+  g hole = case f Nothing of
+    Nothing	-> m
+    Just a	-> assignM a hole
+  h = fillHoleM . f . Just
+
+{-# INLINE searchMC' #-}
+searchMC' :: TrieKey k => k -> Maybe (TrieMap k a) -> (Hole k a -> r) -> (a -> Hole k a -> r) -> r
+searchMC' k Nothing f _ = f (singleHoleM k)
+searchMC' k (Just m) f g = searchMC k m f g
 
 nullM :: TrieKey k => TrieMap k a -> Bool
 nullM m = case getSimpleM m of

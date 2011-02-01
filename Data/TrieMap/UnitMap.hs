@@ -31,8 +31,6 @@ instance TrieKey () where
 	getSimpleM (Unit m) = maybe Null Singleton m
 	sizeM (Unit m) = getSize m
 	lookupM _ (Unit m) = m
-	insertWithM f _ a (Unit (Just a0)) = single (f a a0)
-	insertWithM _ _ a (Unit Nothing) = single a
 	traverseM f (Unit m) = Unit <$> traverse f m
 	fmapM f (Unit m) = Unit (f <$> m)
 	mapMaybeM f (Unit m) = Unit (m >>= f)
@@ -41,6 +39,8 @@ instance TrieKey () where
 	isectM f (Unit m1) (Unit m2) = Unit (isectMaybe f m1 m2)
 	diffM f (Unit m1) (Unit m2) = Unit (diffMaybe f m1 m2)
 	isSubmapM (<=) (Unit m1) (Unit m2) = subMaybe (<=) m1 m2
+	
+	insertWithM f _ a (Unit m) = Unit (Just (maybe a f m))
 	fromListM _ [] = emptyM
 	fromListM f ((_, v):xs) = single (foldl (\ v' -> f v' . snd) v xs)
 	
@@ -50,12 +50,13 @@ instance TrieKey () where
 	beforeWithM a _ = single a
 	afterWithM a _ = single a
 	
-	searchM _ (Unit m) = (# m, Hole #)
+	searchMC _ (Unit (Just v)) _ g = g v Hole
+	searchMC _ _ f _ = f Hole
 
 	indexM i (Unit (Just v)) = (# i, v, Hole #)
 	indexM _ _ = indexFail ()
 	
-	unifyM _ _ _ _ = Nothing
+	unifierM _ _ _ = Nothing
 	
 	extractHoleM (Unit (Just v)) = return (v, Hole)
 	extractHoleM _ = mzero

@@ -37,6 +37,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	unionM f (PMap m1) (PMap m2) = PMap (unionM (unionM' f) m1 m2)
 	isectM f (PMap m1) (PMap m2) = PMap (isectM (isectM' f) m1 m2)
 	diffM f (PMap m1) (PMap m2) = PMap (diffM (diffM' f) m1 m2)
+	insertWithM f (k1, k2) a (PMap m) = PMap (insertWithM f' k1 (singletonM k2 a) m) where
+	  f' = insertWithM f k2 a
 	fromAscListM f xs = PMap (fromDistAscListM
 		[(a, fromAscListM f ys) | (a, Elem ys) <- breakFst xs])
 	fromDistAscListM xs = PMap (fromDistAscListM
@@ -47,8 +49,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	beforeWithM a (PHole hole1 hole2) = PMap (beforeWithM (beforeWithM a hole2) hole1)
 	afterM (PHole hole1 hole2) = PMap (afterMM (gNull afterM hole2) hole1)
 	afterWithM a (PHole hole1 hole2) = PMap (afterWithM (afterWithM a hole2) hole1)
-	searchM (k1, k2) (PMap m) = onSnd (PHole hole1) (searchM' k2) m'
-	  where	!(# m', hole1 #) = searchM k1 m
+	searchMC (k1, k2) (PMap m) f g = searchMC k1 m f' g' where
+	  f' hole1 = f (PHole hole1 (singleHoleM k2))
+	  g' m' hole1 = mapSearch (PHole hole1) (searchMC k2 m') f g
 	indexM i (PMap m) = onThird (PHole hole1) (indexM i') m'
 	  where	!(# i', m', hole1 #) = indexM i m
 	extractHoleM (PMap m) = do
@@ -59,13 +62,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	clearM (PHole hole1 hole2) = PMap (fillHoleM (clearM' hole2) hole1)
 	assignM a (PHole hole1 hole2) = PMap (assignM (assignM a hole2) hole1)
 	
-	unifyM (k11, k12) a1 (k21, k22) a2 = PMap <$> (match1 `mplus` match2) where
-	  match1 = unifyM k11 (singletonM k12 a1) k21 (singletonM k22 a2)
-	  match2 = singletonM k11 <$> unifyM k12 a1 k22 a2
-	
-	insertWithM f (k1, k2) a (PMap m) = PMap (insertWithM g k1 single m) where
-	  single = singletonM k2 a
-	  g _ = insertWithM f k2 a
+	unifierM (k1', k2') (k1, k2) a = case unifierM k1' k1 (singletonM k2 a) of
+	  Just hole1	-> Just (PHole hole1 (singleHoleM k2'))
+	  Nothing	-> PHole (singleHoleM k1) <$> unifierM k2' k2 a
 
 gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
 gNull = (guardNullM .)

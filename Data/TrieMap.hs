@@ -204,11 +204,11 @@ m ! k = fromMaybe (error "Element not found") (lookup k m)
 -- @'lookup' k ('alter' f k m) = f ('lookup' k m)@.
 {-# INLINE alter #-}
 alter :: TKey k => (Maybe a -> Maybe a) -> k -> TMap k a -> TMap k a
-alter f k m = case search k m of
-	(Nothing, hole)	-> case f Nothing of
-		Nothing	-> m
-		Just a'	-> assign a' hole
-	(a, hole)	-> fillHole (f a) hole
+alter f k (TMap m) = TMap $ searchMC (toRep k) m nomatch match where
+  nomatch hole = case f Nothing of
+      Nothing	-> m
+      Just a'	-> assignM (Assoc k a') hole
+  match (Assoc _ a) hole = fillHoleM (Assoc k <$> f (Just a)) hole
 
 -- | Insert a new key and value in the map.
 -- If the key is already present in the map, the associated value is
@@ -249,7 +249,7 @@ insertWith = insertWithKey . const
 {-# INLINE insertWithKey #-}
 insertWithKey :: TKey k => (k -> a -> a -> a) -> k -> a -> TMap k a -> TMap k a
 insertWithKey f k a (TMap m) =
-  TMap (insertWithM (\ _ (Assoc _ a0) -> Assoc k (f k a a0)) (toRep k) (Assoc k a) m)
+  TMap (insertWithM (\ (Assoc _ a0) -> Assoc k (f k a a0)) (toRep k) (Assoc k a) m)
 
 -- | Combines insert operation with old value retrieval.
 -- The expression (@'insertLookupWithKey' f k x map@)
@@ -949,9 +949,9 @@ after (TLoc _ hole) = TMap (afterM hole)
 -- @'lookup' k m == 'fst' ('search' k m)@
 {-# INLINE search #-}
 search :: TKey k => k -> TMap k a -> (Maybe a, TLocation k a)
-search k (TMap m) = case searchM (toRep k) m of
-	(# Just (Assoc k a), hole #)	-> (Just a, TLoc k hole)
-	(# _, hole #)			-> (Nothing, TLoc k hole)
+search k (TMap m) = searchMC (toRep k) m nomatch match where
+  nomatch hole = (Nothing, TLoc k hole)
+  match (Assoc k a) hole = (Just a, TLoc k hole)
 
 -- | Return the value and an updatable location for the
 -- /i/th key in the map.  Calls 'error' if /i/ is out of range.

@@ -89,12 +89,11 @@ empty = TSet emptyM
 
 -- | Insert an element into the 'TSet'.
 insert :: TKey a => a -> TSet a -> TSet a
-insert a (TSet s) = TSet (insertWithM const (toRep a) (Elem a) s)
+insert a (TSet s) = TSet (insertWithM (const (Elem a)) (toRep a) (Elem a) s)
 
 -- | Delete an element from the 'TSet'.
 delete :: TKey a => a -> TSet a -> TSet a
-delete a (TSet s) = TSet (case searchM (toRep a) s of
-  (# _, hole #)	-> clearM hole)
+delete a (TSet s) = TSet (searchMC (toRep a) s clearM (const clearM))
 
 -- | /O(1)/. Create a singleton set.
 singleton :: TKey a => a -> TSet a
@@ -141,9 +140,9 @@ split a s = case splitMember a s of
 -- | Performs a 'split' but also returns whether the pivot
 -- element was found in the original set.
 splitMember :: TKey a => a -> TSet a -> (TSet a, Bool, TSet a)
-splitMember a (TSet s) = case searchM (toRep a) s of
-  (# Nothing, hole #)	-> (TSet (beforeM hole), False, TSet (afterM hole))
-  (# Just{}, hole #)	-> (TSet (beforeM hole), True, TSet (afterM hole))
+splitMember a (TSet s) = searchMC (toRep a) s nomatch match where
+  nomatch hole = (TSet (beforeM hole), False, TSet (afterM hole))
+  match _ hole = (TSet (beforeM hole), True, TSet (afterM hole))
 
 -- |
 -- @'map' f s@ is the set obtained by applying @f@ to each element of @s@.

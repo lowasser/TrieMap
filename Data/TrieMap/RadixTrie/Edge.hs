@@ -152,12 +152,14 @@ unionEdge f = unionE where
 	    eL' = dropEdge (i+1) eL
     matches kLen lLen = case compare kLen lLen of
       EQ -> cEdge ks0 (unionMaybe f vK vL) $ unionM unionE tsK tsL
-      LT -> let eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen in case searchM l tsK of
-	(# Nothing, holeKT #)	-> cEdge ks0 vK $ assignM eL' holeKT
-	(# Just eK', holeKT #)	-> cEdge ks0 vK $ fillHoleM (eK' `unionE` eL') holeKT
-      GT -> let eK' = dropEdge (lLen + 1) eK; k = ks0 !$ lLen in case searchM k tsL of
-      	(# Nothing, holeLT #)	-> cEdge ls0 vL $ assignM eK' holeLT
-      	(# Just eL', holeLT #)	-> cEdge ls0 vL $ fillHoleM (eK' `unionE` eL') holeLT
+      LT -> searchMC l tsK nomatch match where
+	eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen
+	nomatch holeKT = cEdge ks0 vK $ assignM eL' holeKT
+	match eK' holeKT = cEdge ks0 vK $ fillHoleM (eK' `unionE` eL') holeKT
+      GT -> searchMC k tsL nomatch match where
+	eK' = dropEdge (lLen + 1) eK; k = ks0 !$ lLen
+	nomatch holeLT = cEdge ls0 vL $ assignM eK' holeLT
+	match eL' holeLT = cEdge ls0 vL $ fillHoleM (eK' `unionE` eL') holeLT
 
 {-# SPECIALIZE isectEdge ::
       (TrieKey k, Sized c) => (a -> b -> Maybe c) -> V(Edge) a -> V(Edge) b -> V(MEdge) c,
@@ -190,9 +192,10 @@ diffEdge f = diffE where
       | otherwise	= Just eK
     matches kLen lLen = case compare kLen lLen of
       EQ -> cEdge ks0 (diffMaybe f vK vL) $ diffM diffE tsK tsL
-      LT -> let l = ls0 !$ kLen; eL' = dropEdge (kLen + 1) eL in case searchM l tsK of
-	(# Nothing, _ #)	-> Just eK
-	(# Just eK', holeKT #)	-> cEdge ks0 vK $ fillHoleM (eK' `diffE` eL') holeKT
+      LT -> searchMC l tsK nomatch match where
+	l = ls0 !$ kLen; eL' = dropEdge (kLen + 1) eL 
+	nomatch _ = Just eK
+	match eK' holeKT = cEdge ks0 vK $ fillHoleM (eK' `diffE` eL') holeKT
       GT -> let k = ks0 !$ lLen; eK' = dropEdge (lLen + 1) eK in case lookupM k tsL of
 	Nothing	  -> Just eK
 	Just eL'  -> fmap (unDropEdge (lLen + 1)) (eK' `diffE` eL')
@@ -247,26 +250,18 @@ indexEdge :: (Label v k, Sized a) => Int -> Edge v k a -> Path v k a -> (# Int, 
 indexEdge = indexE where
   indexE !i e path = case eView e of
     Edge _ ks v@(Just a) ts
-	  | i < sv	-> (# i, a, loc ks ts path #)
-	  | (# i', e', tHole #) <- indexM (i - sv) ts
-			-> indexE i' e' (deep path ks v tHole)
+      | i < sv	-> (# i, a, loc ks ts path #)
+      | (# i', e', tHole #) <- indexM (i - sv) ts
+		-> indexE i' e' (deep path ks v tHole)
 	  where	!sv = getSize a
     Edge _ ks Nothing ts
-			  -> indexE i' e' (deep path ks Nothing tHole)
+		-> indexE i' e' (deep path ks Nothing tHole)
 	  where !(# i', e', tHole #) = indexM i ts
 
-{-# SPECIALIZE unifyEdge :: 
-      (TrieKey k, Sized a) => V() -> a -> V() -> a -> V(MEdge) a,
-      Sized a => U() -> a -> U() -> a -> U(MEdge) a #-}
-unifyEdge :: (Label v k, Sized a) => v k -> a -> v k -> a -> MEdge v k a
-unifyEdge ks1 a1 ks2 a2 = iMatchSlice matcher matches ks1 ks2 where
-	matcher !i k1 k2 z =
-	  case unifyM k1 (singletonEdge (dropSlice (i+1) ks1) a1) k2 (singletonEdge (dropSlice (i+1) ks2) a2) of
-	    Nothing	-> z
-	    Just ts	-> Just (edge (takeSlice i ks1) Nothing ts)
-	matches len1 len2 = case compare len1 len2 of
-		LT	-> let (_,k2,ks2') = splitSlice len1 ks2 in
-			      Just (edge ks1 (Just a1) (singletonM k2 (singletonEdge ks2' a2)))
-		GT	-> let (_,k1,ks1') = splitSlice len2 ks1 in 
-			      Just (edge ks2 (Just a2) (singletonM k1 (singletonEdge ks1' a1)))
-		_	-> Nothing
+{-# SPECIALIZE insertEdge ::
+      (TrieKey k, Sized a) => (a -> a) -> V() -> a -> V(Edge) a -> V(Edge) a,
+      Sized a => (a -> a) -> U() -> a -> U(Edge) a -> U(Edge) a #-}
+insertEdge :: (Label v k, Sized a) => (a -> a) -> v k -> a -> Edge v k a -> Edge v k a
+insertEdge f ks v e = searchEdgeC ks e nomatch match where
+  nomatch = assignEdge v
+  match = assignEdge . f

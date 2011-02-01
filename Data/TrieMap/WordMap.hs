@@ -89,9 +89,7 @@ instance TrieKey Word where
 	afterWithM a HOLE(k path) = WordMap (after (singleton k a) path)
 
 	{-# INLINE searchMC #-}
-	searchMC !k (WordMap t) f g = searchC k t f' g' where
-		f' path = f (hole k path)
-		g' a path = g a (hole k path)
+	searchMC !k (WordMap t) = mapSearch (hole k) (searchC k t)
 	indexM i (WordMap m) = indexT i m Root where
 		indexT !i TIP(kx x) path = (# i, x, hole kx path #)
 		indexT !i BIN(p m l r) path
@@ -106,25 +104,24 @@ instance TrieKey Word where
 			extractHole (LeftBin p m path r) l `mplus`
 				extractHole (RightBin p m l path) r
 	clearM HOLE(_ path) = WordMap (assign nil path)
+	{-# INLINE assignM #-}
 	assignM v HOLE(kx path) = WordMap (assign (singleton kx v) path)
 
-	{-# INLINE unifyM #-}
-	unifyM k1 a1 k2 a2 = WordMap <$> unify k1 a1 k2 a2
 	{-# INLINE unifierM #-}
 	unifierM k' k a = Hole <$> unifier k' k a
 
 {-# INLINE searchC #-}
-searchC :: Key -> SNode a -> (Path a -> r) -> (a -> Path a -> r) -> r
+searchC :: Key -> SNode a -> SearchCont (Path a) a r
 searchC !k t f g = seek Root t where
   seek path t@BIN(p m l r)
-	| nomatch k p m	= f (branchHole k p path t)
-	| zero k m
-		= seek (LeftBin p m path r) l
-	| otherwise
-		= seek (RightBin p m l path) r
+    | nomatch k p m	= f (branchHole k p path t)
+    | zero k m
+	    = seek (LeftBin p m path r) l
+    | otherwise
+	    = seek (RightBin p m l path) r
   seek path t@TIP(ky y)
-	| k == ky	= g y path
-	| otherwise	= f (branchHole k ky path t)
+    | k == ky	= g y path
+    | otherwise	= f (branchHole k ky path t)
   seek path NIL = f path
 
 before, after :: SNode a -> Path a -> SNode a
@@ -240,11 +237,7 @@ unionWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
 
 {-# INLINE alter #-}
 alter :: Sized a => (Maybe a -> Maybe a) -> Key -> SNode a -> SNode a
-alter f k n = case searchM k (WordMap n) of
-  (# Nothing, hole #) -> case f Nothing of
-	Nothing	-> n
-	Just a	-> getWordMap (assignM a hole)
-  (# a, hole #) -> getWordMap (fillHoleM (f a) hole)
+alter f k t = getWordMap $ alterM f k (WordMap t)
 
 intersectionWith :: Sized c => (a -> b -> Maybe c) -> SNode a -> SNode b -> SNode c
 intersectionWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
@@ -354,12 +347,6 @@ bin' :: Prefix -> Mask -> SNode a -> SNode a -> SNode a
 bin' p m l@SNode{sz=sl} r@SNode{sz=sr} = assert (nonempty l && nonempty r) $ SNode (sl + sr) (Bin p m l r)
   where	nonempty NIL = False
   	nonempty _ = True
-
-{-# INLINE unify #-}
-unify :: Sized a => Key -> a -> Key -> a -> Maybe (SNode a)
-unify k1 a1 k2 a2
-    | k1 == k2	= Nothing
-    | otherwise	= Just (join k1 (singleton k1 a1) k2 (singleton k2 a2))
 
 {-# INLINE unifier #-}
 unifier :: Sized a => Key -> Key -> a -> Maybe (WHole a)

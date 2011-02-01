@@ -110,8 +110,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	
 	lookupM (Left k) (UVIEW m1 _) = m1 >>= lookupM k
 	lookupM (Right k) (UVIEW _ m2) = m2 >>= lookupM k
-	insertWithM f (Left k) a (UVIEW m1 m2) = Just (insertWithM' f k a m1) ^ m2
-	insertWithM f (Right k) a (UVIEW m1 m2) = m1 ^ Just (insertWithM' f k a m2)
 
 	traverseM f (Union _ m1 m2) = union <$> traverseM f m1 <*> traverseM f m2
 	traverseM f (K1 m1) = K1 <$> traverseM f m1
@@ -144,10 +142,12 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	isSubmapM (<=) (UVIEW m11 m12) (UVIEW m21 m22) =
 		subMaybe (isSubmapM (<=)) m11 m21 && subMaybe (isSubmapM (<=)) m12 m22
 
+	insertWithM f (Left k) a (UVIEW m1 m2)
+		= Just (insertWithM' f k a m1) ^ m2
+	insertWithM f (Right k) a (UVIEW m1 m2)
+		= m1 ^ Just (insertWithM' f k a m2)
 	fromListM f = onPair (&) (fromListM f) (fromListM f) . partEithers
-
 	fromAscListM f = onPair (&) (fromAscListM f) (fromAscListM f) . partEithers
-
 	fromDistAscListM = onPair (&) fromDistAscListM fromDistAscListM . partEithers
 
 	singleHoleM = either (HoleX0 . singleHoleM) (Hole0X . singleHoleM)
@@ -166,8 +166,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		Hole1 h1 m2	-> Just (afterWithM a h1) ^ m2
 		Hole2 __ h2	-> K2 (afterWithM a h2)
 	
-	searchM (Left k) (UVIEW m1 m2) = onSnd (`hole1` m2) (searchM' k) m1
-	searchM (Right k) (UVIEW m1 m2) = onSnd (hole2 m1) (searchM' k) m2
+	searchMC (Left k) (UVIEW m1 m2) = mapSearch (`hole1` m2) (searchMC' k m1)
+	searchMC (Right k) (UVIEW m1 m2) = mapSearch (hole2 m1) (searchMC' k m2)
 	
 	indexM i (K1 m1) = onThird HoleX0 (indexM i) m1
 	indexM i (K2 m2) = onThird Hole0X (indexM i) m2
@@ -188,10 +188,10 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		Hole1 h1 m2	-> Just (assignM v h1) ^ m2
 		Hole2 m1 h2	-> m1 ^ Just (assignM v h2)
 	
-	unifyM (Left k1) a1 (Left k2) a2 = K1 <$> unifyM k1 a1 k2 a2
-	unifyM (Left k1) a1 (Right k2) a2 = Just $ singletonM k1 a1 `union` singletonM k2 a2
-	unifyM (Right k2) a2 (Left k1) a1 = Just $ singletonM k1 a1 `union` singletonM k2 a2
-	unifyM (Right k1) a1 (Right k2) a2 = K2 <$> unifyM k1 a1 k2 a2
+	unifierM (Left k') (Left k) a = HoleX0 <$> unifierM k' k a
+	unifierM (Left k') (Right k) a = Just $ HoleX2 (singleHoleM k') (singletonM k a)
+	unifierM (Right k') (Left k) a = Just $ Hole1X (singletonM k a) (singleHoleM k')
+	unifierM (Right k') (Right k) a = Hole0X <$> unifierM k' k a
 
 {-# INLINE holes #-}
 holes :: (Functor m, Functor f, MonadPlus m) => (a -> m (f b)) -> (b -> c) -> Maybe a -> m (f c)

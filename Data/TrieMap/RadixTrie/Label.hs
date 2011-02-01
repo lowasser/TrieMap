@@ -13,7 +13,6 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Storable as S
 
 import Prelude hiding (length)
-import GHC.Exts
 
 #define V(ty) (ty (V.Vector) (k))
 #define U(ty) (ty (S.Vector) Word)
@@ -43,7 +42,7 @@ data PView v k a = Root
 type MEdge v k a = Maybe (Edge v k a)
 
 instance Sized (EView v k a) where
-  getSize# (Edge (I# sz#) _ _ _) = sz#
+  getSize# (Edge sz _ _ _) = unbox sz
 
 instance Label v k => Sized (Edge v k a) where
   {-# SPECIALIZE instance TrieKey k => Sized (Edge V.Vector k a) #-}
@@ -70,8 +69,8 @@ instance TrieKey k => Label V.Vector k where
   
   loc = VLoc
   
-  eView (VEdge sz# ks ts) = Edge sz# ks Nothing ts
-  eView (VEdgeX sz# ks v ts) = Edge sz# ks (Just v) ts
+  eView (VEdge s ks ts) = Edge s ks Nothing ts
+  eView (VEdgeX s ks v ts) = Edge s ks (Just v) ts
   pView VRoot = Root
   pView (VDeep path ks tHole) = Deep path ks Nothing tHole
   pView (VDeepX path ks v tHole) = Deep path ks (Just v) tHole
@@ -90,8 +89,8 @@ instance Label S.Vector Word where
   
   edge !ks Nothing ts = SEdge (sizeM ts) ks (getWordMap ts)
   edge !ks (Just v) ts = SEdgeX (getSize v + sizeM ts) ks v (getWordMap ts)
-  edge' sz# !ks Nothing ts = SEdge sz# ks (getWordMap ts)
-  edge' sz# !ks (Just v) ts = SEdgeX sz# ks v (getWordMap ts)
+  edge' sz !ks Nothing ts = SEdge sz ks (getWordMap ts)
+  edge' sz !ks (Just v) ts = SEdgeX sz ks v (getWordMap ts)
   
   root = SRoot
   deep path !ks Nothing tHole = SDeep path ks (getHole tHole)
@@ -99,8 +98,8 @@ instance Label S.Vector Word where
 
   loc ks ts path = SLoc ks (getWordMap ts) path
 
-  eView (SEdge sz# ks ts) = Edge sz# ks Nothing (WordMap ts)
-  eView (SEdgeX sz# ks v ts) = Edge sz# ks (Just v) (WordMap ts)
+  eView (SEdge s ks ts) = Edge s ks Nothing (WordMap ts)
+  eView (SEdgeX s ks v ts) = Edge s ks (Just v) (WordMap ts)
   pView SRoot = Root
   pView (SDeep path ks tHole) = Deep path ks Nothing (Hole tHole)
   pView (SDeepX path ks v tHole) = Deep path ks (Just v) (Hole tHole)
