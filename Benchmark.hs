@@ -12,15 +12,15 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Random
 import Control.DeepSeq
+import qualified Data.ByteString.Char8 as BS
 
-trieLongestPalindrome :: [String] -> [String] -> String
 trieLongestPalindrome strings revs =
-	 T.foldl (\ bs1 bs2 -> if length bs1 >= length bs2 then bs1 else bs2) ""
+	 T.foldl (\ bs1 bs2 -> if BS.length bs1 >= BS.length bs2 then bs1 else bs2) BS.empty
 	    $ T.intersection (T.fromList strings) (T.fromList revs)
 
-setLongestPalindrome :: [String] -> [String] -> String
+{-# INLINE setLongestPalindrome #-}
 setLongestPalindrome strings revs =
-	F.foldl (\ bs1 bs2 -> if length bs1 >= length bs2 then bs1 else bs2) "" $ 
+	F.foldl (\ bs1 bs2 -> if BS.length bs1 >= BS.length bs2 then bs1 else bs2) BS.empty $ 
 		S.intersection (S.fromList strings) (S.fromList revs)
 
 shuffle :: V.Vector a -> V.Vector a
@@ -33,9 +33,9 @@ shuffleM xs = forM_ [0..VM.length xs - 1] $ \ i -> do
 
 main :: IO ()
 main = do
-  strings <- liftM lines (readFile "dictionary.txt")
+  strings <- liftM BS.lines (BS.readFile "dictionary.txt")
   let !strings' = V.toList (shuffle (V.fromList strings))
-  let !revs' = map reverse strings'
+  let !revs' = Prelude.map BS.reverse strings'
   let trieBench = bench "Data.TrieSet" (whnf (trieLongestPalindrome strings') revs')
   let setBench = bench "Data.Set" (whnf (setLongestPalindrome strings') revs')
-  revs' `deepseq` defaultMain [setBench, trieBench]
+  foldr seq (defaultMain [setBench, trieBench]) revs'
