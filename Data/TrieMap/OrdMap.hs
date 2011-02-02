@@ -291,21 +291,6 @@ hedgeDiff  f cmplo cmphi t BIN(kx x l r)
 joinMaybe :: (Ord k, Sized a) => k -> Maybe a -> SNode k a -> SNode k a -> SNode k a
 joinMaybe kx = maybe merge (join kx)
 
-minPath, maxPath :: Path k a -> SNode k a -> Path k a
-minPath path TIP
-	= path
-minPath path BIN(kx x TIP r)
-	= LeftBin kx x path r
-minPath path BIN(kx x l r)
-	= minPath (LeftBin kx x path r) l
-
-maxPath path TIP
-	= path
-maxPath path BIN(kx x l TIP)
-	= RightBin kx x l path
-maxPath path BIN(kx x l r)
-	= maxPath (RightBin kx x l path) r
-
 join :: Sized a => k -> a -> SNode k a -> SNode k a -> SNode k a
 join kx x TIP r  = insertMin  kx x r
 join kx x l TIP  = insertMax  kx x l
@@ -316,8 +301,15 @@ join kx x l@(SNode _ sL (Bin ky y ly ry)) r@(SNode _ sR (Bin kz z lz rz))
 
 -- insertMin and insertMax don't perform potentially expensive comparisons.
 insertMax,insertMin :: Sized a => k -> a -> SNode k a -> SNode k a
-insertMax kx x t = after (singleton kx x) (maxPath Root t)
-insertMin kx x t = before (singleton kx x) (minPath Root t)
+insertMax kx x = insMax where
+  insMax TIP	= singleton kx x
+  insMax BIN(ky y l r)
+		= balance ky y l (insMax r)
+             
+insertMin kx x = insMin where
+  insMin TIP	= singleton kx x
+  insMin BIN(ky y l r)
+  		= balance ky y (insMin l) r
              
 {--------------------------------------------------------------------
   [merge l r]: merges two trees.
@@ -409,9 +401,9 @@ after t (RightBin _ _ _ path) = after t path
 after t _ = t
 
 search :: Ord k => k -> SNode k a -> SearchCont (Hole (Ordered k) a) a r
-search k t nomatch match = searcher Root t where
-  searcher path TIP = nomatch (Empty k path)
+search k t f g = searcher Root t where
+  searcher path TIP = f (Empty k path)
   searcher path BIN(kx x l r) = case compare k kx of
 	LT	-> searcher (LeftBin kx x path r) l
-	EQ	-> match x (Full k path l r)
+	EQ	-> g x (Full k path l r)
 	GT	-> searcher (RightBin kx x l path) r
