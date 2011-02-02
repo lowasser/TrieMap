@@ -11,8 +11,12 @@ import Control.Monad.Primitive
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Random
-import Control.DeepSeq
 import qualified Data.ByteString.Char8 as BS
+import qualified Progression.Main as P
+import Control.DeepSeq
+
+instance NFData BS.ByteString where
+  rnf xs = xs `seq` ()
 
 trieLongestPalindrome strings revs =
 	 T.foldl (\ bs1 bs2 -> if BS.length bs1 >= BS.length bs2 then bs1 else bs2) BS.empty
@@ -38,4 +42,5 @@ main = do
   let !revs' = Prelude.map BS.reverse strings'
   let trieBench = bench "Data.TrieSet" (whnf (trieLongestPalindrome strings') revs')
   let setBench = bench "Data.Set" (whnf (setLongestPalindrome strings') revs')
-  foldr seq (defaultMain [setBench, trieBench]) revs'
+  let benches = bgroup "" [trieBench,setBench]
+  strings' `deepseq` revs' `deepseq` P.defaultMain benches

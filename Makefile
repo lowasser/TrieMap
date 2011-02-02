@@ -1,5 +1,5 @@
 
-.PHONY : opt bench clean install prof test debug benchprof BenchmarkP.prof threadscope
+.PHONY : opt bench clean install prof test debug benchprof threadscope
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
@@ -12,9 +12,8 @@ THREADSCOPE_OPTS := $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS) -eventlog
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
 HP2PS_OPTS := -c -s -m12 -d
 RTS_OPTS := -H256M -A32M -s
-BENCH_SAMPLES := 30
-BPROF_SAMPLES := 5
-THREADSCOPE_SAMPLES := 10
+PROGRESSION_MODE := normal
+PROGRESSION_ARGS := -p "" -n "Bench" --plot="bench.png" --mode=$(PROGRESSION_MODE) -g bench
 
 fast : $(FAST_DIR)/Data/TrieSet.o $(FAST_DIR)/Data/TrieMap.o
 debug: $(FAST_DIR)/Data/TrieSet.p_o $(FAST_DIR)/Data/TrieMap.p_o
@@ -29,8 +28,9 @@ test : Tests
 testdbg :: TestsP
 	./TestsP +RTS -xc
 
+bench : SAMPLES = 30
 bench : Benchmark
-	./Benchmark -s $(BENCH_SAMPLES) +RTS $(RTS_OPTS) -RTS
+	./Benchmark  +RTS $(RTS_OPTS) -RTS $(PROGRESSION_ARGS) -- -s $(SAMPLES)
 
 benchprof : BenchmarkP.prof BenchmarkP.ps
 	less BenchmarkP.prof
@@ -43,11 +43,13 @@ BenchmarkP.ps : BenchmarkP.hp
 
 BenchmarkP.hp : BenchmarkP.prof
 
+BenchmarkP.prof : SAMPLES  = 5
 BenchmarkP.prof : BenchmarkP
-	./BenchmarkP -s $(BPROF_SAMPLES) +RTS -P -hd $(RTS_OPTS) -RTS
+	./BenchmarkP +RTS -P -hd $(RTS_OPTS) -RTS $(PROGRESSION_ARGS) -- -s $(SAMPLES)
 
+Benchlog.eventlog : SAMPLES = 10
 Benchlog.eventlog : Benchlog
-	./Benchlog -s $(THREADSCOPE_SAMPLES) +RTS $(RTS_OPTS) -ls -RTS
+	./Benchlog +RTS $(RTS_OPTS) -ls -RTS $(PROGRESSION_ARGS) -- -s $(SAMPLES)
 
 Tests : fast
 	ghc $(FAST_GHC_OPTS) Tests -o Tests -main-is Tests.main
@@ -56,13 +58,13 @@ TestsP : fast debug
 	ghc $(DEBUG_GHC_OPTS) Tests -o TestsP -main-is Tests.main
 
 BenchmarkP : opt prof
-	ghc $(PROFILING_OPTS) Benchmark -o BenchmarkP -main-is Benchmark.main
+	ghc $(PROFILING_OPTS) -w Benchmark -o BenchmarkP -main-is Benchmark.main
 
 Benchmark : opt
-	ghc $(OPTIMIZED_GHC_OPTS) Benchmark -o Benchmark -main-is Benchmark.main
+	ghc $(OPTIMIZED_GHC_OPTS) -w Benchmark -o Benchmark -main-is Benchmark.main
 
 Benchlog : opt
-	ghc $(THREADSCOPE_OPTS) Benchmark -o Benchlog -main-is Benchmark.main
+	ghc $(THREADSCOPE_OPTS) -w Benchmark -o Benchlog -main-is Benchmark.main
 
 clean:
 	rm -f *.imports
