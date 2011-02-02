@@ -71,12 +71,12 @@ instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (Either k1 k2)) where
   foldr f z m = foldr f z (uView m)
   foldl f z m = foldl f z (uView m)
   
-  foldl1 _ Empty = error "Error: cannot call foldl1 on an empty map"
+  foldl1 _ Empty = foldl1Empty
   foldl1 f (K1 m1) = foldl1 f m1
   foldl1 f (K2 m2) = foldl1 f m2
   foldl1 f (Union _ m1 m2) = foldl f (foldl1 f m1) m2
   
-  foldr1 _ Empty = error "Error: cannot call foldr1 on an empty map"
+  foldr1 _ Empty = foldr1Empty
   foldr1 f (K1 m1) = foldr1 f m1
   foldr1 f (K2 m2) = foldr1 f m2
   foldr1 f (Union _ m1 m2) = foldr f (foldr1 f m2) m1

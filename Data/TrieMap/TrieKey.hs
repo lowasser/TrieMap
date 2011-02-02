@@ -105,6 +105,12 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM#
 
+foldl1Empty :: a
+foldl1Empty = error "Error: cannot call foldl1 on an empty map"
+
+foldr1Empty :: a
+foldr1Empty = error "Error: cannot call foldr1 on an empty map"
+
 {-# INLINE fillHoleM #-}
 fillHoleM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
 fillHoleM = maybe clearM assignM
