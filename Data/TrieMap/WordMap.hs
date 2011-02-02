@@ -112,17 +112,17 @@ instance TrieKey Word where
 
 {-# INLINE searchC #-}
 searchC :: Key -> SNode a -> SearchCont (Path a) a r
-searchC !k t f g = seek Root t where
+searchC !k t notfound found = seek Root t where
   seek path t@BIN(p m l r)
-    | nomatch k p m	= f (branchHole k p path t)
+    | nomatch k p m	= notfound (branchHole k p path t)
     | zero k m
 	    = seek (LeftBin p m path r) l
     | otherwise
 	    = seek (RightBin p m l path) r
   seek path t@TIP(ky y)
-    | k == ky	= g y path
-    | otherwise	= f (branchHole k ky path t)
-  seek path NIL = f path
+    | k == ky	= found y path
+    | otherwise	= notfound (branchHole k ky path t)
+  seek path NIL = notfound path
 
 before, after :: SNode a -> Path a -> SNode a
 before !t Root = t
@@ -153,10 +153,11 @@ branchHole !k !p path t
   	p' = mask k m
 
 lookup :: Key -> SNode a -> Maybe a
-lookup !k BIN(_ m l r) = lookup k (if zeroN k m then l else r)
-lookup k TIP(kx x)
-	| k == kx	= Just x
-lookup _ _ = Nothing
+lookup !k = look where
+  look BIN(_ m l r) = look (if zeroN k m then l else r)
+  look TIP(kx x)
+    | k == kx	= Just x
+  look _ = Nothing
 
 singleton :: Sized a => Key -> a -> SNode a
 singleton k a = sNode (Tip k a)
@@ -183,11 +184,11 @@ instance Foldable SNode where
   foldl f z TIP(_ x) = f z x
   foldl _ z NIL = z
   
-  foldr1 _ NIL = error "Error: cannot call foldr1 on an empty map"
+  foldr1 _ NIL = foldr1Empty
   foldr1 _ TIP(_ x) = x
   foldr1 f BIN(_ _ l r) = foldr f (foldr1 f r) l
   
-  foldl1 _ NIL = error "Error: cannot call foldl1 on an empty map"
+  foldl1 _ NIL = foldl1Empty
   foldl1 _ TIP(_ x) = x
   foldl1 f BIN(_ _ l r) = foldl f (foldl1 f l) r
 

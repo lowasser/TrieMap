@@ -115,11 +115,12 @@ rebuild t (LeftBin kx x path r) = rebuild (balance kx x t r) path
 rebuild t (RightBin kx x l path) = rebuild (balance kx x l t) path
 
 lookup :: Ord k => k -> SNode k a -> Maybe a
-lookup k BIN(kx x l r) = case compare k kx of
+lookup k = look where
+  look BIN(kx x l r) = case compare k kx of
 	LT	-> lookup k l
 	EQ	-> Just x
 	GT	-> lookup k r
-lookup _ _ = Nothing
+  look _ = Nothing
 
 singleton :: Sized a => k -> a -> SNode k a
 singleton k a = bin k a tip tip
@@ -243,13 +244,12 @@ filterLt cmp BIN(kx x l r)
       EQ -> l
 
 trim :: (k -> Ordering) -> (k -> Ordering) -> SNode k a -> SNode k a
-trim _     _     TIP = tip
-trim cmplo cmphi t@BIN(kx _ l r)
-  = case cmplo kx of
-      LT -> case cmphi kx of
-              GT -> t
-              _  -> trim cmplo cmphi l
-      _  -> trim cmplo cmphi r
+trim cmplo cmphi = trimmer where
+  trimmer TIP	= tip
+  trimmer t@BIN(kx _ l r) = case (cmplo kx, cmphi kx) of
+    (LT, GT)	-> t
+    (LT, _)	-> trimmer l
+    _		-> trimmer r
               
 trimLookupLo :: Ord k => k -> (k -> Ordering) -> SNode k a -> (Maybe (k,a), SNode k a)
 trimLookupLo _  _     TIP = (Nothing,tip)
