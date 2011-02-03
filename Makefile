@@ -7,13 +7,13 @@ GHC_OPTS := -Wall -fno-warn-name-shadowing -fno-warn-orphans -rtsopts
 FAST_GHC_OPTS := -O0 -ddump-minimal-imports -odir $(FAST_DIR) $(GHC_OPTS)
 DEBUG_GHC_OPTS := -prof -hisuf p_hi -auto-all  -rtsopts -osuf p_o  $(FAST_GHC_OPTS) $(GHC_OPTS)
 OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
-  -fmax-worker-args=100 -fno-liberate-case-threshold -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
+  -fmax-worker-args=100 -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
 THREADSCOPE_OPTS := $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS) -eventlog
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
 HP2PS_OPTS := -c -s -m12 -d
 RTS_OPTS := -H256M -A32M -s
 PROGRESSION_MODE := normal
-PROGRESSION_ARGS := -p "" -n "Bench" --plot="bench.png" --mode=$(PROGRESSION_MODE) -g bench
+PROGRESSION_ARGS := -p "" -c "" -n "Bench" --plot="bench.png" --mode=$(PROGRESSION_MODE) -g bench
 
 fast : $(FAST_DIR)/Data/TrieSet.o $(FAST_DIR)/Data/TrieMap.o
 debug: $(FAST_DIR)/Data/TrieSet.p_o $(FAST_DIR)/Data/TrieMap.p_o

@@ -166,10 +166,10 @@ singletonMaybe :: Sized a => Key -> Maybe a -> SNode a
 singletonMaybe k = maybe nil (singleton k)
 
 traverse :: (Applicative f, Sized b) => (a -> f b) -> SNode a -> f (SNode b)
-traverse f (SNode _ t) = case t of
-	Nil		-> pure nil
-	Tip kx x	-> singleton kx <$> f x
-	Bin p m l r	-> bin' p m <$> traverse f l <*> traverse f r
+traverse f = trav where
+  trav NIL	= pure nil
+  trav TIP(kx x) = singleton kx <$> f x
+  trav BIN(p m l r) = bin' p m <$> trav l <*> trav r
 
 instance Foldable SNode where
   foldMap _ NIL = mempty
@@ -214,7 +214,7 @@ mapEither :: (Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) ->
 mapEither f BIN(p m l r) = both (bin p m lL) (bin p m lR) (mapEither f) r
 	where !(# lL, lR #) = mapEither f l
 mapEither f TIP(kx x)	= both (singletonMaybe kx) (singletonMaybe kx) f x
-mapEither _ _				= (# nil, nil #)
+mapEither _ _		= (# nil, nil #)
 
 unionWith :: Sized a => (a -> a -> Maybe a) -> SNode a -> SNode a -> SNode a
 unionWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of

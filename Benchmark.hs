@@ -40,7 +40,7 @@ main = do
   strings <- liftM BS.lines (BS.readFile "dictionary.txt")
   let !strings' = V.toList (shuffle (V.fromList strings))
   let !revs' = Prelude.map BS.reverse strings'
-  let trieBench = bench "Data.TrieSet" (whnf (trieLongestPalindrome strings') revs')
-  let setBench = bench "Data.Set" (whnf (setLongestPalindrome strings') revs')
+  let trieBench = bench "Data.TrieSet" (whnf (uncurry trieLongestPalindrome) (strings', revs'))
+  let setBench = bench "Data.Set" (whnf (uncurry setLongestPalindrome) (strings', revs'))
   let benches = bgroup "" [trieBench,setBench]
   strings' `deepseq` revs' `deepseq` P.defaultMain benches
