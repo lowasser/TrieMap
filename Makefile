@@ -1,5 +1,6 @@
 
-.PHONY : opt bench clean install prof test debug benchprof threadscope
+PLOT_FILE := bench.png
+.PHONY : opt bench clean install prof test debug benchprof threadscope $(PLOT_FILE) bench-TrieBench.csv
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
@@ -12,13 +13,7 @@ THREADSCOPE_OPTS := $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS) -eventlog
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
 HP2PS_OPTS := -c -s -m12 -d
 RTS_OPTS := -H256M -A32M -s
-PROGRESSION_MODE := normal
-PROGRESSION_GROUP := bench
-PROGRESSION_PLOT := bench.png
-PROGRESSION_NAME := Bench
-PROGRESSION_PREFIXES := Sort,Intersect
-PROGRESSION_ARGS := --name=$(PROGRESSION_NAME) --plot=$(PROGRESSION_PLOT) --mode=$(PROGRESSION_MODE) --group=$(PROGRESSION_GROUP) \
-	--prefixes=$(PROGRESSION_PREFIXES)
+PROGRESSION_PREFIXES := ""
 
 fast : $(FAST_DIR)/Data/TrieSet.o $(FAST_DIR)/Data/TrieMap.o
 debug: $(FAST_DIR)/Data/TrieSet.p_o $(FAST_DIR)/Data/TrieMap.p_o
@@ -34,8 +29,18 @@ testdbg :: TestsP
 	./TestsP +RTS -xc
 
 bench : SAMPLES = 30
-bench : Benchmark
-	./Benchmark  +RTS $(RTS_OPTS) -RTS $(PROGRESSION_ARGS) -- -s $(SAMPLES)
+bench : $(PLOT_FILE)
+
+bench.png : bench-TrieBench.csv bench-SetBench.csv
+	./TrieBench --mode=graph --group=bench --compare="TrieBench,SetBench" --plot=$(PLOT_FILE)
+
+bench-TrieBench.csv : TrieBench
+	./TrieBench +RTS $(RTS_OPTS) -RTS --name="TrieBench" --mode=run --group=bench --prefixes=$(PROGRESSION_PREFIXES) \
+		--compare="" -- -s $(SAMPLES)
+
+bench-SetBench.csv : SetBench
+	./SetBench +RTS $(RTS_OPTS) -RTS --name="SetBench" --mode=run --group=bench --prefixes=$(PROGRESSION_PREFIXES) \
+		--compare="" -- -s $(SAMPLES)
 
 benchprof : BenchmarkP.prof BenchmarkP.ps
 	less BenchmarkP.prof
@@ -63,18 +68,25 @@ TestsP : fast debug
 	ghc $(DEBUG_GHC_OPTS) Tests -o TestsP -main-is Tests.main
 
 BenchmarkP : opt prof
-	ghc $(PROFILING_OPTS) -w Benchmark -o BenchmarkP -main-is Benchmark.main
+	ghc $(PROFILING_OPTS) -w TrieBench -o BenchmarkP -main-is TrieBench.main
 
 Benchmark : opt
-	ghc $(OPTIMIZED_GHC_OPTS) -w Benchmark -o Benchmark -main-is Benchmark.main
+	ghc $(OPTIMIZED_GHC_OPTS) -w TrieBench -o Benchmark -main-is TrieBench.main
+
+TrieBench : TrieBench.hs opt
+	ghc $(OPTIMIZED_GHC_OPTS) -w $< -o $@ -main-is TrieBench.main
+SetBench : SetBench.hs opt
+	ghc $(OPTIMIZED_GHC_OPTS) -w $< -o $@ -main-is SetBench.main
 
 Benchlog : opt
-	ghc $(THREADSCOPE_OPTS) -w Benchmark -o Benchlog -main-is Benchmark.main
+	ghc $(THREADSCOPE_OPTS) -w TrieBench -o Benchlog -main-is TrieBench.main
 
 clean:
 	rm -f *.imports
 	rm -rf out/
-	rm -f Benchmark BenchmarkP Tests
+	rm -f SetBench TrieBench BenchmarkP Tests
+	rm -f bench-SetBench.csv bench-TrieBench.csv bench.csv bench.png
+	rm -f *.o *.hi
 
 # DO NOT DELETE: Beginning of Haskell dependencies
 $(FAST_DIR)/Data/TrieMap/Modifiers.o : $(FAST_DIR)/Data/TrieMap/Representation/Class.o
