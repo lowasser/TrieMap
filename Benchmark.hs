@@ -18,15 +18,6 @@ import Control.DeepSeq
 instance NFData BS.ByteString where
   rnf xs = xs `seq` ()
 
-trieLongestPalindrome strings revs =
-	 T.foldl (\ bs1 bs2 -> if BS.length bs1 >= BS.length bs2 then bs1 else bs2) BS.empty
-	    $ T.intersection (T.fromList strings) (T.fromList revs)
-
-{-# INLINE setLongestPalindrome #-}
-setLongestPalindrome strings revs =
-	F.foldl (\ bs1 bs2 -> if BS.length bs1 >= BS.length bs2 then bs1 else bs2) BS.empty $ 
-		S.intersection (S.fromList strings) (S.fromList revs)
-
 shuffle :: V.Vector a -> V.Vector a
 shuffle = V.modify (\ mv -> evalRandT (shuffleM mv) (mkStdGen 0))
 
@@ -35,12 +26,25 @@ shuffleM xs = forM_ [0..VM.length xs - 1] $ \ i -> do
   j <- getRandomR (0, VM.length xs - 1)
   lift $ VM.swap xs i j
 
+tSortBench strings = T.toList (T.fromList strings)
+
+sSortBench strings = S.toList (S.fromList strings)
+
+sortBenches strings =  bgroup "Sort" 
+  [bench "Data.TrieSet" (nf tSortBench strings),
+   bench "Data.Set" (nf sSortBench strings)]
+
+tIntersectBench (strings, revs) = T.size (T.intersection (T.fromList strings) (T.fromList revs))
+sIntersectBench (strings, revs) = S.size (S.intersection (S.fromList strings) (S.fromList revs))
+
+intersectBenches strev = bgroup "Intersect"
+  [bench "Data.TrieSet" (whnf tIntersectBench strev),
+    bench "Data.Set" (whnf sIntersectBench strev)]
+
 main :: IO ()
 main = do
   strings <- liftM BS.lines (BS.readFile "dictionary.txt")
   let !strings' = V.toList (shuffle (V.fromList strings))
   let !revs' = Prelude.map BS.reverse strings'
-  let trieBench = bench "Data.TrieSet" (whnf (uncurry trieLongestPalindrome) (strings', revs'))
-  let setBench = bench "Data.Set" (whnf (uncurry setLongestPalindrome) (strings', revs'))
-  let benches = bgroup "" [trieBench,setBench]
+  let benches = bgroup "" [sortBenches strings', intersectBenches (strings', revs')]
   strings' `deepseq` revs' `deepseq` P.defaultMain benches

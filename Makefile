@@ -13,7 +13,12 @@ PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC
 HP2PS_OPTS := -c -s -m12 -d
 RTS_OPTS := -H256M -A32M -s
 PROGRESSION_MODE := normal
-PROGRESSION_ARGS := -p "" -c "" -n "Bench" --plot="bench.png" --mode=$(PROGRESSION_MODE) -g bench
+PROGRESSION_GROUP := bench
+PROGRESSION_PLOT := bench.png
+PROGRESSION_NAME := Bench
+PROGRESSION_PREFIXES := Sort,Intersect
+PROGRESSION_ARGS := --name=$(PROGRESSION_NAME) --plot=$(PROGRESSION_PLOT) --mode=$(PROGRESSION_MODE) --group=$(PROGRESSION_GROUP) \
+	--prefixes=$(PROGRESSION_PREFIXES)
 
 fast : $(FAST_DIR)/Data/TrieSet.o $(FAST_DIR)/Data/TrieMap.o
 debug: $(FAST_DIR)/Data/TrieSet.p_o $(FAST_DIR)/Data/TrieMap.p_o
