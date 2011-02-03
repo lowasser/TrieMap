@@ -1,6 +1,6 @@
 
 PLOT_FILE := bench.png
-.PHONY : opt bench clean install prof test debug benchprof threadscope $(PLOT_FILE) bench-TrieBench.csv
+.PHONY : opt bench clean install prof test debug benchprof threadscope $(PLOT_FILE) bench-TrieBench.csv BenchmarkP.prof
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
@@ -14,6 +14,7 @@ PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC
 HP2PS_OPTS := -c -s -m12 -d
 RTS_OPTS := -H256M -A32M -s
 PROGRESSION_PREFIXES := ""
+PROGRESSION_GROUP := normal-bench
 
 fast : $(FAST_DIR)/Data/TrieSet.o $(FAST_DIR)/Data/TrieMap.o
 debug: $(FAST_DIR)/Data/TrieSet.p_o $(FAST_DIR)/Data/TrieMap.p_o
@@ -31,12 +32,14 @@ testdbg :: TestsP
 bench : SAMPLES = 30
 bench : $(PLOT_FILE)
 
+TRIEBENCH_OPTS = --name="TrieBench" --mode=run --group=$(PROGRESSION_GROUP) --prefixes=$(PROGRESSION_PREFIXES) \
+		--compare="" -- -s $(SAMPLES)
+
 bench.png : bench-TrieBench.csv bench-SetBench.csv
-	./TrieBench --mode=graph --group=bench --compare="TrieBench,SetBench" --plot=$(PLOT_FILE)
+	./TrieBench --mode=graph --group=$(PROGRESSION_GROUP) --compare="TrieBench,SetBench" --plot=$(PLOT_FILE) \
 
 bench-TrieBench.csv : TrieBench
-	./TrieBench +RTS $(RTS_OPTS) -RTS --name="TrieBench" --mode=run --group=bench --prefixes=$(PROGRESSION_PREFIXES) \
-		--compare="" -- -s $(SAMPLES)
+	./TrieBench +RTS $(RTS_OPTS) -RTS $(TRIEBENCH_OPTS)
 
 bench-SetBench.csv : SetBench
 	./SetBench +RTS $(RTS_OPTS) -RTS --name="SetBench" --mode=run --group=bench --prefixes=$(PROGRESSION_PREFIXES) \
@@ -55,11 +58,11 @@ BenchmarkP.hp : BenchmarkP.prof
 
 BenchmarkP.prof : SAMPLES  = 5
 BenchmarkP.prof : BenchmarkP
-	./BenchmarkP +RTS -P -hd $(RTS_OPTS) -RTS $(PROGRESSION_ARGS) -- -s $(SAMPLES)
+	./BenchmarkP +RTS -P -hd $(RTS_OPTS) -RTS $(TRIEBENCH_OPTS)
 
 Benchlog.eventlog : SAMPLES = 10
 Benchlog.eventlog : Benchlog
-	./Benchlog +RTS $(RTS_OPTS) -ls -RTS $(PROGRESSION_ARGS) -- -s $(SAMPLES)
+	./Benchlog +RTS $(RTS_OPTS) -ls -RTS $(TRIEBENCH_OPTS)
 
 Tests : fast
 	ghc $(FAST_GHC_OPTS) Tests -o Tests -main-is Tests.main

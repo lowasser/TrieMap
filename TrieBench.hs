@@ -3,7 +3,6 @@ module TrieBench (main) where
 import Criterion.Main
 
 import Data.TrieSet
-import qualified Data.Foldable as F
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import Control.Monad.Primitive
@@ -13,15 +12,13 @@ import Control.Monad.Random (getRandomR, RandT, StdGen, evalRandT, mkStdGen)
 import qualified Data.ByteString.Char8 as BS
 import qualified Progression.Main as P
 import Control.DeepSeq
+import Prelude hiding (filter)
 
 instance NFData BS.ByteString where
   rnf xs = xs `seq` ()
 
 shuffle :: V.Vector a -> V.Vector a
 shuffle = V.modify (\ mv -> evalRandT (shuffleM mv) (mkStdGen 0))
-
-half :: V.Vector a -> V.Vector a
-half xs = V.take (V.length xs `quot` 2) xs
 
 shuffleM :: PrimMonad m => VM.MVector (PrimState m) a -> RandT StdGen m ()
 shuffleM xs = forM_ [0..VM.length xs - 1] $ \ i -> do
@@ -30,15 +27,40 @@ shuffleM xs = forM_ [0..VM.length xs - 1] $ \ i -> do
 
 tSortBench strings = toList (fromList strings)
 
-tIntersectBench (strings, revs) = size (intersection (fromList strings) (fromList revs))
+tIntersectBench (strings, revs) = size (intersection strings revs)
 
-tLookupBench (strings, revs) = length [r | r <- revs, r `member` set]
-  where set = fromList strings
+tLookupBench (strings, revs) = length [r | r <- revs, r `member` strings]
+
+tUnionBench (strings, revs) = size strings + size revs - size (union strings revs)
+
+tDiffBench (strings, revs) = size strings - size (difference strings revs)
+
+tFilterBench strings = size (filter (\ str -> not (BS.null str) && BS.last str /= 's') strings)
+
+tSplitBench strings = case split (BS.pack "logical") strings of
+  (l, r) -> size l - size r
+
+tEnds strings = case deleteFindMin strings of
+  (l, strs') -> case deleteFindMax strs' of
+    (r, strs'') -> size strs'' + BS.length l - BS.length r
+
+tFromList strings = size (fromList strings)
+tToList strs = sum [BS.length str | str <- toList strs]
+
+nf' f a = f a `deepseq` nf f a
 
 tBenches strings revs = bgroup ""
-  [bench "Lookup" (nf tLookupBench (strings, revs)),
-    bench "Intersect" (nf tIntersectBench (strings, revs)),
-    bench "Sort" (nf tSortBench strings)]
+  [bench "Lookup" (nf' tLookupBench (strSet, revs)),
+    revSet `seq` bench "Intersect" (nf' tIntersectBench (strSet, revSet)),
+    bench "Sort" (nf' tSortBench strings),
+    bench "Union" (nf' tUnionBench (strSet, revSet)),
+    bench "Difference" (nf' tDiffBench (strSet, revSet)),
+    bench "Filter" (nf' tFilterBench strSet),
+    bench "Split" (nf' tSplitBench strSet),
+    bench "Min/Max" (nf' tEnds strSet),
+    bench "FromList" (nf' tFromList strings),
+    bench "ToList" (nf' tToList strSet)]
+  where !strSet = fromList strings; !revSet = fromList revs
 
 main :: IO ()
 main = do
