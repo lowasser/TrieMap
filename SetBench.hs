@@ -50,6 +50,8 @@ tEnds strings = case deleteFindMin strings of
 tFromList strings = size (fromList strings)
 tToList strs = sum [BS.length str | str <- toList strs]
 
+tInsert strs = size (insert (BS.pack "scientifitude") strs)
+
 nf' f a = f a `deepseq` nf f a
 
 tBenches strings revs = bgroup ""
@@ -62,7 +64,8 @@ tBenches strings revs = bgroup ""
     bench "Split" (nf' tSplitBench strSet),
     bench "Min/Max" (nf' tEnds strSet),
     bench "FromList" (nf' tFromList strings),
-    bench "ToList" (nf' tToList strSet)]
+    bench "ToList" (nf' tToList strSet),
+    bench "Insert" (nf' tInsert strSet)]
   where !strSet = fromList strings; !revSet = fromList revs
 
 main :: IO ()

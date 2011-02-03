@@ -1,5 +1,5 @@
 name:		     TrieMap
-version:             2.0.3
+version:             3.0.0
 cabal-version:       >= 1.6
 tested-with:	     GHC
 category:            Algorithms
@@ -9,6 +9,13 @@ description:	     Provides a efficient and compact implementation of generalized
                      
                      The most recent release combines zipper-based ideas from recently proposed changes to Data.Map, as well
                      as heavily optimized ByteString and Vector instances based on the vector package.
+                     
+                     Since version 2, unit tests and benchmarks have been taken much more seriously, and major optimizations
+                     have been made.
+                     
+                     Compared to Data.Map and Data.Set, on e.g. @ByteString@s, TrieMaps support 6-12x faster @union@, 
+                     @intersection@, and @difference@ operations, 2x faster @lookup@, but 2x slower @toList@, and 4x slower @filter@.
+                     Other operations are closely tied.
 license:             BSD3
 license-file:	     LICENSE
 author:              Louis Wasserman
