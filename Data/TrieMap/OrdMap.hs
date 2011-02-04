@@ -6,7 +6,7 @@ import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 import Data.TrieMap.Modifiers
 
-import Control.Applicative
+import Control.Applicative (Applicative(..), (<$>))
 import Control.Monad hiding (join)
 
 import Data.Foldable
@@ -114,13 +114,13 @@ rebuild t Root = t
 rebuild t (LeftBin kx x path r) = rebuild (balance kx x t r) path
 rebuild t (RightBin kx x l path) = rebuild (balance kx x l t) path
 
-lookup :: Ord k => k -> SNode k a -> Maybe a
+lookup :: Ord k => k -> SNode k a -> Lookup a
 lookup k = look where
   look BIN(kx x l r) = case compare k kx of
 	LT	-> lookup k l
-	EQ	-> Just x
+	EQ	-> some x
 	GT	-> lookup k r
-  look _ = Nothing
+  look _ = none
 
 singleton :: Sized a => k -> a -> SNode k a
 singleton k a = bin k a tip tip
@@ -256,7 +256,7 @@ trimLookupLo _  _     TIP = (Nothing,tip)
 trimLookupLo lo cmphi t@BIN(kx x l r)
   = case compare lo kx of
       LT -> case cmphi kx of
-              GT -> ((lo,) <$> lookup lo t, t)
+              GT -> (option (lookup lo t) Nothing (\ a -> Just (lo, a)), t)
               _  -> trimLookupLo lo cmphi l
       GT -> trimLookupLo lo cmphi r
       EQ -> (Just (kx,x),trim (compare lo) cmphi r)

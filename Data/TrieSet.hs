@@ -250,9 +250,7 @@ size (TSet s) = getSize s
 
 -- | Is the element in the set?
 member :: TKey a => a -> TSet a -> Bool
-member a (TSet s) = case lookupM (toRep a) s of
-	Nothing	-> False
-	Just{}	-> True
+member a (TSet s) = option (lookupM (toRep a) s) False (const True)
 
 -- | Is the element not in the set?
 notMember :: TKey a => a -> TSet a -> Bool

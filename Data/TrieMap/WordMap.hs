@@ -6,7 +6,7 @@ import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 
 import Control.Exception (assert)
-import Control.Applicative
+import Control.Applicative (Applicative(..), (<$>))
 import Control.Monad hiding (join)
 
 import Data.Bits
@@ -152,12 +152,12 @@ branchHole !k !p path t
   where	m = branchMask k p
   	p' = mask k m
 
-lookup :: Key -> SNode a -> Maybe a
+lookup :: Key -> SNode a -> Lookup a
 lookup !k = look where
   look BIN(_ m l r) = look (if zeroN k m then l else r)
   look TIP(kx x)
-    | k == kx	= Just x
-  look _ = Nothing
+    | k == kx	= some x
+  look _ = none
 
 singleton :: Sized a => Key -> a -> SNode a
 singleton k a = sNode (Tip k a)
@@ -244,8 +244,8 @@ intersectionWith :: Sized c => (a -> b -> Maybe c) -> SNode a -> SNode b -> SNod
 intersectionWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
   (Nil, _)	-> nil
   (_, Nil)	-> nil
-  (Tip k x, _)	-> singletonMaybe k (lookup k n2 >>= f x)
-  (_, Tip k y)	-> singletonMaybe k (lookup k n1 >>= flip f y)
+  (Tip k x, _)	-> option (lookup k n2) nil (singletonMaybe k . f x)
+  (_, Tip k y)	-> option (lookup k n1) nil (singletonMaybe k . flip f y)
   (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
     | shorter m1 m2  -> intersection1
     | shorter m2 m1  -> intersection2
@@ -264,7 +264,7 @@ differenceWith :: Sized a => (a -> b -> Maybe a) -> SNode a -> SNode b -> SNode 
 differenceWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
   (Nil, _)	-> nil
   (_, Nil)	-> n1
-  (Tip k x, _)	-> maybe n1 (singletonMaybe k . f x) (lookup k n2)
+  (Tip k x, _)	-> option (lookup k n2) n1 (singletonMaybe k . f x)
   (_, Tip k y)	-> alter (>>= flip f y) k n1
   (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
     | shorter m1 m2  -> difference1
@@ -287,7 +287,7 @@ isSubmapOfBy (<=) t1@BIN(p1 m1 l1 r1) BIN(p2 m2 l2 r2)
 							else isSubmapOfBy (<=) t1 r2)
     | otherwise      = (p1==p2) && isSubmapOfBy (<=) l1 l2 && isSubmapOfBy (<=) r1 r2
 isSubmapOfBy _ BIN(_ _ _ _) _	= False
-isSubmapOfBy (<=) TIP(k x) t2	= maybe False (x <=) (lookup k t2)
+isSubmapOfBy (<=) TIP(k x) t2	= option (lookup k t2) False (x <=)
 isSubmapOfBy _ NIL _		= True
 
 zero :: Key -> Mask -> Bool

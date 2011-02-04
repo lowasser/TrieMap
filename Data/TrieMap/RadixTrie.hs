@@ -34,7 +34,7 @@ instance TrieKey k => TrieKey (Vector k) where
 	getSimpleM (Radix Nothing)	= Null
 	getSimpleM (Radix (Just e))	= getSimpleEdge e
 	sizeM (Radix m) = getSize m
-	lookupM ks (Radix m) = m >>= lookupEdge ks
+	lookupM ks (Radix m) = liftMaybe m >>= lookupEdge ks
 
 	fmapM f (Radix m) = Radix (mapEdge f <$> m)
 	mapMaybeM f (Radix m) = Radix (m >>= mapMaybeEdge f)
@@ -89,7 +89,7 @@ instance TrieKey (S.Vector Word) where
 	getSimpleM (WRadix Nothing)	= Null
 	getSimpleM (WRadix (Just e))	= getSimpleEdge e
 	sizeM (WRadix m) = getSize m
-	lookupM ks (WRadix m) = m >>= lookupEdge ks
+	lookupM ks (WRadix m) = liftMaybe m >>= lookupEdge ks
 
 	fmapM f (WRadix m) = WRadix (mapEdge f <$> m)
 	mapMaybeM f (WRadix m) = WRadix (m >>= mapMaybeEdge f)

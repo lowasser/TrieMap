@@ -26,19 +26,20 @@ import Prelude hiding (length, foldr, foldl, zip, take)
 #define LOC(args) !(locView -> Loc args)
 
 {-# SPECIALIZE lookupEdge ::
-      TrieKey k => V() -> V(Edge) a -> Maybe a,
-      U() -> U(Edge) a -> Maybe a #-}
-lookupEdge :: (Eq k, Label v k) => v k -> Edge v k a -> Maybe a
+      TrieKey k => V() -> V(Edge) a -> Lookup a,
+      U() -> U(Edge) a -> Lookup a #-}
+lookupEdge :: (Eq k, Label v k) => v k -> Edge v k a -> Lookup a
 lookupEdge = lookupE where
-	lookupE !ks !EDGE(_ ls v ts) = if kLen < lLen then Nothing else matchSlice matcher matches ks ls where
+	lookupE !ks !EDGE(_ ls v ts) = if kLen < lLen then none else matchSlice matcher matches ks ls where
 	  !kLen = length ks
 	  !lLen = length ls
 	  matcher k l z
 		  | k == l	  = z
-		  | otherwise	  = Nothing
+		  | otherwise	  = none
 	  matches _ _
-		  | kLen == lLen  = v
-		  | (_, k, ks') <- splitSlice lLen ks = lookupM k ts >>= lookupE ks'
+		  | kLen == lLen  = liftMaybe v
+		  | (_, k, ks') <- splitSlice lLen ks
+		  		= lookupM k ts >>= lookupE ks'
 
 {-# INLINE searchEdgeC #-}
 searchEdgeC :: (Eq k, Label v k) => v k -> Edge v k a -> (EdgeLoc v k a -> r) -> (a -> EdgeLoc v k a -> r) -> r
@@ -172,11 +173,11 @@ isectEdge f = isectE where
     matches kLen lLen = case compare kLen lLen of
       EQ -> compact $ edge ks0 (isectMaybe f vK vL) $ isectM isectE tsK tsL
       LT -> let l = ls0 !$ kLen in do
-	      eK' <- lookupM l tsK
+	      eK' <- toMaybe $ lookupM l tsK
 	      let eL' = dropEdge (kLen + 1) eL
 	      unDropEdge (kLen + 1) <$> eK' `isectE` eL'
       GT -> let k = ks0 !$ lLen in do
-	      eL' <- lookupM k tsL
+	      eL' <- toMaybe $ lookupM k tsL
 	      let eK' = dropEdge (lLen + 1) eK
 	      unDropEdge (lLen + 1) <$> eK' `isectE` eL'
 
@@ -196,9 +197,8 @@ diffEdge f = diffE where
 	l = ls0 !$ kLen; eL' = dropEdge (kLen + 1) eL 
 	nomatch _ = Just eK
 	match eK' holeKT = cEdge ks0 vK $ fillHoleM (eK' `diffE` eL') holeKT
-      GT -> let k = ks0 !$ lLen; eK' = dropEdge (lLen + 1) eK in case lookupM k tsL of
-	Nothing	  -> Just eK
-	Just eL'  -> fmap (unDropEdge (lLen + 1)) (eK' `diffE` eL')
+      GT -> let k = ks0 !$ lLen; eK' = dropEdge (lLen + 1) eK in 
+	option (lookupM k tsL) (Just eK) (\ eL' -> fmap (unDropEdge (lLen + 1)) (eK' `diffE` eL'))
 
 {-# SPECIALIZE isSubEdge ::
       TrieKey k => LEq a b -> LEq (V(Edge) a) (V(Edge) b),
@@ -210,9 +210,7 @@ isSubEdge (<=) = isSubE where
     matches kLen lLen = case compare kLen lLen of
       LT	-> False
       EQ	-> subMaybe (<=) vK vL && isSubmapM isSubE tsK tsL
-      GT	-> let k = ks0 !$ lLen in case lookupM k tsL of
-	  Nothing	-> False
-	  Just eL'	-> isSubE (dropEdge (lLen + 1) eK) eL'
+      GT	-> let k = ks0 !$ lLen in option (lookupM k tsL) False (isSubE (dropEdge (lLen + 1) eK))
 
 {-# SPECIALIZE beforeEdge :: 
       (TrieKey k, Sized a) => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,

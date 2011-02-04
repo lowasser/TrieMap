@@ -1,11 +1,11 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts, TupleSections #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts, TupleSections, Rank2Types #-}
 
 module Data.TrieMap.TrieKey where
 
 import Data.TrieMap.Sized
 import Data.TrieMap.Utils
 
-import Control.Applicative
+import Control.Applicative (Applicative)
 import Control.Monad
 import Control.Monad.Ends
 
@@ -18,8 +18,27 @@ import GHC.Exts
 
 type LEq a b = a -> b -> Bool
 type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
+type Lookup a = Maybe a
 
 data Simple a = Null | Singleton a | NonSimple
+
+class (Functor f, Monad f) => Option f where
+  none :: f a
+  some :: a -> f a
+  option :: f a -> r -> (a -> r) -> r
+
+instance Option Maybe where
+  none = Nothing
+  some = Just
+  option m a f = maybe a f m
+
+{-# INLINE [0] liftMaybe #-}
+liftMaybe :: Option f => Maybe a -> f a
+liftMaybe = maybe none some
+
+{-# INLINE [0] toMaybe #-}
+toMaybe :: Option f => f a -> Maybe a
+toMaybe x = option x Nothing Just
 
 instance Monad Simple where
 	return = Singleton
@@ -52,7 +71,7 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	getSimpleM :: TrieMap k a -> Simple a
 	sizeM# :: Sized a => TrieMap k a -> Int#
 	sizeM :: Sized a => TrieMap k a -> Int
-	lookupM :: k -> TrieMap k a -> Maybe a
+	lookupM :: k -> TrieMap k a -> Lookup a
 	fmapM :: Sized b => (a -> b) -> TrieMap k a -> TrieMap k b
 	traverseM :: (Applicative f, Sized b) =>
 		(a -> f b) -> TrieMap k a -> f (TrieMap k b)
@@ -231,4 +250,6 @@ indexFail _ = (# error err, error err, error err #) where
 	(# i'#, a, m #)	-> (# I# i'#, a, m #)};
   "getSimpleM/emptyM" getSimpleM emptyM = Null;
   "getSimpleM/singletonM" forall k a . getSimpleM (singletonM k a) = Singleton a;
+  "toMaybe" forall f . toMaybe f = f;
+  "liftMaybe" forall m . liftMaybe m = m;
   #-}

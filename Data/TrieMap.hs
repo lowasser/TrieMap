@@ -186,7 +186,7 @@ null (TMap m) = nullM m
 -- The function will return the corresponding value as @('Just' value)@, or 'Nothing' if the key isn't in the map.
 {-# INLINE lookup #-}
 lookup :: TKey k => k -> TMap k a -> Maybe a
-lookup k (TMap m) = getValue <$> lookupM (toRep k) m
+lookup k (TMap m) = option (lookupM (toRep k) m) Nothing (Just . getValue)
 
 -- | The expression @('findWithDefault' def k map)@ returns the value at key @k@ or returns default value @def@
 -- when the key is not in the map.

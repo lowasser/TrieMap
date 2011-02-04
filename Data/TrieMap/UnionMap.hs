@@ -108,8 +108,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	sizeM (K2 m2) = sizeM m2
 	sizeM (Union s _ _) = s
 	
-	lookupM (Left k) (UVIEW m1 _) = m1 >>= lookupM k
-	lookupM (Right k) (UVIEW _ m2) = m2 >>= lookupM k
+	lookupM (Left k) (UVIEW m1 _) = liftMaybe m1 >>= lookupM k
+	lookupM (Right k) (UVIEW _ m2) = liftMaybe m2 >>= lookupM k
 
 	traverseM f (Union _ m1 m2) = union <$> traverseM f m1 <*> traverseM f m2
 	traverseM f (K1 m1) = K1 <$> traverseM f m1
