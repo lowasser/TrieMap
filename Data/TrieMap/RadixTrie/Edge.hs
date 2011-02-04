@@ -62,15 +62,10 @@ searchEdgeC :: (Eq k, Label v k) => v k -> Edge v k a -> SearchCont (EdgeLoc v k
 searchEdgeC ks0 e nomatch0 match0 = searchE ks0 e root where
   nomatch !ls !ts path = nomatch0 (loc ls ts path)
   match a !ls !ts path = match0 a (loc ls ts path)
-  searchE !ks e@EDGE(_ !ls !v ts) path = matcher 0 where
-    !kLen = length ks
-    !lLen = length ls
-    !len = min kLen lLen
-    matcher !i
-      | i < len	= let k = ks !$ i; l = ls !$ i in case unifierM k l (dropEdge (i+1) e) of
-	  Nothing	-> matcher (i+1)
-	  Just tHole	-> nomatch (dropSlice (i+1) ks) emptyM (deep path (takeSlice i ls) Nothing tHole)
-    matcher _ = case compare kLen lLen of
+  searchE !ks e@EDGE(_ !ls !v ts) path = iMatchSlice matcher matches ks ls where
+    matcher i k l z = 
+      option (unifierM k l (dropEdge (i+1) e)) z (nomatch (dropSlice (i+1) ks) emptyM . deep path (takeSlice i ls) Nothing)
+    matches kLen lLen = case compare kLen lLen of
       LT -> let lPre = takeSlice kLen ls; l = ls !$ kLen; e' = dropEdge (kLen + 1) e in
 	      nomatch lPre (singletonM l e') path
       EQ -> maybe nomatch match v ls ts path

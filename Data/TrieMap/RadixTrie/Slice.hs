@@ -4,7 +4,6 @@ module Data.TrieMap.RadixTrie.Slice where
 
 import Control.Exception (assert)
 import Data.Vector.Generic
-import qualified Data.Vector as V
 
 import Prelude hiding (length, zip, foldr)
 
@@ -24,11 +23,17 @@ unDropSlice !n = unsafeDrop (-n)
 
 {-# INLINE matchSlice #-}
 matchSlice :: (Vector v a, Vector v b) => (a -> b -> z -> z) -> (Int -> Int -> z) -> v a -> v b -> z
-matchSlice f z !xs !ys = foldr (\ (a, b) -> f a b) (z (length xs) (length ys)) (V.zip (convert xs) (convert ys))
+matchSlice f = iMatchSlice (const f)
 
 {-# INLINE iMatchSlice #-}
 iMatchSlice :: (Vector v a, Vector v b) => (Int -> a -> b -> z -> z) -> (Int -> Int -> z) -> v a -> v b -> z
-iMatchSlice f z !xs !ys = ifoldr (\ i (a, b) -> f i a b) (z (length xs) (length ys)) (V.zip (convert xs) (convert ys))
+iMatchSlice f z !xs !ys = matcher 0 where
+  !xLen = length xs
+  !yLen = length ys
+  !len = min xLen yLen
+  matcher i
+    | i < len	= f i (xs !$ i) (ys !$ i) (matcher (i+1))
+    | otherwise	= z xLen yLen
 
 {-# INLINE (!$) #-}
 (!$) :: Vector v a => v a -> Int -> a
