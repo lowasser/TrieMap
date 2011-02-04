@@ -1,6 +1,22 @@
 {-# LANGUAGE MagicHash, BangPatterns, UnboxedTuples, PatternGuards, CPP, ViewPatterns #-}
 {-# OPTIONS -funbox-strict-fields #-}
-module Data.TrieMap.RadixTrie.Edge where
+module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
+      afterEdge,
+      assignEdge,
+      beforeEdge,
+      clearEdge,
+      diffEdge,
+      extractEdgeLoc,
+      indexEdge,
+      insertEdge,
+      isSubEdge,
+      isectEdge,
+      lookupEdge,
+      mapEdge,
+      mapEitherEdge,
+      mapMaybeEdge,
+      traverseEdge,
+      unionEdge ) where
 
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
@@ -215,21 +231,48 @@ isSubEdge (<=) = isSubE where
 {-# SPECIALIZE beforeEdge :: 
       (TrieKey k, Sized a) => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,
       Sized a => Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
-beforeEdge :: (Label v k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
-beforeEdge v LOC(ks ts path) = buildBefore (cEdge ks v ts) path where
-	buildBefore !e path = case pView path of
-	  Root	-> e
-	  Deep path ks v tHole	-> buildBefore (cEdge ks v $ beforeMM e tHole) path
-
 {-# SPECIALIZE afterEdge :: 
       (TrieKey k, Sized a) => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,
       Sized a => Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
-afterEdge :: (Label v k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
-afterEdge v LOC(ks ts path) = buildAfter (cEdge ks v ts) path where
-	buildAfter !e path = case pView path of
-	  Root	-> e
-	  Deep path ks v tHole
-	  	-> buildAfter (cEdge ks v $ afterMM e tHole) path
+beforeEdge, afterEdge :: (Label v k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
+beforeEdge v LOC(ks ts path) = case cEdge ks v ts of
+  Nothing	-> buildBefore path
+  Just e	-> Just $ buildBefore' e path
+afterEdge v LOC(ks ts path) = case cEdge ks v ts of
+  Nothing	-> buildAfter path
+  Just e	-> Just $ buildAfter' e path
+
+{-# SPECIALIZE buildBefore ::
+      (TrieKey k, Sized a) => V(Path) a -> V(MEdge) a,
+      Sized a => U(Path) a -> U(MEdge) a #-}
+{-# SPECIALIZE buildAfter ::
+      (TrieKey k, Sized a) => V(Path) a -> V(MEdge) a,
+      Sized a => U(Path) a -> U(MEdge) a #-}
+buildBefore, buildAfter :: (Label v k, Sized a) => Path v k a -> MEdge v k a
+buildBefore path = case pView path of
+  Root	-> Nothing
+  Deep path ks v tHole -> case cEdge ks v (beforeM tHole) of
+    Nothing	-> buildBefore path
+    Just e	-> Just $ buildBefore' e path
+buildAfter path = case pView path of
+  Root	-> Nothing
+  Deep path ks v tHole -> case cEdge ks v (afterM tHole) of
+    Nothing	-> buildAfter path
+    Just e	-> Just $ buildAfter' e path
+
+{-# SPECIALIZE buildBefore' ::
+      (TrieKey k, Sized a) => V(Edge) a -> V(Path) a -> V(Edge) a,
+      Sized a => U(Edge) a -> U(Path) a -> U(Edge) a #-}
+{-# SPECIALIZE buildAfter' ::
+      (TrieKey k, Sized a) => V(Edge) a -> V(Path) a -> V(Edge) a,
+      Sized a => U(Edge) a -> U(Path) a -> U(Edge) a #-}
+buildBefore', buildAfter' :: (Label v k, Sized a) => Edge v k a -> Path v k a -> Edge v k a
+buildBefore' e path = case pView path of
+  Root	-> e
+  Deep path ks v tHole -> buildBefore' (edge ks v (beforeWithM e tHole)) path
+buildAfter' e path = case pView path of
+  Root	-> e
+  Deep path ks v tHole -> buildBefore' (edge ks v (afterWithM e tHole)) path
 
 {-# SPECIALIZE extractEdgeLoc :: 
       (TrieKey k, Functor m, MonadPlus m) => V(Edge) a -> V(Path) a -> m (a, V(EdgeLoc) a),

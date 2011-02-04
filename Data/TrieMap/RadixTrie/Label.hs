@@ -135,7 +135,7 @@ dropEdge, unDropEdge :: Label v k => Int -> Edge v k a -> Edge v k a
 dropEdge !n !(eView -> Edge sz# ks v ts) = edge' sz# (dropSlice n ks) v ts
 unDropEdge !n !(eView -> Edge sz# ks v ts) = edge' sz# (unDropSlice n ks) v ts
 
-{-# SPECIALIZE compact ::
+{-# SPECIALIZE INLINE compact ::
     TrieKey k => V(Edge) a -> V(MEdge) a,
     U(Edge) a -> U(MEdge) a #-}
 compact :: Label v k => Edge v k a -> MEdge v k a
@@ -145,7 +145,7 @@ compact !e@(eView -> Edge _ ks Nothing ts) = case getSimpleM ts of
   NonSimple	-> Just e
 compact e = Just e
 
-{-# SPECIALIZE cEdge ::
+{-# SPECIALIZE INLINE cEdge ::
     (TrieKey k, Sized a) => V() -> Maybe a -> V(Branch) a -> V(MEdge) a,
     Sized a => U() -> Maybe a -> U(Branch) a -> U(MEdge) a #-}
 cEdge :: (Label v k, Sized a) => v k -> Maybe a -> Branch v k a -> MEdge v k a

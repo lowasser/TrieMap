@@ -124,13 +124,20 @@ searchC !k t notfound found = seek Root t where
     | otherwise	= notfound (branchHole k ky path t)
   seek path NIL = notfound path
 
-before, after :: SNode a -> Path a -> SNode a
+before, before', after, after' :: SNode a -> Path a -> SNode a
 before !t Root = t
 before !t (LeftBin _ _ path _) = before t path
-before !t (RightBin p m l path) = before (bin p m l t) path
+before !t (RightBin p m l path) = before' (bin p m l t) path
 after !t Root = t
 after !t (RightBin _ _ _ path) = after t path
-after !t (LeftBin p m path r) = after (bin p m t r) path
+after !t (LeftBin p m path r) = after' (bin p m t r) path
+
+before' !t Root = t
+before' !t (LeftBin _ _ path _) = before' t path
+before' !t (RightBin p m l path) = before' (bin' p m l t) path
+after' !t Root = t
+after' !t (RightBin _ _ _ path) = after' t path
+after' !t (LeftBin p m path r) = after' (bin' p m t r) path
 
 assign :: Sized a => SNode a -> Path a -> SNode a
 assign NIL Root = nil
@@ -243,7 +250,8 @@ alter f k t = getWordMap $ alterM f k (WordMap t)
 intersectionWith :: Sized c => (a -> b -> Maybe c) -> SNode a -> SNode b -> SNode c
 intersectionWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
   (Nil, _)	-> nil
-  (_, Nil)	-> nil
+  (Tip{}, Nil)	-> nil
+  (Bin{}, Nil)	-> nil
   (Tip k x, _)	-> option (lookup k n2) nil (singletonMaybe k . f x)
   (_, Tip k y)	-> option (lookup k n1) nil (singletonMaybe k . flip f y)
   (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
