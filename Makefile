@@ -37,6 +37,7 @@ TRIEBENCH_OPTS = --name="TrieBench" --mode=run --group=$(PROGRESSION_GROUP) --pr
 
 bench.png : bench-TrieBench.csv bench-SetBench.csv
 	./TrieBench --mode=graph --group=$(PROGRESSION_GROUP) --compare="TrieBench,SetBench" --plot=$(PLOT_FILE) \
+		--plot-log-y
 
 bench-TrieBench.csv : TrieBench
 	./TrieBench +RTS $(RTS_OPTS) -RTS $(TRIEBENCH_OPTS)

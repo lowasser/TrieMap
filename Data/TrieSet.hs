@@ -226,6 +226,7 @@ toList = toAscList
 toAscList :: TKey a => TSet a -> [a]
 toAscList s = build (\ c n -> foldr c n s)
 
+{-# INLINE fromList #-}
 -- | Create a set from a list of elements.
 fromList :: TKey a => [a] -> TSet a
 fromList xs = TSet (fromListM const [(toRep x, Elem x) | x <- xs])
