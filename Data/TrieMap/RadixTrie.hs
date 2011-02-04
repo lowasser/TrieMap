@@ -71,7 +71,7 @@ instance TrieKey k => TrieKey (Vector k) where
 	fromListM f ((k, a):xs) = Radix (Just (roll (singletonEdge k a) xs)) where
 	  roll !e [] = e
 	  roll !e ((ks, a):xs) = roll (insertEdge (f a) ks a e) xs
-	
+
 type WordVec = S.Vector Word
 
 instance Foldable (TrieMap (S.Vector Word)) where

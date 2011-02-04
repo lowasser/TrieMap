@@ -54,6 +54,7 @@ sNode :: Sized a => Node a -> SNode a
 sNode !n = SNode (getSize n) n
 
 data WHole a = WHole !Key (Path a)
+{-# ANN type WHole ForceSpecConstr #-}
 
 {-# INLINE hole #-}
 hole :: Key -> Path a -> Hole Word a
@@ -83,10 +84,10 @@ instance TrieKey Word where
 	isSubmapM (<=) (WordMap m1) (WordMap m2) = isSubmapOfBy (<=) m1 m2
 	
 	singleHoleM k = hole k Root
-	beforeM HOLE(_ path) = WordMap (before nil path)
-	beforeWithM a HOLE(k path) = WordMap (before (singleton k a) path)
-	afterM HOLE(_ path) = WordMap (after nil path)
-	afterWithM a HOLE(k path) = WordMap (after (singleton k a) path)
+	beforeM HOLE(_ path) = WordMap (before path)
+	beforeWithM a HOLE(k path) = WordMap (beforeWith (singleton k a) path)
+	afterM HOLE(_ path) = WordMap (after path)
+	afterWithM a HOLE(k path) = WordMap (afterWith (singleton k a) path)
 
 	{-# INLINE searchMC #-}
 	searchMC !k (WordMap t) = mapSearch (hole k) (searchC k t)
@@ -124,30 +125,34 @@ searchC !k t notfound found = seek Root t where
     | otherwise	= notfound (branchHole k ky path t)
   seek path NIL = notfound path
 
-before, before', after, after' :: SNode a -> Path a -> SNode a
-before !t Root = t
-before !t (LeftBin _ _ path _) = before t path
-before !t (RightBin p m l path) = before' (bin p m l t) path
-after !t Root = t
-after !t (RightBin _ _ _ path) = after t path
-after !t (LeftBin p m path r) = after' (bin p m t r) path
+before, after :: Path a -> SNode a
+beforeWith, afterWith :: SNode a -> Path a -> SNode a
 
-before' !t Root = t
-before' !t (LeftBin _ _ path _) = before' t path
-before' !t (RightBin p m l path) = before' (bin' p m l t) path
-after' !t Root = t
-after' !t (RightBin _ _ _ path) = after' t path
-after' !t (LeftBin p m path r) = after' (bin' p m t r) path
+before Root			= nil
+before (LeftBin _ _ path _)	= before path
+before (RightBin _ _ l path)	= beforeWith l path
 
-assign :: Sized a => SNode a -> Path a -> SNode a
+beforeWith !t Root			= t
+beforeWith !t (LeftBin _ _ path _)	= beforeWith t path
+beforeWith !t (RightBin p m l path)	= beforeWith (bin' p m l t) path
+
+after Root			= nil
+after (RightBin _ _ _ path)	= after path
+after (LeftBin _ _ path r)	= afterWith r path
+
+afterWith !t Root			= t
+afterWith !t (RightBin _ _ _ path)	= afterWith t path
+afterWith !t (LeftBin p m path r)	= afterWith (bin' p m t r) path
+
+{-# INLINE assign #-}
+assign, assign' :: Sized a => SNode a -> Path a -> SNode a
 assign NIL Root = nil
 assign NIL (LeftBin _ _ path r) = assign' r path
 assign NIL (RightBin _ _ l path) = assign' l path
 assign t Root = t
-assign t (LeftBin p m path r) = assign' (bin' p m t r) path
-assign t (RightBin p m l path) = assign' (bin' p m l t) path
+assign t (LeftBin p m path r) = assign' (bin p m t r) path
+assign t (RightBin p m l path) = assign' (bin p m l t) path
 
-assign' :: Sized a => SNode a -> Path a -> SNode a
 assign' !t Root = t
 assign' !t (LeftBin p m path r) = assign' (bin' p m t r) path
 assign' !t (RightBin p m l path) = assign' (bin' p m l t) path
