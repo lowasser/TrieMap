@@ -54,6 +54,7 @@ sNode :: Sized a => Node a -> SNode a
 sNode !n = SNode (getSize n) n
 
 data WHole a = WHole !Key (Path a)
+{-# ANN type WHole ForceSpecConstr #-}
 
 {-# INLINE hole #-}
 hole :: Key -> Path a -> Hole Word a
@@ -124,30 +125,31 @@ searchC !k t notfound found = seek Root t where
     | otherwise	= notfound (branchHole k ky path t)
   seek path NIL = notfound path
 
-before, before', after, after' :: SNode a -> Path a -> SNode a
-before !t Root = t
-before !t (LeftBin _ _ path _) = before t path
-before !t (RightBin p m l path) = before' (bin p m l t) path
-after !t Root = t
-after !t (RightBin _ _ _ path) = after t path
-after !t (LeftBin p m path r) = after' (bin p m t r) path
+before, after :: SNode a -> Path a -> SNode a
+before !t0 = before0 where
+  before0 Root				= t0
+  before0 (LeftBin _ _ path _)		= before0 path
+  before0 (RightBin p m l path)		= before1 (bin p m l t0) path
+  before1 !t Root			= t
+  before1 !t (LeftBin _ _ path _)	= before1 t path
+  before1 !t (RightBin p m l path)	= before1 (bin' p m l t) path
+after !t0 = after0 where
+  after0 Root				= t0
+  after0 (RightBin _ _ _ path)		= after0 path
+  after0 (LeftBin p m path r)		= after1 (bin p m t0 r) path
+  after1 !t Root			= t
+  after1 !t (RightBin _ _ _ path)	= after1 t path
+  after1 !t (LeftBin p m path r)	= after1 (bin' p m t r) path
 
-before' !t Root = t
-before' !t (LeftBin _ _ path _) = before' t path
-before' !t (RightBin p m l path) = before' (bin' p m l t) path
-after' !t Root = t
-after' !t (RightBin _ _ _ path) = after' t path
-after' !t (LeftBin p m path r) = after' (bin' p m t r) path
-
-assign :: Sized a => SNode a -> Path a -> SNode a
+{-# INLINE assign #-}
+assign, assign' :: Sized a => SNode a -> Path a -> SNode a
 assign NIL Root = nil
 assign NIL (LeftBin _ _ path r) = assign' r path
 assign NIL (RightBin _ _ l path) = assign' l path
 assign t Root = t
-assign t (LeftBin p m path r) = assign' (bin' p m t r) path
-assign t (RightBin p m l path) = assign' (bin' p m l t) path
+assign t (LeftBin p m path r) = assign' (bin p m t r) path
+assign t (RightBin p m l path) = assign' (bin p m l t) path
 
-assign' :: Sized a => SNode a -> Path a -> SNode a
 assign' !t Root = t
 assign' !t (LeftBin p m path r) = assign' (bin' p m t r) path
 assign' !t (RightBin p m l path) = assign' (bin' p m l t) path
