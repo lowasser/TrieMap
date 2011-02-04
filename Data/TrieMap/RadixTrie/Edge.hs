@@ -237,27 +237,28 @@ isSubEdge (<=) = isSubE where
       Sized a => Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
 beforeEdge, afterEdge :: (Label v k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
 beforeEdge v LOC(ks ts path) = case cEdge ks v ts of
-  Nothing	-> buildBefore path
-  Just e	-> Just $ buildBefore' e path
-  where	buildBefore path = case pView path of
+  Nothing	-> before path
+  Just e	-> Just $ beforeWith e path
+  where	before path = case pView path of
 	  Root	-> Nothing
 	  Deep path ks v tHole -> case cEdge ks v (beforeM tHole) of
-	    Nothing	-> buildBefore path
-	    Just e	-> Just $ buildBefore' e path
-	buildBefore' e path = case pView path of
+	    Nothing	-> before path
+	    Just e	-> Just $ beforeWith e path
+	beforeWith e path = case pView path of
 	  Root	-> e
-	  Deep path ks v tHole -> buildBefore' (edge ks v (beforeWithM e tHole)) path
+	  Deep path ks v tHole -> beforeWith (edge ks v (beforeWithM e tHole)) path
+
 afterEdge v LOC(ks ts path) = case cEdge ks v ts of
-  Nothing	-> buildAfter path
-  Just e	-> Just $ buildAfter' e path
-  where	buildAfter path = case pView path of
+  Nothing	-> after path
+  Just e	-> Just $ afterWith e path
+  where	after path = case pView path of
 	  Root	-> Nothing
 	  Deep path ks v tHole -> case cEdge ks v (afterM tHole) of
-	    Nothing	-> buildAfter path
-	    Just e	-> Just $ buildAfter' e path
-	buildAfter' e path = case pView path of
+	    Nothing	-> after path
+	    Just e	-> Just $ afterWith e path
+	afterWith e path = case pView path of
 	  Root	-> e
-	  Deep path ks v tHole -> buildAfter' (edge ks v (afterWithM e tHole)) path
+	  Deep path ks v tHole -> afterWith (edge ks v (afterWithM e tHole)) path
 
 {-# SPECIALIZE extractEdgeLoc :: 
       (TrieKey k, Functor m, MonadPlus m) => V(Edge) a -> V(Path) a -> m (a, V(EdgeLoc) a),
