@@ -38,7 +38,6 @@ data Path a = Root
 data SNode a = SNode {sz :: !Size, node :: (Node a)}
 {-# ANN type SNode ForceSpecConstr #-}
 data Node a = Nil | Tip !Key a | Bin !Prefix !Mask !(SNode a) !(SNode a)
-{-# ANN type Node ForceSpecConstr #-}
 
 instance Sized (SNode a) where
   getSize# SNode{sz} = unbox sz
