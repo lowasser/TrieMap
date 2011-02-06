@@ -40,6 +40,7 @@ import Prelude hiding (length, foldr, foldl, zip, take)
 #define U(f) f (Data.Vector.Storable.Vector) (Word)
 #define EDGE(args) (!(eView -> Edge args))
 #define LOC(args) !(locView -> Loc args)
+#define DEEP(args) !(pView -> Deep args)
 
 {-# SPECIALIZE lookupEdge ::
       TrieKey k => V() -> V(Edge) a -> Lookup a,
@@ -135,20 +136,16 @@ assignEdge v LOC(ks ts path) = assign (edge ks (Just v) ts) path
       (TrieKey k, Sized a) => V(Edge) a -> V(Path) a -> V(Edge) a,
       Sized a => U(Edge) a -> U(Path) a -> U(Edge) a #-}
 assign :: (Label v k, Sized a) => Edge v k a -> Path v k a -> Edge v k a
-assign e path = case pView path of
-    Root	-> e
-    Deep path ks v tHole
-		-> assign (edge ks v (assignM e tHole)) path
+assign e DEEP(path ks v tHole)	= assign (edge ks v (assignM e tHole)) path
+assign e _			= e
 
 {-# SPECIALIZE clearEdge :: 
       (TrieKey k, Sized a) => V(EdgeLoc) a -> V(MEdge) a,
       Sized a => U(EdgeLoc) a -> U(MEdge) a #-}
 clearEdge :: (Label v k, Sized a) => EdgeLoc v k a -> MEdge v k a
 clearEdge LOC(ks ts path) = rebuild (cEdge ks Nothing ts) path where
-  rebuild Nothing path = case pView path of
-    Root	-> Nothing
-    Deep path ks v tHole
-    		-> rebuild (cEdge ks v (clearM tHole)) path
+  rebuild Nothing DEEP(path ks v tHole)	= rebuild (cEdge ks v (clearM tHole)) path
+  rebuild Nothing _			= Nothing
   rebuild (Just e) path = Just $ assign e path
 
 {-# SPECIALIZE unionEdge :: 
@@ -234,26 +231,24 @@ beforeEdge, afterEdge :: (Label v k, Sized a) => Maybe a -> EdgeLoc v k a -> MEd
 beforeEdge v LOC(ks ts path) = case cEdge ks v ts of
   Nothing	-> before path
   Just e	-> Just $ beforeWith e path
-  where	before path = case pView path of
-	  Root	-> Nothing
-	  Deep path ks v tHole -> case cEdge ks v (beforeM tHole) of
+  where	before DEEP(path ks v tHole) = case cEdge ks v (beforeM tHole) of
 	    Nothing	-> before path
 	    Just e	-> Just $ beforeWith e path
-	beforeWith e path = case pView path of
-	  Root	-> e
-	  Deep path ks v tHole -> beforeWith (edge ks v (beforeWithM e tHole)) path
+	before _	= Nothing
+	beforeWith e DEEP(path ks v tHole)
+			= beforeWith (edge ks v (beforeWithM e tHole)) path
+	beforeWith e _	= e
 
 afterEdge v LOC(ks ts path) = case cEdge ks v ts of
   Nothing	-> after path
   Just e	-> Just $ afterWith e path
-  where	after path = case pView path of
-	  Root	-> Nothing
-	  Deep path ks v tHole -> case cEdge ks v (afterM tHole) of
+  where	after DEEP(path ks v tHole) = case cEdge ks v (afterM tHole) of
 	    Nothing	-> after path
 	    Just e	-> Just $ afterWith e path
-	afterWith e path = case pView path of
-	  Root	-> e
-	  Deep path ks v tHole -> afterWith (edge ks v (afterWithM e tHole)) path
+	after _ 	= Nothing
+	afterWith e DEEP(path ks v tHole)
+			= afterWith (edge ks v (afterWithM e tHole)) path
+	afterWith e _	= e
 
 {-# SPECIALIZE extractEdgeLoc :: 
       (TrieKey k, Functor m, MonadPlus m) => V(Edge) a -> V(Path) a -> m (a, V(EdgeLoc) a),
