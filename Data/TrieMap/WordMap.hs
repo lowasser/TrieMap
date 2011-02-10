@@ -1,4 +1,5 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), getWordMap, getHole) where
 
@@ -109,6 +110,8 @@ instance TrieKey Word where
 
 	{-# INLINE unifierM #-}
 	unifierM k' k a = Hole <$> unifier k' k a
+	
+	fromDistAscListM xs = WordMap (fromDistinctAscList xs)
 
 {-# INLINE searchC #-}
 searchC :: Key -> SNode a -> SearchCont (Path a) a r
@@ -364,3 +367,22 @@ unifier :: Sized a => Key -> Key -> a -> Maybe (WHole a)
 unifier k' k a
     | k' == k	= Nothing
     | otherwise	= Just (WHole k' $ branchHole k' k Root (singleton k a))
+
+fromDistinctAscList :: forall a . Sized a => [(Key, a)] -> SNode a
+fromDistinctAscList [] = nil
+fromDistinctAscList ((k, v):zs) = work k v zs Nada where
+  work !k v [] stk		= finish k (singleton k v) stk
+  work kx vx ((kz, z):zs) stk	= reduce kz z zs (branchMask kx kz) kx (singleton kx vx) stk
+  
+  reduce :: Key -> a -> [(Key, a)] -> Mask -> Prefix -> SNode a -> Stack a -> SNode a
+  reduce !kz z zs !m !px !tx stk@(Push py ty stk')
+    | shorter m mxy	= reduce kz z zs m pxy (bin' pxy mxy ty tx) stk'
+    | otherwise		= work kz z zs (Push px tx stk)
+    where mxy = branchMask px py; pxy = mask px mxy
+  reduce kz z zs _ px tx Nada = work kz z zs (Push px tx Nada)
+  
+  finish !px !tx (Push py ty stk) = finish p (join py ty px tx) stk
+    where m = branchMask px py; p = mask px m
+  finish _ t Nada = t
+
+data Stack a = Push !Prefix !(SNode a) !(Stack a) | Nada
