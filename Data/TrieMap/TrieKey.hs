@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts, TupleSections, Rank2Types #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts, TupleSections, Rank2Types, ExistentialQuantification #-}
 
 module Data.TrieMap.TrieKey where
 
@@ -19,6 +19,13 @@ import GHC.Exts
 type LEq a b = a -> b -> Bool
 type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
 type Lookup a = Maybe a
+
+data Foldl k a z = forall z0 . Foldl (z0 -> k -> a -> z0) z0 (z0 -> z)
+
+runFoldl :: Foldl k a z -> [(k, a)] -> z
+runFoldl (Foldl f z done) xs = run z xs where
+  run z [] = done z
+  run z ((k, a):xs) = let z' = f z k a in z' `seq` run z' xs 
 
 data Simple a = Null | Singleton a | NonSimple
 
@@ -83,8 +90,8 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	diffM :: Sized a => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> TrieMap k a
 	isSubmapM :: (Sized a, Sized b) => LEq a b -> LEq (TrieMap k a) (TrieMap k b)
 	
-	fromListM, fromAscListM :: Sized a => (a -> a -> a) -> [(k, a)] -> TrieMap k a
-	fromDistAscListM :: Sized a => [(k, a)] -> TrieMap k a
+	fromListFold, fromAscListFold :: Sized a => (a -> a -> a) -> Foldl k a (TrieMap k a)
+	fromDistAscListFold :: Sized a => Foldl k a (TrieMap k a)
 	insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
 	
 	data Hole k :: * -> *
@@ -116,9 +123,10 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	clearM :: Sized a => Hole k a -> TrieMap k a
 	unifierM :: Sized a => k -> k -> a -> Maybe (Hole k a)
 	
-	fromListM f = L.foldl' (\ m (k, a) -> insertWithM (f a) k a m) emptyM
-	fromAscListM = fromListM
-	fromDistAscListM = fromAscListM const
+	fromListFold f = Foldl (\ m k a -> insertWithM (f a) k a m) emptyM id
+	fromAscListFold = fromListFold
+	fromDistAscListFold = fromAscListFold const
+	
 	unifierM k' k a = searchMC k' (singletonM k a) Just (\ _ _ -> Nothing)
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
