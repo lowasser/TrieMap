@@ -146,9 +146,13 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		= Just (insertWithM' f k a m1) ^ m2
 	insertWithM f (Right k) a (UVIEW m1 m2)
 		= m1 ^ Just (insertWithM' f k a m2)
-	fromListM f = onPair (&) (fromListM f) (fromListM f) . partEithers
-	fromAscListM f = onPair (&) (fromAscListM f) (fromAscListM f) . partEithers
-	fromDistAscListM = onPair (&) fromDistAscListM fromDistAscListM . partEithers
+	
+	{-# INLINE fromListFold #-}
+	fromListFold f = combineFold (fromListFold f) (fromListFold f)
+	{-# INLINE fromAscListFold #-}
+	fromAscListFold f = combineFold (fromAscListFold f) (fromAscListFold f)
+	{-# INLINE fromDistAscListFold #-}
+	fromDistAscListFold = combineFold fromDistAscListFold fromDistAscListFold
 
 	singleHoleM = either (HoleX0 . singleHoleM) (Hole0X . singleHoleM)
 
@@ -205,3 +209,11 @@ partEithers :: [(Either a b, x)] -> ([(a, x)], [(b, x)])
 partEithers = foldr part ([], []) where
 	  part (Left x, z) (xs, ys) = ((x,z):xs, ys)
 	  part (Right y, z) (xs, ys) = (xs, (y, z):ys)
+
+{-# INLINE combineFold #-}
+combineFold :: (TrieKey k1, TrieKey k2, Sized a) =>
+  FromList k1 a -> FromList k2 a -> FromList (Either k1 k2) a
+combineFold (Foldl snocL zL doneL) (Foldl snocR zR doneR) = Foldl snoc (zL, zR) done
+  where	snoc (mL, mR) (Left k) a = (snocL mL k a, mR)
+	snoc (mL, mR) (Right k) a = (mL, snocR mR k a)
+	done (mL, mR) = doneL mL & doneR mR

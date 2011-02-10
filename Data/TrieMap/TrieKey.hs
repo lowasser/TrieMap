@@ -20,6 +20,7 @@ type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
 type Lookup a = Maybe a
 
 data Foldl k a z = forall z0 . Foldl (z0 -> k -> a -> z0) z0 (z0 -> z)
+type FromList k a = Foldl k a (TrieMap k a)
 
 instance Functor (Foldl k a) where
   fmap f (Foldl snoc z done) = Foldl snoc z (f . done)
@@ -95,8 +96,8 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	diffM :: Sized a => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> TrieMap k a
 	isSubmapM :: (Sized a, Sized b) => LEq a b -> LEq (TrieMap k a) (TrieMap k b)
 	
-	fromListFold, fromAscListFold :: Sized a => (a -> a -> a) -> Foldl k a (TrieMap k a)
-	fromDistAscListFold :: Sized a => Foldl k a (TrieMap k a)
+	fromListFold, fromAscListFold :: Sized a => (a -> a -> a) -> FromList k a
+	fromDistAscListFold :: Sized a => FromList k a
 	insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
 	
 	data Hole k :: * -> *

@@ -35,8 +35,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	diffM f (PMap m1) (PMap m2) = PMap (diffM (diffM' f) m1 m2)
 	insertWithM f (k1, k2) a (PMap m) = PMap (insertWithM f' k1 (singletonM k2 a) m) where
 	  f' = insertWithM f k2 a
-	fromAscListM f xs = PMap (fromDistAscListM (breakFst (fromAscListM f) xs))
-	fromDistAscListM xs = PMap (fromDistAscListM (breakFst fromDistAscListM xs))
+	
+	fromAscListFold f = combineFold fromDistAscListFold (fromAscListFold f)
+	fromDistAscListFold = combineFold fromDistAscListFold fromDistAscListFold
 
 	singleHoleM (k1, k2) = PHole (singleHoleM k1) (singleHoleM k2)
 	beforeM (PHole hole1 hole2) = PMap (beforeMM (gNull beforeM hole2) hole1)
@@ -63,15 +64,15 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
 gNull = (guardNullM .)
 
-breakFst :: Eq k1 => ([(k2, a)] -> z) -> [((k1, k2), a)] -> [(k1, z)]
-breakFst _ [] = []
-breakFst merge (((k1, k2), a):xs) = case breakFst' k1 k2 a xs of
-    Stack k1 k1s stk -> (k1, merge k1s):stk
-  where
-  breakFst' k1 k2 a [] = Stack k1 [(k2, a)] []
-  breakFst' k1 k2 a (((k1', k2'), a'):xs) = case breakFst' k1' k2' a' xs of
-    Stack k1x k1xs stk
-      | k1 == k1x	-> Stack k1 ((k2, a):k1xs) stk
-      | otherwise	-> Stack k1 [(k2, a)] ((k1x, merge k1xs):stk)
+combineFold :: Eq k1 => FromList k1 (TrieMap k2 a) -> FromList k2 a -> FromList (k1, k2) a
+combineFold (Foldl snoc1 z01 done1) (Foldl snoc2 z02 done2) = Foldl snoc Nada done
+  where	snoc stk (k1, k2) a = case stk of
+	  Nada	-> Stack k1 z01 (snoc2 z02 k2 a)
+	  Stack k10 stack1 stack2
+	    | k1 == k10	-> Stack k10 stack1 (snoc2 stack2 k2 a)
+	    | otherwise	-> Stack k1 (collapse stk) (snoc2 z02 k2 a)
+	collapse Nada = z01
+	collapse (Stack k1 stk1 stk2) = snoc1 stk1 k1 (done2 stk2)
+	done = PMap . done1 . collapse
 
-data Stack k1 k2 a z = Stack k1 [(k2, a)] [(k1, z)]
+data Stack k1 z1 z2 = Nada | Stack k1 z1 z2
