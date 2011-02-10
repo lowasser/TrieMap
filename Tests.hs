@@ -213,10 +213,20 @@ concretes = [
 	  (let input = [(1.4 :: Double, 'a'), (-4.0, 'b')] in T.assocs (T.deleteAt 0 (T.fromList input)) == [(1.4, 'a')]),
 	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a == toRep b))
 	.&. 
-	printTestCase "fromDistinctAscList"
+	(printTestCase "fromDistinctAscList"
 	  (\ input -> let sinput = sNub fst (input :: [(Key, Val)]) in 
 	      T.assocs (T.fromDistinctAscList sinput) == sinput)
+	.&.
+	printTestCase "fromAscList"
+	  (\ input -> let sinput = sortBy (comparing fst) (input :: [(Key, Val)]) in
+	      T.assocs (T.fromAscListWith (++) sinput) == fromAscListTest sinput))
 	]
+
+fromAscListTest :: [(Key, Val)] -> [(Key, Val)]
+fromAscListTest ((k1, v1):xs@((k2,v2):xs'))
+  | k1 == k2	= fromAscListTest ((k1, v2 ++ v1):xs')
+  | otherwise	= (k1, v1) : fromAscListTest xs
+fromAscListTest xs = xs
 
 sNub :: Ord b => (a -> b) -> [a] -> [a]
 sNub f xs = nubber xs''
