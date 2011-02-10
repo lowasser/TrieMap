@@ -10,7 +10,6 @@ import Control.Monad
 import Control.Monad.Ends
 
 import Data.Foldable hiding (foldrM, foldlM)
-import qualified Data.List as L
 
 import Prelude hiding (foldr, foldl)
 
@@ -22,10 +21,16 @@ type Lookup a = Maybe a
 
 data Foldl k a z = forall z0 . Foldl (z0 -> k -> a -> z0) z0 (z0 -> z)
 
+instance Functor (Foldl k a) where
+  fmap f (Foldl snoc z done) = Foldl snoc z (f . done)
+
 runFoldl :: Foldl k a z -> [(k, a)] -> z
 runFoldl (Foldl f z done) xs = run z xs where
   run z [] = done z
   run z ((k, a):xs) = let z' = f z k a in z' `seq` run z' xs 
+
+mapFoldlKey :: (k -> k') -> Foldl k' a z -> Foldl k a z
+mapFoldlKey f (Foldl snoc z done) = Foldl (\ z k a -> snoc z (f k) a) z done
 
 data Simple a = Null | Singleton a | NonSimple
 

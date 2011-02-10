@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, MagicHash, CPP, FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies, MagicHash, CPP, FlexibleInstances, FlexibleContexts #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.Key () where
 
@@ -13,7 +13,7 @@ import Data.TrieMap.Modifiers
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1)
 
-keyMap :: (TKey k, Sized a) => TrieMap (Rep k) a -> TrieMap (Key k) a
+keyMap :: (Repr k, TrieKey (Rep k), Sized a) => TrieMap (Rep k) a -> TrieMap (Key k) a
 keyMap m = KeyMap (sizeM m) m
 
 #define KMAP(m) KeyMap{tMap = m}
@@ -56,6 +56,9 @@ instance TKey k => TrieKey (Key k) where
 	clearM (KeyHole hole) = keyMap (clearM hole)
 	
 	insertWithM f (Key k) a KMAP(m) = keyMap (insertWithM f (toRep k) a m)
-	fromListM f xs = keyMap (fromListM f [(toRep k, a) | (Key k, a) <- xs])
-	fromAscListM f xs = keyMap (fromAscListM f [(toRep k, a) | (Key k, a) <- xs])
-	fromDistAscListM xs = keyMap (fromDistAscListM [(toRep k, a) | (Key k, a) <- xs])
+	fromListFold f = keyMap <$> mapFoldlKey keyRep (fromListFold f)
+	fromAscListFold f = keyMap <$> mapFoldlKey keyRep (fromAscListFold f)
+	fromDistAscListFold = keyMap <$> mapFoldlKey keyRep fromDistAscListFold
+
+keyRep :: (Repr k, TrieKey (Rep k)) => Key k -> Rep k
+keyRep (Key k) = toRep k
