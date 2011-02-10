@@ -6,7 +6,8 @@ import Control.Monad
 import Control.Applicative
 import qualified Data.TrieMap as T
 import qualified Data.Map as M
-import Data.List (foldl')
+import Data.Ord
+import Data.List (foldl', sortBy)
 import Data.TrieMap.Representation
 import Test.QuickCheck
 import Prelude hiding (null, lookup)
@@ -208,10 +209,24 @@ concretes = [
 	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,0], "a")] in T.assocs (T.fromList input) == input),
 	printTestCase "comparisons are correct"
 	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,maxBound], "a")] in T.assocs (T.fromList input) == input),
-	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a == toRep b)),
 	printTestCase "deleteAt works for OrdMap"
-	  (let input = [(1.4 :: Double, 'a'), (-4.0, 'b')] in T.assocs (T.deleteAt 0 (T.fromList input)) == [(1.4, 'a')])
+	  (let input = [(1.4 :: Double, 'a'), (-4.0, 'b')] in T.assocs (T.deleteAt 0 (T.fromList input)) == [(1.4, 'a')]),
+	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a == toRep b))
+	.&. 
+	printTestCase "fromDistinctAscList"
+	  (\ input -> let sinput = sNub fst (input :: [(Key, Val)]) in 
+	      T.assocs (T.fromDistinctAscList sinput) == sinput)
 	]
+
+sNub :: Ord b => (a -> b) -> [a] -> [a]
+sNub f xs = nubber xs''
+  where	xs' = [(x, f x) | x <- xs]
+	xs'' = sortBy (comparing snd) xs'
+	nubber ((x1, y1):xs@((_, y2):xs'))
+	  | y1 == y2	= nubber ((x1, y1):xs')
+	  | otherwise	= x1:nubber xs
+	nubber [(x, _)] = [x]
+	nubber [] = []
 
 $(genRepr ''Key)
 $(genOptRepr ''Key')
