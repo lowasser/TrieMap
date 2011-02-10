@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, TypeFamilies, PatternGuards, ViewPatterns, MagicHash, CPP, BangPatterns, FlexibleInstances #-}
+{-# LANGUAGE UnboxedTuples, TypeFamilies, PatternGuards, ViewPatterns, MagicHash, CPP, BangPatterns, FlexibleInstances, RecordWildCards #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.UnionMap () where
 
@@ -12,9 +12,6 @@ import Control.Monad
 import Data.Monoid
 import Data.Foldable (Foldable(..))
 import Prelude hiding (foldr, foldr1, foldl, foldl1, (^))
-
-(&) :: (TrieKey k1, TrieKey k2, Sized a) => TrieMap k1 a -> TrieMap k2 a -> TrieMap (Either k1 k2) a
-m1 & m2 = guardNullM m1 ^ guardNullM m2
 
 {-# INLINE (^) #-}
 (^) :: (TrieKey k1, TrieKey k2, Sized a) => Maybe (TrieMap k1 a) -> Maybe (TrieMap k2 a) -> TrieMap (Either k1 k2) a
@@ -202,18 +199,27 @@ holes :: (Functor m, Functor f, MonadPlus m) => (a -> m (f b)) -> (b -> c) -> Ma
 holes k f (Just a) = fmap f <$> k a
 holes _ _ Nothing = mzero
 
-onPair :: (c -> d -> e) -> (a -> c) -> (b -> d) -> (a, b) -> e
-onPair f g h (a, b) = f (g a) (h b)
-
-partEithers :: [(Either a b, x)] -> ([(a, x)], [(b, x)])
-partEithers = foldr part ([], []) where
-	  part (Left x, z) (xs, ys) = ((x,z):xs, ys)
-	  part (Right y, z) (xs, ys) = (xs, (y, z):ys)
-
 {-# INLINE combineFold #-}
 combineFold :: (TrieKey k1, TrieKey k2, Sized a) =>
   FromList k1 a -> FromList k2 a -> FromList (Either k1 k2) a
-combineFold (Foldl snocL zL doneL) (Foldl snocR zR doneR) = Foldl snoc (zL, zR) done
-  where	snoc (mL, mR) (Left k) a = (snocL mL k a, mR)
-	snoc (mL, mR) (Right k) a = (mL, snocR mR k a)
-	done (mL, mR) = doneL mL & doneR mR
+combineFold Foldl{snoc = snocL, begin = beginL, done = doneL}
+	    Foldl{snoc = snocR, begin = beginR, done = doneR}
+  = Foldl{zero = Empty, ..}
+  where	snoc (JustL s1)	(Left k) a = JustL (snocL s1 k a)
+	snoc (JustL s1)	(Right k) a = Both s1 (beginR k a)
+	snoc (JustR s2) (Left k) a = Both (beginL k a) s2
+	snoc (JustR s2) (Right k) a = JustR (snocR s2 k a)
+	snoc (Both s1 s2) (Left k) a = Both (snocL s1 k a) s2
+	snoc (Both s1 s2) (Right k) a = Both s1 (snocR s2 k a)
+	
+	begin (Left k) a = JustL (beginL k a)
+	begin (Right k) a = JustR (beginR k a)
+	
+	done (JustL sL) = K1 (doneL sL)
+	done (JustR sR) = K2 (doneR sR)
+	done (Both sL sR) = doneL sL `union` doneR sR
+
+data Stack s1 s2 =
+  JustL s1
+  | JustR s2
+  | Both s1 s2
