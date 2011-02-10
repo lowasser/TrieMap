@@ -103,7 +103,7 @@ instance TrieKey Word where
 		extractHole path BIN(p m l r) =
 			extractHole (LeftBin p m path r) l `mplus`
 				extractHole (RightBin p m l path) r
-	clearM HOLE(_ path) = WordMap (assign nil path)
+	clearM HOLE(_ path) = WordMap (clear path)
 	{-# INLINE assignM #-}
 	assignM v HOLE(kx path) = WordMap (assign (singleton kx v) path)
 
@@ -144,17 +144,15 @@ afterWith !t (RightBin _ _ _ path)	= afterWith t path
 afterWith !t (LeftBin p m path r)	= afterWith (bin' p m t r) path
 
 {-# INLINE assign #-}
-assign, assign' :: Sized a => SNode a -> Path a -> SNode a
-assign NIL Root = nil
-assign NIL (LeftBin _ _ path r) = assign' r path
-assign NIL (RightBin _ _ l path) = assign' l path
-assign t Root = t
-assign t (LeftBin p m path r) = assign' (bin p m t r) path
-assign t (RightBin p m l path) = assign' (bin p m l t) path
+clear :: Sized a => Path a -> SNode a
+assign :: Sized a => SNode a -> Path a -> SNode a
+clear Root = nil
+clear (LeftBin _ _ path r) = assign r path
+clear (RightBin _ _ l path) = assign l path
 
-assign' !t Root = t
-assign' !t (LeftBin p m path r) = assign' (bin' p m t r) path
-assign' !t (RightBin p m l path) = assign' (bin' p m l t) path
+assign !t Root = t
+assign !t (LeftBin p m path r) = assign (bin' p m t r) path
+assign !t (RightBin p m l path) = assign (bin' p m l t) path
 
 branchHole :: Key -> Prefix -> Path a -> SNode a -> Path a
 branchHole !k !p path t
