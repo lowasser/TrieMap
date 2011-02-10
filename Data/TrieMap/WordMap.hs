@@ -111,7 +111,7 @@ instance TrieKey Word where
 	{-# INLINE unifierM #-}
 	unifierM k' k a = Hole <$> unifier k' k a
 	
-	fromDistAscListM xs = WordMap (fromDistinctAscList xs)
+	fromAscListM f xs = WordMap (fromAscList f xs)
 
 {-# INLINE searchC #-}
 searchC :: Key -> SNode a -> SearchCont (Path a) a r
@@ -368,11 +368,13 @@ unifier k' k a
     | k' == k	= Nothing
     | otherwise	= Just (WHole k' $ branchHole k' k Root (singleton k a))
 
-fromDistinctAscList :: forall a . Sized a => [(Key, a)] -> SNode a
-fromDistinctAscList [] = nil
-fromDistinctAscList ((k, v):zs) = work k v zs Nada where
+fromAscList :: forall a . Sized a => (a -> a -> a) -> [(Key, a)] -> SNode a
+fromAscList _ [] = nil
+fromAscList f ((k, v):zs) = work k v zs Nada where
   work !k v [] stk		= finish k (singleton k v) stk
-  work kx vx ((kz, z):zs) stk	= reduce kz z zs (branchMask kx kz) kx (singleton kx vx) stk
+  work kx vx ((kz, z):zs) stk
+    | kx == kz	= work kx (f vx z) zs stk
+    | otherwise	= reduce kz z zs (branchMask kx kz) kx (singleton kx vx) stk
   
   reduce :: Key -> a -> [(Key, a)] -> Mask -> Prefix -> SNode a -> Stack a -> SNode a
   reduce !kz z zs !m !px !tx stk@(Push py ty stk')
