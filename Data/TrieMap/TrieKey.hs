@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts, TupleSections, Rank2Types, ExistentialQuantification #-}
+{-# LANGUAGE NamedFieldPuns, RecordWildCards #-}
 
 module Data.TrieMap.TrieKey where
 
@@ -19,19 +20,24 @@ type LEq a b = a -> b -> Bool
 type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
 type Lookup a = Maybe a
 
-data Foldl k a z = forall z0 . Foldl (z0 -> k -> a -> z0) z0 (z0 -> z)
+data Foldl k a z = forall z0 . 
+  Foldl {snoc :: z0 -> k -> a -> z0,
+	  begin :: k -> a -> z0,
+	  zero :: z,
+	  done :: z0 -> z}
 type FromList k a = Foldl k a (TrieMap k a)
 
 instance Functor (Foldl k a) where
-  fmap f (Foldl snoc z done) = Foldl snoc z (f . done)
+  fmap f Foldl{..} = Foldl{zero = f zero, done = f . done, ..}
 
 runFoldl :: Foldl k a z -> [(k, a)] -> z
-runFoldl (Foldl f z done) xs = run z xs where
+runFoldl Foldl{zero} [] = zero
+runFoldl Foldl{..} ((k,a):xs) = run (begin k a) xs where
   run z [] = done z
-  run z ((k, a):xs) = let z' = f z k a in z' `seq` run z' xs 
+  run z ((k, a):xs) = let z' = snoc z k a in z' `seq` run z' xs 
 
 mapFoldlKey :: (k -> k') -> Foldl k' a z -> Foldl k a z
-mapFoldlKey f (Foldl snoc z done) = Foldl (\ z k a -> snoc z (f k) a) z done
+mapFoldlKey f Foldl{..} = Foldl{snoc = \ z k a -> snoc z (f k) a, begin = begin . f, ..}
 
 data Simple a = Null | Singleton a | NonSimple
 
@@ -129,7 +135,11 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	clearM :: Sized a => Hole k a -> TrieMap k a
 	unifierM :: Sized a => k -> k -> a -> Maybe (Hole k a)
 	
-	fromListFold f = Foldl (\ m k a -> insertWithM (f a) k a m) emptyM id
+	fromListFold f = Foldl 
+	  {snoc = \ m k a -> insertWithM (f a) k a m,
+	   begin = singletonM,
+	   zero = emptyM,
+	   done = id}
 	fromAscListFold = fromListFold
 	fromDistAscListFold = fromAscListFold const
 	
