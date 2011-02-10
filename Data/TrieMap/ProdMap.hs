@@ -2,15 +2,11 @@
 
 module Data.TrieMap.ProdMap () where
 
-import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
 
 import Control.Monad
 import Data.Functor
 import Data.Foldable hiding (foldlM, foldrM)
-
-import Data.Sequence ((|>))
-import qualified Data.Sequence as Seq
 
 import Prelude hiding (foldl, foldl1, foldr, foldr1)
 
@@ -39,10 +35,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	diffM f (PMap m1) (PMap m2) = PMap (diffM (diffM' f) m1 m2)
 	insertWithM f (k1, k2) a (PMap m) = PMap (insertWithM f' k1 (singletonM k2 a) m) where
 	  f' = insertWithM f k2 a
-	fromAscListM f xs = PMap (fromDistAscListM
-		[(a, fromAscListM f ys) | (a, Elem ys) <- breakFst xs])
-	fromDistAscListM xs = PMap (fromDistAscListM
-		[(a, fromDistAscListM ys) | (a, Elem ys) <- breakFst xs])
+	fromAscListM f xs = PMap (fromDistAscListM (breakFst (fromAscListM f) xs))
+	fromDistAscListM xs = PMap (fromDistAscListM (breakFst fromDistAscListM xs))
 
 	singleHoleM (k1, k2) = PHole (singleHoleM k1) (singleHoleM k2)
 	beforeM (PHole hole1 hole2) = PMap (beforeMM (gNull beforeM hole2) hole1)
@@ -69,10 +63,15 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
 gNull = (guardNullM .)
 
-breakFst :: Eq k1 => [((k1, k2), a)] -> [(k1, Elem [(k2, a)])]
-breakFst [] = []
-breakFst (((a, b),v):xs) = breakFst' a (Seq.singleton (b, v)) xs where
-	breakFst' a vs (((a', b'), v'):xs)
-		| a == a'	= breakFst' a' (vs |> (b', v')) xs
-		| otherwise	= (a, Elem $ toList vs):breakFst' a' (Seq.singleton (b', v')) xs
-	breakFst' a vs [] = [(a, Elem $ toList vs)]
+breakFst :: Eq k1 => ([(k2, a)] -> z) -> [((k1, k2), a)] -> [(k1, z)]
+breakFst _ [] = []
+breakFst merge (((k1, k2), a):xs) = case breakFst' k1 k2 a xs of
+    Stack k1 k1s stk -> (k1, merge k1s):stk
+  where
+  breakFst' k1 k2 a [] = Stack k1 [(k2, a)] []
+  breakFst' k1 k2 a (((k1', k2'), a'):xs) = case breakFst' k1' k2' a' xs of
+    Stack k1x k1xs stk
+      | k1 == k1x	-> Stack k1 ((k2, a):k1xs) stk
+      | otherwise	-> Stack k1 [(k2, a)] ((k1x, merge k1xs):stk)
+
+data Stack k1 k2 a z = Stack k1 [(k2, a)] [(k1, z)]
