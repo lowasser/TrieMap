@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, PatternGuards, MagicHash, CPP, TupleSections, NamedFieldPuns, FlexibleInstances #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.OrdMap () where
 
@@ -68,7 +69,7 @@ instance Ord k => TrieKey (Ordered k) where
 	mapMaybeM f (OrdMap m) = OrdMap (mapMaybe f m)
 	mapEitherM f (OrdMap m) = both OrdMap OrdMap (mapEither f) m
 	isSubmapM (<=) (OrdMap m1) (OrdMap m2) = isSubmap (<=) m1 m2
-	fromAscListFold f = OrdMap <$> mapFoldlKey unOrd (fromAscList f)
+	fromAscListFold f = combineKeys f fromDistAscListFold
 	fromDistAscListFold = OrdMap <$> mapFoldlKey unOrd fromDistAscList
 	unionM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeUnion f (const LT) (const GT) m1 m2
 	isectM f (OrdMap m1) (OrdMap m2) = OrdMap $ isect f m1 m2
@@ -180,10 +181,12 @@ isSubmap (<=) BIN(kx x l r) t = splitLookup kx t result
   	result tl (Just y) tr	= x <= y && isSubmap (<=) l tl && isSubmap (<=) r tr
 
 fromDistAscList :: (Eq k, Sized a) => Foldl k a (SNode k a)
-fromDistAscList = Foldl snoc End done where
+fromDistAscList = Foldl{zero = tip, ..} where
   incr !t (Yes t' stk) = No (incr (t' `glue` t) stk)
   incr !t (No stk) = Yes t stk
   incr !t End = Yes t End
+  
+  begin k a = Yes (singleton k a) End
   
   snoc stk k a = incr (singleton k a) stk
   
@@ -194,20 +197,6 @@ fromDistAscList = Foldl snoc End done where
   done = roll tip
 
 data Stack k a = No (Stack k a) | Yes !(SNode k a) (Stack k a) | End
-data Stack' k a z = Nada | Stack' k a z
-
-fromAscList :: (Eq k, Sized a) => (a -> a -> a) -> Foldl k a (SNode k a)
-fromAscList f = case fromDistAscList of
-  Foldl snoc z done -> let
-    collapse Nada	= z
-    collapse (Stack' k a stk)
-    			= snoc stk k a
-    snoc' (Stack' k a stk) k' a'
-      | k == k'		= Stack' k (f a' a) stk
-    snoc' stk k a	= Stack' k a (collapse stk)
-    
-    done' = done . collapse
-    in Foldl snoc' Nada done'
 
 hedgeUnion :: (Ord k, Sized a)
                   => (a -> a -> Maybe a)

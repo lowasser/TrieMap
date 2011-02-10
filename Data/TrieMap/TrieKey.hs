@@ -36,8 +36,25 @@ runFoldl Foldl{..} ((k,a):xs) = run (begin k a) xs where
   run z [] = done z
   run z ((k, a):xs) = let z' = snoc z k a in z' `seq` run z' xs 
 
+{-# INLINE mapFoldlKey #-}
 mapFoldlKey :: (k -> k') -> Foldl k' a z -> Foldl k a z
 mapFoldlKey f Foldl{..} = Foldl{snoc = \ z k a -> snoc z (f k) a, begin = begin . f, ..}
+
+data Distinct k a z = Begin k a | Dist k a z
+
+{-# INLINE combineKeys #-}
+combineKeys :: Eq k => (a -> a -> a) -> Foldl k a z -> Foldl k a z
+combineKeys f Foldl{..} = Foldl{snoc = snoc', begin = Begin, zero, done = done'} where
+  snoc' (Begin k a) k' a'
+    | k == k'	= Begin k (f a' a)
+  snoc' (Dist k a stk) k' a'
+    | k == k'	= Dist k (f a' a) stk
+  snoc' stk k a = Dist k a (collapse stk)
+  
+  done' = done . collapse
+  
+  collapse (Begin k a) = begin k a
+  collapse (Dist k a stk) = snoc stk k a
 
 data Simple a = Null | Singleton a | NonSimple
 
