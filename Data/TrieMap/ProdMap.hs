@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, TupleSections, PatternGuards, TypeFamilies, FlexibleInstances #-}
+{-# LANGUAGE UnboxedTuples, TupleSections, PatternGuards, TypeFamilies, FlexibleInstances, RecordWildCards #-}
 
 module Data.TrieMap.ProdMap () where
 
@@ -65,14 +65,20 @@ gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
 gNull = (guardNullM .)
 
 combineFold :: Eq k1 => FromList k1 (TrieMap k2 a) -> FromList k2 a -> FromList (k1, k2) a
-combineFold (Foldl snoc1 z01 done1) (Foldl snoc2 z02 done2) = Foldl snoc Nada done
-  where	snoc stk (k1, k2) a = case stk of
-	  Nada	-> Stack k1 z01 (snoc2 z02 k2 a)
-	  Stack k10 stack1 stack2
-	    | k1 == k10	-> Stack k10 stack1 (snoc2 stack2 k2 a)
-	    | otherwise	-> Stack k1 (collapse stk) (snoc2 z02 k2 a)
-	collapse Nada = z01
+combineFold Foldl{snoc = snoc1, begin = begin1, zero = zero1, done = done1}
+	    Foldl{snoc = snoc2, begin = begin2, done = done2}
+  = Foldl{zero = PMap zero1, ..}
+  where	snoc (First k1 stk2) (k1', k2') a
+	  | k1' == k1	= First k1 (snoc2 stk2 k2' a)
+	snoc (Stack k1 stk1 stk2) (k1', k2') a
+	  | k1' == k1	= Stack k1 stk1 (snoc2 stk2 k2' a)
+	snoc stk (k1, k2) a = Stack k1 (collapse stk) (begin2 k2 a)
+	
+	collapse (First k1 stk2) = begin1 k1 (done2 stk2)
 	collapse (Stack k1 stk1 stk2) = snoc1 stk1 k1 (done2 stk2)
+	
+	begin (k1, k2) a = First k1 (begin2 k2 a)
+	
 	done = PMap . done1 . collapse
 
-data Stack k1 z1 z2 = Nada | Stack k1 z1 z2
+data Stack k1 z1 z2 = First k1 z2 | Stack k1 z1 z2
