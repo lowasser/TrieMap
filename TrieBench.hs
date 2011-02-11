@@ -12,6 +12,7 @@ import Control.Monad.Random (getRandomR, RandT, StdGen, evalRandT, mkStdGen)
 import qualified Data.ByteString.Char8 as BS
 import qualified Progression.Main as P
 import Control.DeepSeq
+import Data.List (sort)
 import Prelude hiding (filter)
 
 instance NFData BS.ByteString where
@@ -47,6 +48,8 @@ tEnds strings = case deleteFindMin strings of
 tFromList strings = size (fromList strings)
 tToList strs = sum [BS.length str | str <- toList strs]
 
+tFDAL strings = size (fromDistinctAscList strings)
+
 tInsert strs = size (insert (BS.pack "scientifitude") strs)
 
 nf' f a = f a `deepseq` nf f a
@@ -60,10 +63,11 @@ tBenches strings revs = bgroup ""
     bench "Filter" (nf' tFilterBench strSet),
     bench "Split" (nf' tSplitBench strSet),
     bench "Min/Max" (nf' tEnds strSet),
-    bench "FromList" (nf' tFromList strings),
     bench "ToList" (nf' tToList strSet),
-    bench "Insert" (nf' tInsert strSet)]
-  where !strSet = fromList strings; !revSet = fromList revs
+    bench "Insert" (nf' tInsert strSet),
+    bench "FromList" (nf' tFromList strings),
+    bench "FromDistinctAscList" (nf' tFDAL strSort)]
+  where !strSet = fromList strings; !revSet = fromList revs; !strSort = sort strings
 
 main :: IO ()
 main = do
