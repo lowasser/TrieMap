@@ -30,6 +30,7 @@ type FromList k a = Foldl k a (TrieMap k a)
 instance Functor (Foldl k a) where
   fmap f Foldl{..} = Foldl{zero = f zero, done = f . done, ..}
 
+{-# INLINE runFoldl #-}
 runFoldl :: Foldl k a z -> [(k, a)] -> z
 runFoldl Foldl{zero} [] = zero
 runFoldl Foldl{..} ((k,a):xs) = run (begin k a) xs where
@@ -152,12 +153,21 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	clearM :: Sized a => Hole k a -> TrieMap k a
 	unifierM :: Sized a => k -> k -> a -> Maybe (Hole k a)
 	
+	fromListM, fromAscListM :: Sized a => (a -> a -> a) -> [(k, a)] -> TrieMap k a
+	fromListM f xs = runFoldl (fromListFold f) xs
+	fromAscListM f xs = runFoldl (fromAscListFold f) xs
+	fromDistAscListM :: Sized a => [(k, a)] -> TrieMap k a
+	fromDistAscListM xs = runFoldl fromDistAscListFold xs
+	
+	{-# INLINE fromListFold #-}
 	fromListFold f = Foldl 
 	  {snoc = \ m k a -> insertWithM (f a) k a m,
 	   begin = singletonM,
 	   zero = emptyM,
 	   done = id}
+	{-# INLINE fromAscListFold #-}
 	fromAscListFold = fromListFold
+	{-# INLINE fromDistAscListFold #-}
 	fromDistAscListFold = fromAscListFold const
 	
 	unifierM k' k a = searchMC k' (singletonM k a) Just (\ _ _ -> Nothing)
