@@ -61,6 +61,8 @@ instance TrieKey () where
 	
 	clearM _ = emptyM
 	assignM v _ = single v
+	
+	fromListFold f = Foldl{zero = emptyM, begin = \ _ v -> v, snoc = \ z _ v -> f v z, done = single}
 
 single :: a -> TrieMap () a
 single = Unit . Just
