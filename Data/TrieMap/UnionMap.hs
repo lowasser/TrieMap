@@ -144,8 +144,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	insertWithM f (Right k) a (UVIEW m1 m2)
 		= m1 ^ Just (insertWithM' f k a m2)
 	
-	{-# INLINE fromListFold #-}
-	fromListFold f = combineFold (fromListFold f) (fromListFold f)
 	{-# INLINE fromAscListFold #-}
 	fromAscListFold f = combineFold (fromAscListFold f) (fromAscListFold f)
 	{-# INLINE fromDistAscListFold #-}
