@@ -44,7 +44,7 @@ module Data.TrieSet (
 	-- * Index
 	elemAt,
 	deleteAt,
-	lookupIndex
+	lookupIndex,
 	-- * Conversion
 	-- ** Map
 	mapSet,
