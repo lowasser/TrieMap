@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, GeneralizedNewtypeDeriving, FlexibleInstances, NamedFieldPuns, RecordWildCards #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, GeneralizedNewtypeDeriving, FlexibleInstances, NamedFieldPuns, RecordWildCards, MagicHash #-}
 module Data.TrieMap.ReverseMap () where
 
 import Control.Applicative
@@ -13,6 +13,7 @@ import Data.TrieMap.Modifiers
 import Data.TrieMap.Sized
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1)
+import GHC.Exts
 
 newtype DualPlus m a = DualPlus {runDualPlus :: m a} deriving (Functor, Monad)
 newtype Dual f a = Dual {runDual :: f a} deriving (Functor)
@@ -39,7 +40,7 @@ instance TrieKey k => TrieKey (Rev k) where
 
 	emptyM = RevMap emptyM
 	singletonM (Rev k) a = RevMap (singletonM k a)
-	lookupM (Rev k) (RevMap m) = lookupM k m
+	lookupMC (Rev k) (RevMap m) = lookupMC k m
 	sizeM (RevMap m) = sizeM m
 	getSimpleM (RevMap m) = getSimpleM m
 	
@@ -59,10 +60,10 @@ instance TrieKey k => TrieKey (Rev k) where
 	afterM (RHole hole) = RevMap (beforeM hole)
 	afterWithM a (RHole hole) = RevMap (beforeWithM a hole)
 	searchMC (Rev k) (RevMap m) = mapSearch RHole (searchMC k m)
-	indexM i (RevMap m) = case indexM (revIndex i m) m of
-		(# i', a, hole #) -> (# revIndex i' a, a, RHole hole #)
-	  where	revIndex :: Sized a => Int -> a -> Int
-		revIndex i a = getSize a - 1 - i
+	indexMC i (RevMap m) result = indexMC (revIndex i m) m result'
+	  where	revIndex :: Sized a => Int# -> a -> Int#
+		revIndex i# a = getSize# a -# 1# -# i#
+		result' i'# a hole = result (revIndex i'# a) a (RHole hole)
 	
 	extractHoleM (RevMap m) = fmap RHole <$> runDualPlus (extractHoleM m)
 	firstHoleM (RevMap m) = First (fmap RHole <$> getLast (lastHoleM m))

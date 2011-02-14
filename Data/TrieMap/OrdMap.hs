@@ -14,6 +14,7 @@ import Data.Foldable
 import Data.Monoid
 
 import Prelude hiding (lookup, foldr, foldl, foldr1, foldl1, map)
+import GHC.Exts
 
 #define DELTA 5
 #define RATIO 2
@@ -57,7 +58,7 @@ instance Ord k => TrieKey (Ordered k) where
         	| Full k !(Path k a) !(SNode k a) !(SNode k a)
 	emptyM = OrdMap tip
 	singletonM (Ord k) a = OrdMap (singleton k a)
-	lookupM (Ord k) (OrdMap m) = lookup k m
+	lookupMC (Ord k) (OrdMap m) = lookupC k m
 	getSimpleM (OrdMap m) = case m of
 		TIP	-> Null
 		BIN(_ a TIP TIP)
@@ -85,14 +86,14 @@ instance Ord k => TrieKey (Ordered k) where
 	afterWithM a (Empty k path) = OrdMap $ after (singleton k a) path
 	afterWithM a (Full k path _ r) = OrdMap $ after (insertMin k a r) path
 	searchMC (Ord k) (OrdMap m) = search k m
-	indexM i (OrdMap m) = indexT Root i m where
-		indexT path i BIN(kx x l r) 
-		  | i < sl	= indexT (LeftBin kx x path r) i l
-		  | i < sx	= (# i - sl, x, Full kx path l r #)
-		  | otherwise	= indexT (RightBin kx x l path) (i - sx) r
-			where	!sl = getSize l
-				!sx = getSize x + sl
-		indexT _ _ _ = indexFail ()
+	indexMC i (OrdMap m) result = indexT Root i m where
+		indexT path i# BIN(kx x l r) 
+		  | i# <# sl#	= indexT (LeftBin kx x path r) i# l
+		  | otherwise	= let !sx# = sl# +# getSize# x in
+		      if i# <# sx# then result (i# -# sl#) x (Full kx path l r)
+			else indexT (RightBin kx x l path) (i# -# sx#) r
+			where	!sl# = getSize# l
+		indexT _ _ _ = indexFail result
 	extractHoleM (OrdMap m) = extractHole Root m where
 		extractHole path BIN(kx x l r) =
 			extractHole (LeftBin kx x path r) l `mplus`
@@ -115,13 +116,13 @@ rebuild t Root = t
 rebuild t (LeftBin kx x path r) = rebuild (balance kx x t r) path
 rebuild t (RightBin kx x l path) = rebuild (balance kx x l t) path
 
-lookup :: Ord k => k -> SNode k a -> Lookup a
-lookup k = look where
+lookupC :: Ord k => k -> SNode k a -> LookupCont a r
+lookupC k t no yes = look t where
   look BIN(kx x l r) = case compare k kx of
-	LT	-> lookup k l
-	EQ	-> some x
-	GT	-> lookup k r
-  look _ = none
+	LT	-> look l
+	EQ	-> yes x
+	GT	-> look r
+  look _ = no
 
 singleton :: Sized a => k -> a -> SNode k a
 singleton k a = bin k a tip tip
@@ -246,7 +247,7 @@ trimLookupLo _  _     TIP = (Nothing,tip)
 trimLookupLo lo cmphi t@BIN(kx x l r)
   = case compare lo kx of
       LT -> case cmphi kx of
-              GT -> (option (lookup lo t) Nothing (\ a -> Just (lo, a)), t)
+              GT -> (lookupC lo t Nothing (\ a -> Just (lo, a)), t)
               _  -> trimLookupLo lo cmphi l
       GT -> trimLookupLo lo cmphi r
       EQ -> (Just (kx,x),trim (compare lo) cmphi r)

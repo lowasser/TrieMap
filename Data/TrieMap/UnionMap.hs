@@ -12,6 +12,7 @@ import Control.Monad
 import Data.Monoid
 import Data.Foldable (Foldable(..))
 import Prelude hiding (foldr, foldr1, foldl, foldl1, (^))
+import GHC.Exts
 
 {-# INLINE (^) #-}
 (^) :: (TrieKey k1, TrieKey k2, Sized a) => Maybe (TrieMap k1 a) -> Maybe (TrieMap k2 a) -> TrieMap (Either k1 k2) a
@@ -105,8 +106,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	sizeM (K2 m2) = sizeM m2
 	sizeM (Union s _ _) = s
 	
-	lookupM (Left k) (UVIEW m1 _) = liftMaybe m1 >>= lookupM k
-	lookupM (Right k) (UVIEW _ m2) = liftMaybe m2 >>= lookupM k
+	lookupMC (Left k) (UVIEW (Just m1) _) = lookupMC k m1
+	lookupMC (Right k) (UVIEW _ (Just m2)) = lookupMC k m2
+	lookupMC _ _ = \ no _ -> no
 
 	traverseM f (Union _ m1 m2) = union <$> traverseM f m1 <*> traverseM f m2
 	traverseM f (K1 m1) = K1 <$> traverseM f m1
@@ -168,13 +170,14 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	searchMC (Left k) (UVIEW m1 m2) = mapSearch (`hole1` m2) (searchMC' k m1)
 	searchMC (Right k) (UVIEW m1 m2) = mapSearch (hole2 m1) (searchMC' k m2)
 	
-	indexM i (K1 m1) = onThird HoleX0 (indexM i) m1
-	indexM i (K2 m2) = onThird Hole0X (indexM i) m2
-	indexM i (Union _ m1 m2)
-		| i < s1	= onThird (`HoleX2` m2) (indexM i) m1
-		| otherwise	= onThird (Hole1X m1) (indexM (i - s1)) m2
-		where !s1 = sizeM m1
-	indexM _ _ = indexFail ()
+	indexMC i (K1 m1) result = mapIndex HoleX0 (indexMC i m1) result
+	indexMC i (K2 m2) result = mapIndex Hole0X (indexMC i m2) result
+	indexMC i# (Union _ m1 m2) result
+		| i# <# s1#	= mapIndex (`HoleX2` m2) (indexMC i# m1) result
+		| otherwise	= mapIndex (Hole1X m1) (indexMC (i# -# s1#) m2) result
+		
+		where !s1# = sizeM# m1
+	indexMC _ _ result = indexFail result
 
 	extractHoleM (UVIEW !m1 !m2) = holes1 `mplus` holes2 where
 	  holes1 = holes extractHoleM (`hole1` m2) m1

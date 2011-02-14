@@ -37,6 +37,7 @@ import Data.Vector.Generic (length)
 import qualified Data.Vector (Vector)
 import qualified Data.Vector.Storable (Vector)
 import Prelude hiding (length, foldr, foldl, zip, take)
+import GHC.Exts
 
 #define V(f) f (Data.Vector.Vector) (k)
 #define U(f) f (Data.Vector.Storable.Vector) (Word)
@@ -45,20 +46,20 @@ import Prelude hiding (length, foldr, foldl, zip, take)
 #define DEEP(args) !(pView -> Deep args)
 
 {-# SPECIALIZE lookupEdge ::
-      TrieKey k => V() -> V(Edge) a -> Lookup a,
-      U() -> U(Edge) a -> Lookup a #-}
-lookupEdge :: (Eq k, Label v k) => v k -> Edge v k a -> Lookup a
-lookupEdge = lookupE where
-	lookupE !ks EDGE(_ ls v ts) = if kLen < lLen then none else matchSlice matcher matches ks ls where
+      TrieKey k => V() -> V(Edge) a -> LookupCont a r,
+      U() -> U(Edge) a -> LookupCont a r #-}
+lookupEdge :: (Eq k, Label v k) => v k -> Edge v k a -> LookupCont a r
+lookupEdge ks e no yes = lookupE ks e where
+	lookupE !ks EDGE(_ ls v ts) = if kLen < lLen then no else matchSlice matcher matches ks ls where
 	  !kLen = length ks
 	  !lLen = length ls
 	  matcher k l z
 		  | k == l	  = z
-		  | otherwise	  = none
+		  | otherwise	  = no
 	  matches _ _
-		  | kLen == lLen  = liftMaybe v
+		  | kLen == lLen  = maybe no yes v
 		  | (_, k, ks') <- splitSlice lLen ks
-		  		= lookupM k ts >>= lookupE ks'
+		  		= lookupMC k ts no (lookupE ks')
 
 {-# INLINE searchEdgeC #-}
 searchEdgeC :: (Eq k, Label v k) => v k -> Edge v k a -> SearchCont (EdgeLoc v k a) a r
@@ -67,7 +68,7 @@ searchEdgeC ks0 e nomatch0 match0 = searchE ks0 e root where
   match a !ls !ts path = match0 a (loc ls ts path)
   searchE !ks e@EDGE(_ !ls !v ts) path = iMatchSlice matcher matches ks ls where
     matcher i k l z = 
-      option (unifierM k l (dropEdge (i+1) e)) z (nomatch (dropSlice (i+1) ks) emptyM . deep path (takeSlice i ls) Nothing)
+      maybe z (nomatch (dropSlice (i+1) ks) emptyM . deep path (takeSlice i ls) Nothing) (unifierM k l (dropEdge (i+1) e)) 
     matches kLen lLen = case compare kLen lLen of
       LT -> let lPre = takeSlice kLen ls; l = ls !$ kLen; e' = dropEdge (kLen + 1) e in
 	      nomatch lPre (singletonM l e') path
@@ -183,14 +184,10 @@ isectEdge f = isectE where
     matcher k l z = guard (k == l) >> z
     matches kLen lLen = case compare kLen lLen of
       EQ -> compact $ edge ks0 (isectMaybe f vK vL) $ isectM isectE tsK tsL
-      LT -> let l = ls0 !$ kLen in do
-	      eK' <- toMaybe $ lookupM l tsK
-	      let eL' = dropEdge (kLen + 1) eL
-	      unDropEdge (kLen + 1) <$> eK' `isectE` eL'
-      GT -> let k = ks0 !$ lLen in do
-	      eL' <- toMaybe $ lookupM k tsL
-	      let eK' = dropEdge (lLen + 1) eK
-	      unDropEdge (lLen + 1) <$> eK' `isectE` eL'
+      LT -> let l = ls0 !$ kLen in lookupMC l tsK Nothing $ \ eK' ->
+	      let eL' = dropEdge (kLen + 1) eL in unDropEdge (kLen + 1) <$> eK' `isectE` eL'
+      GT -> let k = ks0 !$ lLen in lookupMC k tsL Nothing $ \ eL' -> 
+	      let eK' = dropEdge (lLen + 1) eK in unDropEdge (lLen + 1) <$> eK' `isectE` eL'
 
 {-# SPECIALIZE diffEdge ::
       (TrieKey k, Sized a) => (a -> b -> Maybe a) -> V(Edge) a -> V(Edge) b -> V(MEdge) a,
@@ -209,7 +206,7 @@ diffEdge f = diffE where
 	nomatch _ = Just eK
 	match eK' holeKT = cEdge ks0 vK $ fillHoleM (eK' `diffE` eL') holeKT
       GT -> let k = ks0 !$ lLen; eK' = dropEdge (lLen + 1) eK in 
-	option (lookupM k tsL) (Just eK) (\ eL' -> fmap (unDropEdge (lLen + 1)) (eK' `diffE` eL'))
+	lookupMC k tsL (Just eK) (\ eL' -> fmap (unDropEdge (lLen + 1)) (eK' `diffE` eL'))
 
 {-# SPECIALIZE isSubEdge ::
       TrieKey k => LEq a b -> LEq (V(Edge) a) (V(Edge) b),
@@ -221,7 +218,7 @@ isSubEdge (<=) = isSubE where
     matches kLen lLen = case compare kLen lLen of
       LT	-> False
       EQ	-> subMaybe (<=) vK vL && isSubmapM isSubE tsK tsL
-      GT	-> let k = ks0 !$ lLen in option (lookupM k tsL) False (isSubE (dropEdge (lLen + 1) eK))
+      GT	-> let k = ks0 !$ lLen in lookupMC k tsL False (isSubE (dropEdge (lLen + 1) eK))
 
 {-# SPECIALIZE beforeEdge :: 
       (TrieKey k, Sized a) => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,
@@ -263,19 +260,17 @@ extractEdgeLoc EDGE(_ ks v ts) path = case v of
 			extractEdgeLoc e' (deep path ks v tHole)
 
 {-# SPECIALIZE INLINE indexEdge :: 
-      (TrieKey k, Sized a) => Int -> V(Edge) a -> V(Path) a -> (# Int, a, V(EdgeLoc) a #),
-      Sized a => Int -> U(Edge) a -> U(Path) a -> (# Int, a, U(EdgeLoc) a #) #-}
-indexEdge :: (Label v k, Sized a) => Int -> Edge v k a -> Path v k a -> (# Int, a, EdgeLoc v k a #)
-indexEdge = indexE where
-  indexE !i e path = case eView e of
+      (TrieKey k, Sized a) => Int# -> V(Edge) a -> IndexCont (V(EdgeLoc) a) a r,
+      Sized a => Int# -> U(Edge) a -> IndexCont (U(EdgeLoc) a) a r #-}
+indexEdge :: (Label v k, Sized a) => Int# -> Edge v k a -> IndexCont (EdgeLoc v k a) a r
+indexEdge i# e result = indexE i# e root where
+  indexE i# e path = case eView e of
     Edge _ ks v@(Just a) ts
-      | i < sv	-> (# i, a, loc ks ts path #)
-      | (# i', e', tHole #) <- indexM (i - sv) ts
-		-> indexE i' e' (deep path ks v tHole)
-	  where	!sv = getSize a
+      | i# <# sv#	-> result i# a (loc ks ts path)
+      | otherwise	-> indexMC (i# -# sv#) ts $ \ i' e' tHole -> indexE i' e' (deep path ks v tHole)
+	  where	!sv# = getSize# a
     Edge _ ks Nothing ts
-		-> indexE i' e' (deep path ks Nothing tHole)
-	  where !(# i', e', tHole #) = indexM i ts
+		-> indexMC i# ts $ \ i' e' tHole -> indexE i' e' (deep path ks Nothing tHole)
 
 {-# SPECIALIZE insertEdge ::
       (TrieKey k, Sized a) => (a -> a) -> V() -> a -> V(Edge) a -> V(Edge) a,

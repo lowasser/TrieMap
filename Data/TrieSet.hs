@@ -255,7 +255,7 @@ size (TSet s) = getSize s
 
 -- | Is the element in the set?
 member :: TKey a => a -> TSet a -> Bool
-member a (TSet s) = option (lookupM (toRep a) s) False (const True)
+member a (TSet s) = lookupMC (toRep a) s False (const True)
 
 -- | Is the element not in the set?
 notMember :: TKey a => a -> TSet a -> Bool
@@ -283,16 +283,14 @@ elemAt :: TKey a => Int -> TSet a -> a
 elemAt i s
 	| i < 0 || i >= size s
 		= error "TrieSet.elemAt: index out of range"
-elemAt i (TSet s) = case indexM i s of
-	(# _, Elem a, _ #) -> a
+elemAt i (TSet s) = indexMC (unbox i) s $ \ _ (Elem a) _ -> a
 
 -- | Deletes the element at the specified index.  Throws an error if an invalid index is specified.
 deleteAt :: TKey a => Int -> TSet a -> TSet a
 deleteAt i s
 	| i < 0 || i >= size s
 		= error "TrieSet.deleteAt: index out of range"
-deleteAt i (TSet s) = case indexM i s of
-	(# _, _, hole #) -> TSet (clearM hole)
+deleteAt i (TSet s) = indexMC (unbox i) s $ \ _ _ hole -> TSet (clearM hole)
 
 -- | If the specified element is in the set, returns 'Just' the index of the element, otherwise returns 'Nothing'.
 lookupIndex :: TKey a => a -> TSet a -> Maybe Int

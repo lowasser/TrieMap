@@ -34,7 +34,8 @@ instance TrieKey k => TrieKey (Vector k) where
 	getSimpleM (Radix Nothing)	= Null
 	getSimpleM (Radix (Just e))	= getSimpleEdge e
 	sizeM (Radix m) = getSize m
-	lookupM ks (Radix m) = liftMaybe m >>= lookupEdge ks
+	lookupMC ks (Radix (Just e)) no yes = lookupEdge ks e no yes
+	lookupMC _ _ no _ = no
 
 	fmapM f (Radix m) = Radix (mapEdge f <$> m)
 	mapMaybeM f (Radix m) = Radix (m >>= mapMaybeEdge f)
@@ -51,8 +52,8 @@ instance TrieKey k => TrieKey (Vector k) where
 	{-# INLINE searchMC #-}
 	searchMC ks (Radix (Just e)) = mapSearch Hole (searchEdgeC ks e)
 	searchMC ks _ = \ f _ -> f (singleHoleM ks)
-	indexM i (Radix (Just e)) = onThird Hole (indexEdge i e) root
-	indexM _ _ = indexFail ()
+	indexMC i (Radix (Just e)) = mapIndex Hole (indexEdge i e)
+	indexMC _ _ = indexFail
 
 	clearM (Hole loc) = Radix (clearEdge loc)
 	{-# INLINE assignM #-}
@@ -92,7 +93,8 @@ instance TrieKey (S.Vector Word) where
 	getSimpleM (WRadix Nothing)	= Null
 	getSimpleM (WRadix (Just e))	= getSimpleEdge e
 	sizeM (WRadix m) = getSize m
-	lookupM ks (WRadix m) = liftMaybe m >>= lookupEdge ks
+	lookupMC ks (WRadix (Just e)) no yes = lookupEdge ks e no yes
+	lookupMC _ _ no _ = no
 
 	fmapM f (WRadix m) = WRadix (mapEdge f <$> m)
 	mapMaybeM f (WRadix m) = WRadix (m >>= mapMaybeEdge f)
@@ -111,9 +113,9 @@ instance TrieKey (S.Vector Word) where
 	  f' loc = f (WHole loc)
 	  g' a loc = g a (WHole loc)
 	searchMC ks _ f _ = f (singleHoleM ks)
-	indexM i (WRadix (Just e)) = onThird WHole (indexEdge i e) root
-	indexM _ (WRadix Nothing) = indexFail ()
-
+	indexMC i (WRadix (Just e)) = mapIndex WHole (indexEdge i e)
+	indexMC _ _ = indexFail
+	
 	clearM (WHole loc) = WRadix (clearEdge loc)
 	{-# INLINE assignM #-}
 	assignM a (WHole loc) = WRadix (Just (assignEdge a loc))

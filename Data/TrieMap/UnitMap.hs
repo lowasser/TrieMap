@@ -30,7 +30,7 @@ instance TrieKey () where
 	singletonM _ = single
 	getSimpleM (Unit m) = maybe Null Singleton m
 	sizeM (Unit m) = getSize m
-	lookupM _ (Unit m) = liftMaybe m
+	lookupMC _ (Unit m) no yes = maybe no yes m
 	traverseM f (Unit m) = Unit <$> traverse f m
 	fmapM f (Unit m) = Unit (f <$> m)
 	mapMaybeM f (Unit m) = Unit (m >>= f)
@@ -51,8 +51,8 @@ instance TrieKey () where
 	searchMC _ (Unit (Just v)) _ g = g v Hole
 	searchMC _ _ f _ = f Hole
 
-	indexM i (Unit (Just v)) = (# i, v, Hole #)
-	indexM _ _ = indexFail ()
+	indexMC i (Unit (Just v)) result = result i v Hole
+	indexMC _ _ result = indexFail result
 	
 	unifierM _ _ _ = Nothing
 	

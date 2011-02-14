@@ -18,7 +18,8 @@ import GHC.Exts
 
 type LEq a b = a -> b -> Bool
 type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
-type Lookup a = Maybe a
+type IndexCont h a r = (Int# -> a -> h -> r) -> r
+type LookupCont a r = r -> (a -> r) -> r
 
 data Foldl k a z = forall z0 . 
   Foldl {snoc :: z0 -> k -> a -> z0,
@@ -59,23 +60,11 @@ combineKeys f Foldl{..} = Foldl{snoc = snoc', begin = Begin, zero, done = done'}
 
 data Simple a = Null | Singleton a | NonSimple
 
-class (Functor f, Monad f) => Option f where
-  none :: f a
-  some :: a -> f a
-  option :: f a -> r -> (a -> r) -> r
+lookupYes :: a -> LookupCont a r
+lookupYes a _ yes = yes a
 
-instance Option Maybe where
-  none = Nothing
-  some = Just
-  option m a f = maybe a f m
-
-{-# INLINE [0] liftMaybe #-}
-liftMaybe :: Option f => Maybe a -> f a
-liftMaybe = maybe none some
-
-{-# INLINE [0] toMaybe #-}
-toMaybe :: Option f => f a -> Maybe a
-toMaybe x = option x Nothing Just
+lookupNo :: LookupCont a r
+lookupNo no _ = no
 
 instance Monad Simple where
 	return = Singleton
@@ -108,7 +97,7 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	getSimpleM :: TrieMap k a -> Simple a
 	sizeM# :: Sized a => TrieMap k a -> Int#
 	sizeM :: Sized a => TrieMap k a -> Int
-	lookupM :: k -> TrieMap k a -> Lookup a
+	lookupMC :: k -> TrieMap k a -> r -> (a -> r) -> r
 	fmapM :: Sized b => (a -> b) -> TrieMap k a -> TrieMap k b
 	traverseM :: (Applicative f, Sized b) =>
 		(a -> f b) -> TrieMap k a -> f (TrieMap k b)
@@ -129,8 +118,7 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
 	beforeWithM, afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
 	searchMC :: k -> TrieMap k a -> SearchCont (Hole k a) a r
-	indexM :: Sized a => Int -> TrieMap k a -> (# Int, a, Hole k a #)
-	indexM# :: Sized a => Int# -> TrieMap k a -> (# Int#, a, Hole k a #)
+	indexMC :: Sized a => Int# -> TrieMap k a -> IndexCont (Hole k a) a r
 
 	-- By combining rewrite rules and these NOINLINE pragmas, we automatically derive
 	-- specializations of functions for every instance of TrieKey.
@@ -138,10 +126,7 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	{-# NOINLINE firstHoleM #-}
 	{-# NOINLINE lastHoleM #-}
 	{-# NOINLINE sizeM# #-}
-	{-# NOINLINE indexM# #-}
 	sizeM# m = unbox (inline sizeM m)
-	indexM# i# m = case inline indexM (I# i#) m of
-	  (# I# i'#, a, hole #)	-> (# i'#, a, hole #)
 	firstHoleM :: Sized a => TrieMap k a -> First (a, Hole k a)
 	firstHoleM m = inline extractHoleM m
 	lastHoleM :: Sized a => TrieMap k a -> Last (a, Hole k a)
@@ -190,6 +175,14 @@ mapSearch :: (hole -> hole') -> SearchCont hole a r -> SearchCont hole' a r
 mapSearch f run nomatch match = run nomatch' match' where
   nomatch' hole = nomatch (f hole)
   match' a hole = match a (f hole)
+
+mapIndex :: (hole -> hole') -> IndexCont hole a r -> IndexCont hole' a r
+mapIndex f run res = run res' where
+  res' i# a hole = res i# a (f hole)
+
+{-# INLINE lookupM #-}
+lookupM :: TrieKey k => k -> TrieMap k a -> Maybe a
+lookupM k m = lookupMC k m Nothing Just
 
 {-# INLINE unifyM #-}
 unifyM :: (TrieKey k, Sized a) => k -> a -> k -> a -> Maybe (TrieMap k a)
@@ -289,18 +282,13 @@ subMaybe _ Nothing _ = True
 subMaybe (<=) (Just a) (Just b) = a <= b
 subMaybe _ _ _ = False
 
-indexFail :: a -> (# Int, b, c #)
-indexFail _ = (# error err, error err, error err #) where
-	err = "Error: not a valid index"
+indexFail :: IndexCont hole a r
+indexFail _ = error "Error: not a valid index"
 
 {-# RULES
   "extractHoleM/First" [0] extractHoleM = firstHoleM;
   "extractHoleM/Last" [0] extractHoleM = lastHoleM;
   "sizeM" [0] forall m . sizeM m = I# (sizeM# m);
-  "indexM" [0] forall i m . indexM i m = case indexM# (unbox i) m of {
-	(# i'#, a, m #)	-> (# I# i'#, a, m #)};
   "getSimpleM/emptyM" getSimpleM emptyM = Null;
   "getSimpleM/singletonM" forall k a . getSimpleM (singletonM k a) = Singleton a;
-  "toMaybe" forall f . toMaybe f = f;
-  "liftMaybe" forall m . liftMaybe m = m;
   #-}

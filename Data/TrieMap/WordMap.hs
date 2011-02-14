@@ -73,7 +73,7 @@ instance TrieKey Word where
 	  Tip _ a	-> Singleton a
 	  _		-> NonSimple
 	sizeM (WordMap t) = getSize t
-	lookupM k (WordMap m) = lookup k m
+	lookupMC k (WordMap m) = lookupC k m
 	traverseM f (WordMap m) = WordMap <$> traverse f m
 	fmapM f (WordMap m) = WordMap (map f m)
 	mapMaybeM f (WordMap m) = WordMap (mapMaybe f m)
@@ -91,13 +91,13 @@ instance TrieKey Word where
 
 	{-# INLINE searchMC #-}
 	searchMC !k (WordMap t) = mapSearch (hole k) (searchC k t)
-	indexM i (WordMap m) = indexT i m Root where
-		indexT !i TIP(kx x) path = (# i, x, hole kx path #)
-		indexT !i BIN(p m l r) path
-			| i < sl	= indexT i l (LeftBin p m path r)
-			| otherwise	= indexT (i - sl) r (RightBin p m l path)
-			where !sl = getSize l
-		indexT _ NIL _		= indexFail ()
+	indexMC i (WordMap m) result = indexT i m Root where
+		indexT i# TIP(kx x) path = result i# x (hole kx path)
+		indexT i# BIN(p m l r) path
+			| i# <# sl#	= indexT i# l (LeftBin p m path r)
+			| otherwise	= indexT (i# -# sl#) r (RightBin p m l path)
+			where !sl# = getSize# l
+		indexT _ NIL _		= indexFail result
 	extractHoleM (WordMap m) = extractHole Root m where
 		extractHole _ (SNode _ Nil) = mzero
 		extractHole path TIP(kx x) = return (x, hole kx path)
@@ -165,12 +165,12 @@ branchHole !k !p path t
   where	m = branchMask k p
   	p' = mask k m
 
-lookup :: Key -> SNode a -> Lookup a
-lookup !k = look where
+lookupC :: Key -> SNode a -> LookupCont a r
+lookupC !k t no yes = look t where
   look BIN(_ m l r) = look (if zeroN k m then l else r)
   look TIP(kx x)
-    | k == kx	= some x
-  look _ = none
+    | k == kx	= yes x
+  look _ = no
 
 singleton :: Sized a => Key -> a -> SNode a
 singleton k a = sNode (Tip k a)
@@ -258,8 +258,8 @@ intersectionWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
   (Nil, _)	-> nil
   (Tip{}, Nil)	-> nil
   (Bin{}, Nil)	-> nil
-  (Tip k x, _)	-> option (lookup k n2) nil (singletonMaybe k . f x)
-  (_, Tip k y)	-> option (lookup k n1) nil (singletonMaybe k . flip f y)
+  (Tip k x, _)	-> lookupC k n2 nil (singletonMaybe k . f x)
+  (_, Tip k y)	-> lookupC k n1 nil (singletonMaybe k . flip f y)
   (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
     | shorter m1 m2  -> intersection1
     | shorter m2 m1  -> intersection2
@@ -278,7 +278,7 @@ differenceWith :: Sized a => (a -> b -> Maybe a) -> SNode a -> SNode b -> SNode 
 differenceWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
   (Nil, _)	-> nil
   (_, Nil)	-> n1
-  (Tip k x, _)	-> option (lookup k n2) n1 (singletonMaybe k . f x)
+  (Tip k x, _)	-> lookupC k n2 n1 (singletonMaybe k . f x)
   (_, Tip k y)	-> alter (>>= flip f y) k n1
   (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
     | shorter m1 m2  -> difference1
@@ -301,7 +301,7 @@ isSubmapOfBy (<=) t1@BIN(p1 m1 l1 r1) BIN(p2 m2 l2 r2)
 							else isSubmapOfBy (<=) t1 r2)
     | otherwise      = (p1==p2) && isSubmapOfBy (<=) l1 l2 && isSubmapOfBy (<=) r1 r2
 isSubmapOfBy _ BIN(_ _ _ _) _	= False
-isSubmapOfBy (<=) TIP(k x) t2	= option (lookup k t2) False (x <=)
+isSubmapOfBy (<=) TIP(k x) t2	= lookupC k t2 False (x <=)
 isSubmapOfBy _ NIL _		= True
 
 mask0 :: Key -> Mask -> Bool

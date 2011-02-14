@@ -24,7 +24,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	singletonM (k1, k2) = PMap . singletonM k1 . singletonM k2
 	getSimpleM (PMap m) = getSimpleM m >>= getSimpleM
 	sizeM (PMap m) = sizeM m
-	lookupM (k1, k2) (PMap m) = lookupM k1 m >>= lookupM k2
+	lookupMC (k1, k2) (PMap m) no yes = 
+	  lookupMC k1 m no (\ m' -> lookupMC k2 m' no yes)
 	traverseM f (PMap m) = PMap <$> traverseM (traverseM f) m
 	fmapM f (PMap m) = PMap (fmapM (fmapM f) m)
 	mapMaybeM f (PMap m) = PMap (mapMaybeM (mapMaybeM' f) m)
@@ -47,8 +48,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	searchMC (k1, k2) (PMap m) f g = searchMC k1 m f' g' where
 	  f' hole1 = f (PHole hole1 (singleHoleM k2))
 	  g' m' hole1 = mapSearch (PHole hole1) (searchMC k2 m') f g
-	indexM i (PMap m) = onThird (PHole hole1) (indexM i') m'
-	  where	!(# i', m', hole1 #) = indexM i m
+	indexMC i (PMap m) result = 
+	  indexMC i m $ \ i' m' hole1 -> mapIndex (PHole hole1) (indexMC i' m') result
 	extractHoleM (PMap m) = do
 		(m', hole1) <- extractHoleM m
 		(v, hole2) <- extractHoleM m'
