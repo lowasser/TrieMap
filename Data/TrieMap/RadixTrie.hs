@@ -67,10 +67,13 @@ instance TrieKey k => TrieKey (Vector k) where
 	afterWithM a (Hole loc) = Radix (afterEdge (Just a) loc)
 	
 	insertWithM f ks v (Radix e) = Radix (Just (maybe (singletonEdge ks v) (insertEdge f ks v) e))
-	fromListM _ [] = emptyM
-	fromListM f ((k, a):xs) = Radix (Just (roll (singletonEdge k a) xs)) where
-	  roll !e [] = e
-	  roll !e ((ks, a):xs) = roll (insertEdge (f a) ks a e) xs
+	{-# INLINE fromListFold #-}
+	fromListFold f = 
+	  Foldl {snoc = \ e ks a -> insertEdge (f a) ks a e, 
+		 zero = emptyM,
+		 begin = singletonEdge,
+		 done = Radix . Just}
+	fromAscListFold f = Radix <$> fromAscListEdge f
 
 type WordVec = S.Vector Word
 
@@ -126,8 +129,11 @@ instance TrieKey (S.Vector Word) where
 	afterWithM a (WHole loc) = WRadix (afterEdge (Just a) loc)
 	
 	insertWithM f ks v (WRadix e) = WRadix (Just (maybe (singletonEdge ks v) (insertEdge f ks v) e))
-	{-# INLINE fromListM #-}
-	fromListM _ [] = emptyM
-	fromListM f ((k, a):xs) = WRadix (Just (roll (singletonEdge k a) xs)) where
-	  roll !e [] = e
-	  roll !e ((ks, a):xs) = roll (insertEdge (f a) ks a e) xs
+	{-# INLINE fromListFold #-}
+	fromListFold f = 
+	  Foldl {snoc = \ e ks a -> insertEdge (f a) ks a e, 
+		 zero = emptyM,
+		 begin = singletonEdge,
+		 done = WRadix . Just}
+	{-# INLINE fromAscListFold #-}
+	fromAscListFold f = WRadix <$> fromAscListEdge f

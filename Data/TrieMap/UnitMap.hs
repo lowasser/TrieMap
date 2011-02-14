@@ -41,8 +41,6 @@ instance TrieKey () where
 	isSubmapM (<=) (Unit m1) (Unit m2) = subMaybe (<=) m1 m2
 	
 	insertWithM f _ a (Unit m) = Unit (Just (maybe a f m))
-	fromListM _ [] = emptyM
-	fromListM f ((_, v):xs) = single (foldl (\ v' -> f v' . snd) v xs)
 	
 	singleHoleM _ = Hole
 	beforeM _ = emptyM
@@ -63,6 +61,8 @@ instance TrieKey () where
 	
 	clearM _ = emptyM
 	assignM v _ = single v
+	
+	fromListFold f = Foldl{zero = emptyM, begin = \ _ v -> v, snoc = \ z _ v -> f v z, done = single}
 
 single :: a -> TrieMap () a
 single = Unit . Just

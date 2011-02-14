@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances #-}
+{-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances, RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), getWordMap, getHole) where
@@ -111,14 +111,15 @@ instance TrieKey Word where
 	{-# INLINE unifierM #-}
 	unifierM k' k a = Hole <$> unifier k' k a
 	
-	fromAscListM f xs = WordMap (fromAscList f xs)
+	{-# INLINE fromAscListFold #-}
+	fromAscListFold f = WordMap <$> fromAscList f
 
 {-# INLINE searchC #-}
 searchC :: Key -> SNode a -> SearchCont (Path a) a r
 searchC !k t notfound found = seek Root t where
   seek path t@BIN(p m l r)
     | nomatch k p m	= notfound (branchHole k p path t)
-    | zero k m
+    | mask0 k m
 	    = seek (LeftBin p m path r) l
     | otherwise
 	    = seek (RightBin p m l path) r
@@ -159,7 +160,7 @@ assign !t (RightBin p m l path) = assign (bin' p m l t) path
 
 branchHole :: Key -> Prefix -> Path a -> SNode a -> Path a
 branchHole !k !p path t
-  | zero k m	= LeftBin p' m path t
+  | mask0 k m	= LeftBin p' m path t
   | otherwise	= RightBin p' m t path
   where	m = branchMask k p
   	p' = mask k m
@@ -241,11 +242,11 @@ unionWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
     | otherwise      -> join p1 n1 p2 n2
     where
       union1  | nomatch p2 p1 m1  = join p1 n1 p2 n2
-	      | zero p2 m1        = bin p1 m1 (unionWith f l1 n2) r1
+	      | mask0 p2 m1        = bin p1 m1 (unionWith f l1 n2) r1
 	      | otherwise         = bin p1 m1 l1 (unionWith f r1 n2)
 
       union2  | nomatch p1 p2 m2  = join p1 n1 p2 n2
-	      | zero p1 m2        = bin p2 m2 (unionWith f n1 l2) r2
+	      | mask0 p1 m2        = bin p2 m2 (unionWith f n1 l2) r2
 	      | otherwise         = bin p2 m2 l2 (unionWith f n1 r2)
 
 {-# INLINE alter #-}
@@ -266,11 +267,11 @@ intersectionWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
     | otherwise      -> nil
     where
       intersection1 | nomatch p2 p1 m1  = nil
-		    | zero p2 m1        = intersectionWith f l1 n2
+		    | mask0 p2 m1        = intersectionWith f l1 n2
 		    | otherwise         = intersectionWith f r1 n2
 
       intersection2 | nomatch p1 p2 m2  = nil
-		    | zero p1 m2        = intersectionWith f n1 l2
+		    | mask0 p1 m2        = intersectionWith f n1 l2
 		    | otherwise         = intersectionWith f n1 r2
 
 differenceWith :: Sized a => (a -> b -> Maybe a) -> SNode a -> SNode b -> SNode a
@@ -286,25 +287,25 @@ differenceWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
     | otherwise      -> n1
     where
       difference1 | nomatch p2 p1 m1  = n1
-		  | zero p2 m1        = bin p1 m1 (differenceWith f l1 n2) r1
+		  | mask0 p2 m1        = bin p1 m1 (differenceWith f l1 n2) r1
 		  | otherwise         = bin p1 m1 l1 (differenceWith f r1 n2)
 
       difference2 | nomatch p1 p2 m2  = n1
-		  | zero p1 m2        = differenceWith f n1 l2
+		  | mask0 p1 m2        = differenceWith f n1 l2
 		  | otherwise         = differenceWith f n1 r2
 
 isSubmapOfBy :: LEq a b -> LEq (SNode a) (SNode b)
 isSubmapOfBy (<=) t1@BIN(p1 m1 l1 r1) BIN(p2 m2 l2 r2)
     | shorter m1 m2  = False
-    | shorter m2 m1  = match p1 p2 m2 && (if zero p1 m2 then isSubmapOfBy (<=) t1 l2
+    | shorter m2 m1  = match p1 p2 m2 && (if mask0 p1 m2 then isSubmapOfBy (<=) t1 l2
 							else isSubmapOfBy (<=) t1 r2)
     | otherwise      = (p1==p2) && isSubmapOfBy (<=) l1 l2 && isSubmapOfBy (<=) r1 r2
 isSubmapOfBy _ BIN(_ _ _ _) _	= False
 isSubmapOfBy (<=) TIP(k x) t2	= option (lookup k t2) False (x <=)
 isSubmapOfBy _ NIL _		= True
 
-zero :: Key -> Mask -> Bool
-zero i m
+mask0 :: Key -> Mask -> Bool
+mask0 i m
   = i .&. m == 0
 
 nomatch,match :: Key -> Prefix -> Mask -> Bool
@@ -342,7 +343,7 @@ highestBitMask x0
 {-# INLINE join #-}
 join :: Prefix -> SNode a -> Prefix -> SNode a -> SNode a
 join p1 t1 p2 t2
-  | zero p1 m = bin' p m t1 t2
+  | mask0 p1 m = bin' p m t1 t2
   | otherwise = bin' p m t2 t1
   where
     m = branchMask p1 p2
@@ -368,23 +369,26 @@ unifier k' k a
     | k' == k	= Nothing
     | otherwise	= Just (WHole k' $ branchHole k' k Root (singleton k a))
 
-fromAscList :: forall a . Sized a => (a -> a -> a) -> [(Key, a)] -> SNode a
-fromAscList _ [] = nil
-fromAscList f ((k, v):zs) = work k v zs Nada where
-  work !k v [] stk		= finish k (singleton k v) stk
-  work kx vx ((kz, z):zs) stk
-    | kx == kz	= work kx (f vx z) zs stk
-    | otherwise	= reduce kz z zs (branchMask kx kz) kx (singleton kx vx) stk
+{-# INLINE fromAscList #-}
+fromAscList :: forall a . Sized a => (a -> a -> a) -> Foldl Key a (SNode a)
+fromAscList f = Foldl{zero = nil, ..} where
+  begin kx vx = Stack' kx vx Nada
+
+  snoc (Stack' kx vx stk) kz vz
+    | kx == kz	= Stack' kx (f vz vx) stk
+    | otherwise	= Stack' kz vz $ reduce (branchMask kx kz) kx (singleton kx vx) stk
   
-  reduce :: Key -> a -> [(Key, a)] -> Mask -> Prefix -> SNode a -> Stack a -> SNode a
-  reduce !kz z zs !m !px !tx stk@(Push py ty stk')
-    | shorter m mxy	= reduce kz z zs m pxy (bin' pxy mxy ty tx) stk'
-    | otherwise		= work kz z zs (Push px tx stk)
+  reduce :: Mask -> Prefix -> SNode a -> Stack a -> Stack a
+  reduce !m !px !tx (Push py ty stk')
+    | shorter m mxy	= reduce m pxy (bin' pxy mxy ty tx) stk'
     where mxy = branchMask px py; pxy = mask px mxy
-  reduce kz z zs _ px tx Nada = work kz z zs (Push px tx Nada)
+  reduce _ px tx stk	= Push px tx stk
+
+  done (Stack' kx vx stk) = finish kx (singleton kx vx) stk
   
   finish !px !tx (Push py ty stk) = finish p (join py ty px tx) stk
     where m = branchMask px py; p = mask px m
   finish _ t Nada = t
 
+data Stack' a = Stack' !Key a (Stack a)
 data Stack a = Push !Prefix !(SNode a) !(Stack a) | Nada

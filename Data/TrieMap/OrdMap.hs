@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, PatternGuards, MagicHash, CPP, TupleSections, NamedFieldPuns, FlexibleInstances #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.OrdMap () where
 
@@ -68,8 +69,8 @@ instance Ord k => TrieKey (Ordered k) where
 	mapMaybeM f (OrdMap m) = OrdMap (mapMaybe f m)
 	mapEitherM f (OrdMap m) = both OrdMap OrdMap (mapEither f) m
 	isSubmapM (<=) (OrdMap m1) (OrdMap m2) = isSubmap (<=) m1 m2
-	fromAscListM f xs = OrdMap $ fromAscList f [(k, a) | (Ord k, a) <- xs]
-	fromDistAscListM  xs = OrdMap $ fromDistinctAscList  [(k, a) | (Ord k, a) <- xs]
+	fromAscListFold f = combineKeys f fromDistAscListFold
+	fromDistAscListFold = OrdMap <$> mapFoldlKey unOrd fromDistAscList
 	unionM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeUnion f (const LT) (const GT) m1 m2
 	isectM f (OrdMap m1) (OrdMap m2) = OrdMap $ isect f m1 m2
 	diffM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeDiff f (const LT) (const GT) m1 m2
@@ -179,34 +180,23 @@ isSubmap (<=) BIN(kx x l r) t = splitLookup kx t result
   where	result _ Nothing _	= False
   	result tl (Just y) tr	= x <= y && isSubmap (<=) l tl && isSubmap (<=) r tr
 
-fromAscList :: (Eq k, Sized a) => (a -> a -> a) -> [(k, a)] -> SNode k a
-fromAscList f xs = fromDistinctAscList (combineEq xs) where
-	combineEq (x:xs) = combineEq' x xs
-	combineEq [] = []
-	
-	combineEq' z [] = [z]
-	combineEq' (kz, zz) (x@(kx, xx):xs)
-		| kz == kx	= combineEq' (kx, f xx zz) xs
-		| otherwise	= (kz,zz):combineEq' x xs
+fromDistAscList :: (Eq k, Sized a) => Foldl k a (SNode k a)
+fromDistAscList = Foldl{zero = tip, ..} where
+  incr !t (Yes t' stk) = No (incr (t' `glue` t) stk)
+  incr !t (No stk) = Yes t stk
+  incr !t End = Yes t End
+  
+  begin k a = Yes (singleton k a) End
+  
+  snoc stk k a = incr (singleton k a) stk
+  
+  roll !t End = t
+  roll !t (No stk) = roll t stk
+  roll !t (Yes t' stk) = roll (t' `glue` t) stk
+  
+  done = roll tip
 
-fromDistinctAscList :: Sized a => [(k, a)] -> SNode k a
-fromDistinctAscList xs = build const (length xs) xs
-  where
-    -- 1) use continutations so that we use heap space instead of stack space.
-    -- 2) special case for n==5 to build bushier trees. 
-    build c 0 xs'  = c tip xs'
-    build c 5 xs'  = case xs' of
-                      ((k1,x1):(k2,x2):(k3,x3):(k4,x4):(k5,x5):xx) 
-                            -> c (bin k4 x4 (bin k2 x2 (singleton k1 x1) (singleton k3 x3)) (singleton k5 x5)) xx
-                      _ -> error "fromDistinctAscList build"
-    build c n xs'  = seq nr $ build (buildR nr c) nl xs'
-                   where
-                     nl = n `div` 2
-                     nr = n - nl - 1
-
-    buildR n c l ((k,x):ys) = build (buildB l k x c) n ys
-    buildR _ _ _ []         = error "fromDistinctAscList buildR []"
-    buildB l k x c r zs     = c (bin k x l r) zs
+data Stack k a = No (Stack k a) | Yes !(SNode k a) (Stack k a) | End
 
 hedgeUnion :: (Ord k, Sized a)
                   => (a -> a -> Maybe a)

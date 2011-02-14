@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, MagicHash, UnboxedTuples, GeneralizedNewtypeDeriving, FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, GeneralizedNewtypeDeriving, FlexibleInstances, NamedFieldPuns, RecordWildCards #-}
 module Data.TrieMap.ReverseMap () where
 
 import Control.Applicative
@@ -72,8 +72,24 @@ instance TrieKey k => TrieKey (Rev k) where
 	clearM (RHole m) = RevMap (clearM m)
 	
 	insertWithM f (Rev k) a (RevMap m) = RevMap (insertWithM f k a m)
+	
+	fromListFold f = RevMap <$> mapFoldlKey getRev (fromListFold f)
+	fromAscListFold f = RevMap <$> mapFoldlKey getRev (reverseFold (fromAscListFold f))
+	fromDistAscListFold = RevMap <$> mapFoldlKey getRev (reverseFold fromDistAscListFold)
+	
 	fromListM f xs = RevMap (fromListM f [(k, a) | (Rev k, a) <- xs])
 	fromAscListM f xs = RevMap (fromAscListM (flip f) [(k, a) | (Rev k, a) <- reverse xs])
 	fromDistAscListM xs = RevMap (fromDistAscListM [(k, a) | (Rev k, a) <- reverse xs])
 	
 	unifierM (Rev k') (Rev k) a = RHole <$> unifierM k' k a
+
+{-# INLINE reverseFold #-}
+reverseFold :: Foldl k a z -> Foldl k a z
+reverseFold Foldl{snoc = snoc0, begin = begin0, zero, done = done0}
+  = Foldl {..} where
+  snoc g k a Nothing = g (Just $ begin0 k a)
+  snoc g k a (Just m) = g (Just $ snoc0 m k a)
+  
+  begin = snoc (maybe zero done0)
+  
+  done g = g Nothing

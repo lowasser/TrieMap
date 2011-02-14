@@ -201,6 +201,31 @@ verify m tm (Op op:ops) = case verifyOp op m tm of
 	Just (m', tm') -> verify m' tm' ops
 verify _ _ [] = True
 
+newtype SortedAssoc k a = SortedAssoc [(k, a)] deriving (Show)
+newtype SortedDistinctAssoc k a = SDA [(k, a)] deriving (Show)
+
+instance (Ord k, Arbitrary k, Arbitrary a) => Arbitrary (SortedAssoc k a) where
+  arbitrary = do
+    xs <- arbitrary
+    return (SortedAssoc (sortBy (comparing fst) xs))
+  shrink (SortedAssoc xs) = do
+    xs' <- shrink xs
+    return (SortedAssoc (sortBy (comparing fst) xs'))
+
+instance (Ord k, Arbitrary k, Arbitrary a) => Arbitrary (SortedDistinctAssoc k a) where
+  arbitrary = do
+    SortedAssoc xs <- arbitrary
+    return (SDA $ sNub fst xs)
+  shrink (SDA xs) = do
+    SortedAssoc xs' <- shrink (SortedAssoc xs)
+    return (SDA $ sNub fst xs')
+
+fromAscListTest :: [(Key, Val)] -> [(Key, Val)]
+fromAscListTest ((k1, v1):xs@((k2,v2):xs'))
+  | k1 == k2	= fromAscListTest ((k1, v2 ++ v1):xs')
+  | otherwise	= (k1, v1) : fromAscListTest xs
+fromAscListTest xs = xs
+
 concretes :: [Property]
 concretes = [
 	printTestCase "extending by a single 0 makes a difference" 
@@ -212,21 +237,16 @@ concretes = [
 	printTestCase "deleteAt works for OrdMap"
 	  (let input = [(1.4 :: Double, 'a'), (-4.0, 'b')] in T.assocs (T.deleteAt 0 (T.fromList input)) == [(1.4, 'a')]),
 	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a == toRep b))
-	.&. 
+	,
 	(printTestCase "fromDistinctAscList"
-	  (\ input -> let sinput = sNub fst (input :: [(Key, Val)]) in 
-	      T.assocs (T.fromDistinctAscList sinput) == sinput)
-	.&.
+	  (\ (SDA sinput) -> expect (sinput :: [(Key, Val)]) (T.assocs (T.fromDistinctAscList sinput))))
+	,
 	printTestCase "fromAscList"
-	  (\ input -> let sinput = sortBy (comparing fst) (input :: [(Key, Val)]) in
-	      T.assocs (T.fromAscListWith (++) sinput) == fromAscListTest sinput))
+	  (\ (SortedAssoc sinput) -> expect (fromAscListTest sinput) (T.assocs (T.fromAscListWith (++) sinput)))
 	]
 
-fromAscListTest :: [(Key, Val)] -> [(Key, Val)]
-fromAscListTest ((k1, v1):xs@((k2,v2):xs'))
-  | k1 == k2	= fromAscListTest ((k1, v2 ++ v1):xs')
-  | otherwise	= (k1, v1) : fromAscListTest xs
-fromAscListTest xs = xs
+expect :: (Eq a, Show a) => a -> a -> Property
+expect expected result = printTestCase ("Expected:\t" ++ show expected ++ "\nActual:\t\t" ++ show result) (expected == result)
 
 sNub :: Ord b => (a -> b) -> [a] -> [a]
 sNub f xs = nubber xs''
