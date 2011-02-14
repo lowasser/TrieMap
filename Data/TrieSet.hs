@@ -296,4 +296,4 @@ deleteAt i (TSet s) = case indexM i s of
 
 -- | If the specified element is in the set, returns 'Just' the index of the element, otherwise returns 'Nothing'.
 lookupIndex :: TKey a => a -> TSet a -> Maybe Int
-lookupIndex a (TSet s) = searchMC (toRep a) s (\ _ -> Nothing) (\ _ hole -> sizeM (beforeM hole))
+lookupIndex a (TSet s) = searchMC (toRep a) s (\ _ -> Nothing) (\ _ hole -> Just $ sizeM (beforeM hole))
