@@ -93,7 +93,7 @@ instance Ord k => TrieKey (Ordered k) where
 		      if i# <# sx# then result (i# -# sl#) x (Full kx path l r)
 			else indexT (RightBin kx x l path) (i# -# sx#) r
 			where	!sl# = getSize# l
-		indexT _ _ _ = indexFail result
+		indexT _ _ _ = indexFail
 	extractHoleM (OrdMap m) = extractHole Root m where
 		extractHole path BIN(kx x l r) =
 			extractHole (LeftBin kx x path r) l `mplus`

@@ -175,9 +175,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	indexMC i# (Union _ m1 m2) result
 		| i# <# s1#	= mapIndex (`HoleX2` m2) (indexMC i# m1) result
 		| otherwise	= mapIndex (Hole1X m1) (indexMC (i# -# s1#) m2) result
-		
 		where !s1# = sizeM# m1
-	indexMC _ _ result = indexFail result
+	indexMC _ _ _ = indexFail
 
 	extractHoleM (UVIEW !m1 !m2) = holes1 `mplus` holes2 where
 	  holes1 = holes extractHoleM (`hole1` m2) m1

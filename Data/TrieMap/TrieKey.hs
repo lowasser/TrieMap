@@ -282,8 +282,8 @@ subMaybe _ Nothing _ = True
 subMaybe (<=) (Just a) (Just b) = a <= b
 subMaybe _ _ _ = False
 
-indexFail :: IndexCont hole a r
-indexFail _ = error "Error: not a valid index"
+indexFail :: a
+indexFail = error "Error: not a valid index"
 
 {-# RULES
   "extractHoleM/First" [0] extractHoleM = firstHoleM;

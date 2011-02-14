@@ -52,7 +52,7 @@ instance TrieKey () where
 	searchMC _ _ f _ = f Hole
 
 	indexMC i (Unit (Just v)) result = result i v Hole
-	indexMC _ _ result = indexFail result
+	indexMC _ _ _ = indexFail
 	
 	unifierM _ _ _ = Nothing
 	

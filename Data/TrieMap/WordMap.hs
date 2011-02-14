@@ -97,7 +97,7 @@ instance TrieKey Word where
 			| i# <# sl#	= indexT i# l (LeftBin p m path r)
 			| otherwise	= indexT (i# -# sl#) r (RightBin p m l path)
 			where !sl# = getSize# l
-		indexT _ NIL _		= indexFail result
+		indexT _ NIL _		= indexFail
 	extractHoleM (WordMap m) = extractHole Root m where
 		extractHole _ (SNode _ Nil) = mzero
 		extractHole path TIP(kx x) = return (x, hole kx path)
