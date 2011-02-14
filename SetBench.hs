@@ -3,6 +3,7 @@ module SetBench (main) where
 import Criterion.Main
 
 import Data.Set
+import qualified Data.Map as M
 import qualified Data.Foldable as F
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
@@ -51,6 +52,7 @@ tFromList strings = size (fromList strings)
 tToList strs = sum [BS.length str | str <- toList strs]
 
 tInsert strs = size (insert (BS.pack "scientifitude") strs)
+tIndex strs = M.elemAt (31415926 `rem` M.size strs) strs
 
 nf' f a = f a `deepseq` nf f a
 
@@ -62,11 +64,12 @@ tBenches strings revs = bgroup ""
     bench "Difference" (nf' tDiffBench (strSet, revSet)),
     bench "Filter" (nf' tFilterBench strSet),
     bench "Split" (nf' tSplitBench strSet),
+    bench "Index" (nf' tIndex strMap),
     bench "Min/Max" (nf' tEnds strSet),
     bench "FromList" (nf' tFromList strings),
     bench "ToList" (nf' tToList strSet),
     bench "Insert" (nf' tInsert strSet)]
-  where !strSet = fromList strings; !revSet = fromList revs
+  where !strSet = fromList strings; !revSet = fromList revs; !strMap = M.fromList [(str, str) | str <- strings]
 
 main :: IO ()
 main = do

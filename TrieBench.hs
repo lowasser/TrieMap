@@ -51,6 +51,7 @@ tToList strs = sum [BS.length str | str <- toList strs]
 tFDAL strings = size (fromDistinctAscList strings)
 
 tInsert strs = size (insert (BS.pack "scientifitude") strs)
+tIndex strs = elemAt (31415926 `rem` size strs) strs
 
 nf' f a = f a `deepseq` nf f a
 
@@ -62,6 +63,7 @@ tBenches strings revs = bgroup ""
     bench "Difference" (nf' tDiffBench (strSet, revSet)),
     bench "Filter" (nf' tFilterBench strSet),
     bench "Split" (nf' tSplitBench strSet),
+    bench "Index" (nf' tIndex strSet),
     bench "Min/Max" (nf' tEnds strSet),
     bench "ToList" (nf' tToList strSet),
     bench "Insert" (nf' tInsert strSet),
