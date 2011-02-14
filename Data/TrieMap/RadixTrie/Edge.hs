@@ -1,4 +1,5 @@
 {-# LANGUAGE MagicHash, BangPatterns, UnboxedTuples, PatternGuards, CPP, ViewPatterns, NamedFieldPuns, ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
       afterEdge,
@@ -284,42 +285,39 @@ insertEdge f ks v e = searchEdgeC ks e nomatch match where
   nomatch = assignEdge v
   match = assignEdge . f
 
-{-# SPECIALIZE INLINE fromAscListEdge ::
+{-# SPECIALIZE fromAscListEdge ::
       (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (V()) a (V(MEdge) a),
       Sized a => (a -> a -> a) -> Foldl (U()) a (U(MEdge) a) #-}
-fromAscListEdge :: forall v k a . (Label v k, Sized a) => (a -> a -> a) -> Foldl (v k) a (MEdge v k a)
+fromAscListEdge :: forall v k a .(Label v k, Sized a) => (a -> a -> a) -> Foldl (v k) a (MEdge v k a)
 fromAscListEdge f = case fromDistAscListFold of
-  Foldl{snoc = snocB, begin = beginB, done = doneB} ->
-    let	snoc !stk !ls vl = case sView stk of
-	  Stack ks v kk stk stkB -> iMatchSlice matcher matches ks ls where
-	      matcher i k l z
-		| k == l	= z
-		| otherwise	=
-		    let	kBranch = beginB k $ edge (dropSlice (i+1) ks) v $ doneB $ collapse0 kk stk stkB
-			lEnd = end (dropSlice (i+1) ls) vl
-			in stack (takeSlice i ks) Nothing l lEnd (Just kBranch)
-	      matches kLen lLen -- we know that kLen <= lLen
-		| kLen < lLen	= let l = ls !$ kLen; ls' = dropSlice (kLen + 1) ls in 
-				    if l == kk then stack ks v kk (snoc stk ls' vl) stkB
-				    else stack ks v l (end ls' vl) (collapse kk stk stkB)
-		| otherwise	= let v' = maybe vl (f vl) v in stack ks (Just v') kk stk stkB
-	  End ks vk -> iMatchSlice matcher matches ks ls where
-	      matcher i k l z
-		| k == l	= z
-		| otherwise	= stack (takeSlice i ks) Nothing l (end (dropSlice (i+1) ls) vl) 
-				    (Just $ branch (dropSlice i ks) vk)
-	      matches kLen lLen
-		| kLen < lLen	= let l = ls!$ kLen; ls' = dropSlice (kLen + 1) ls in
-				  stack ks (Just vk) l (end ls' vl) Nothing
-		| otherwise	= end ks (f vl vk)
-	branch ks v = beginB (ks !$ 0) (singletonEdge (dropSlice 1 ks) v)
+  Foldl{snoc = snocB, begin = beginB :: k -> Edge v k a -> z0, done = doneB} 
+    -> Foldl{..} where
+	begin ks vk = stack ks vk emptyM
 	
-	collapse kk stk stkB = Just (collapse0 kk stk stkB)
-	collapse0 kk stk stkB = case stkB of
-	  Nothing	-> beginB kk (done0 stk)
-	  Just stkB	-> snocB stkB kk (done0 stk)
+	snocBranch !(bView -> Branch i a !z) k e = branch i a (Just $ maybe beginB snocB z k e)
 	
-	done0 stk = case sView stk of
-	  Stack ks v kk stk stkB -> edge ks v $ doneB $ maybe beginB snocB stkB kk (done0 stk)
-	  End ks v -> singletonEdge ks v
-	in Foldl {zero = Nothing, done = Just . done0, begin = end, snoc}
+	beginBranch i k e = branch i Nothing $ Just $ beginB k e
+	
+	roll !(sView -> Stack ks a branches) = foldr roller (singletonEdge ks a) branches
+	roller :: Hang a z0 -> Edge v k a -> Edge v k a
+	roller br EDGE(!sz ks v ts) = case bView br of
+	  Branch i a z0	-> let k = ks !$ i; ks' = takeSlice i ks in
+	      edge ks' a $ doneB $ maybe beginB snocB z0 k $ edge' sz (dropSlice (i+1) ks) v ts
+	  
+	snoc !(sView -> Stack ks vk branches) ls vl = iMatchSlice matcher matches ks ls where
+	  matcher !i k l z
+	    | k == l	= z
+	    | otherwise	= brancher i k
+	  
+	  matches kLen lLen
+	    | kLen < lLen	= stack ls vl $ insertWithM undefined (fromIntegral kLen) (branch kLen (Just vk) Nothing) branches
+	    | otherwise		= stack ls (f vl vk) branches
+	  
+	  brancher !i k = searchMC (fromIntegral i) branches nomatch match where
+	    doneBranch hole = dropEdge (i+1) $ roll $ stack ks vk $ afterM hole
+	    branchWith b hole = stack ls vl $ beforeWithM (b k $ doneBranch hole) hole
+	    match br hole = branchWith (snocBranch br) hole
+	    nomatch hole = branchWith (beginBranch i) hole
+	  
+	done = Just . roll
+	zero = Nothing

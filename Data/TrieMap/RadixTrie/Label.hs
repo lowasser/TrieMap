@@ -27,8 +27,7 @@ class (Vector v k, TrieKey k) => Label v k where
   root :: Path v k a
   deep :: Path v k a -> v k -> Maybe a -> BHole v k a -> Path v k a
   loc :: v k -> Branch v k a -> Path v k a -> EdgeLoc v k a
-  stack :: v k -> Maybe a -> k -> Stack v k a z -> Maybe z -> Stack v k a z
-  end :: v k -> a -> Stack v k a z
+  stack :: v k -> a -> TrieMap Word (Hang a z) -> Stack v k a z
   
   eView :: Edge v k a -> EView v k a
   pView :: Path v k a -> PView v k a
@@ -44,7 +43,6 @@ data LocView v k a = Loc !( v k) (Branch v k a) (Path v k a)
 data PView v k a = Root
 	| Deep (Path v k a) (v k) (Maybe a) (BHole v k a)
 type MEdge v k a = Maybe (Edge v k a)
-data StackView v k a z = Stack (v k) (Maybe a) k (Stack v k a z) (Maybe z) | End (v k) a
 
 instance Sized (EView v k a) where
   getSize# (Edge sz _ _ _) = unbox sz
@@ -62,11 +60,7 @@ instance TrieKey k => Label V.Vector k where
     | VDeep (V(Path) a) !(V()) (V(BHole) a)
     | VDeepX (V(Path) a) !(V()) a (V(BHole) a)
   data EdgeLoc V.Vector k a = VLoc !(V()) (V(Branch) a) (V(Path) a)
-  data Stack V.Vector k a z =
-    VBranchX !(V()) a k (V(Stack) a z) z
-    | VBranch !(V()) a k (V(Stack) a z)
-    | VBranch0 !(V()) k (V(Stack) a z) z
-    | VEnd !(V()) a
+  data Stack V.Vector k a z = VStack !(V()) a !(SNode (Hang a z))
   
   edge !ks Nothing ts = VEdge (sizeM ts) ks ts
   edge !ks (Just a) ts = VEdgeX (sizeM ts + getSize a) ks a ts
@@ -78,12 +72,7 @@ instance TrieKey k => Label V.Vector k where
   deep path !ks (Just a) tHole = VDeepX path ks a tHole
   
   loc = VLoc
-  
-  stack !ks (Just v) kk stk (Just stkB) = VBranchX ks v kk stk stkB
-  stack ks (Just v) kk stk Nothing = VBranch ks v kk stk
-  stack ks Nothing kk stk (Just stkB) = VBranch0 ks kk stk stkB
-  stack _ _ _ _ _ = error "Error: invalid stack"
-  end = VEnd
+  stack ks v ts = VStack ks v (getWordMap ts)
   
   eView (VEdge s ks ts) = Edge s ks Nothing ts
   eView (VEdgeX s ks v ts) = Edge s ks (Just v) ts
@@ -91,10 +80,7 @@ instance TrieKey k => Label V.Vector k where
   pView (VDeep path ks tHole) = Deep path ks Nothing tHole
   pView (VDeepX path ks v tHole) = Deep path ks (Just v) tHole
   locView (VLoc ks ts path) = Loc ks ts path
-  sView (VBranchX ks v kk stk stkB) = Stack ks (Just v) kk stk (Just stkB)
-  sView (VBranch ks v kk stk) = Stack ks (Just v) kk stk Nothing
-  sView (VBranch0 ks kk stk stkB) = Stack ks Nothing kk stk (Just stkB)
-  sView (VEnd ks v) = End ks v
+  sView (VStack ks v ts) = Stack ks v (WordMap ts)
 
 instance Label S.Vector Word where
   data Edge S.Vector Word a =
@@ -106,16 +92,13 @@ instance Label S.Vector Word where
     | SDeepX (U(Path) a) !(U()) a !(WHole (U(Edge) a))
   data EdgeLoc S.Vector Word a =
     SLoc !(U()) !(SNode (U(Edge) a)) (U(Path) a)
-  data Stack S.Vector Word a z =
-    SBranchX !(U()) a !Word (U(Stack) a z) z
-    | SBranch !(U()) a !Word (U(Stack) a z)
-    | SBranch0 !(U()) !Word (U(Stack) a z) z
-    | SEnd !(U()) a
+  data Stack S.Vector Word a z = SStack !(U()) a !(SNode (Hang a z))
   
   edge !ks Nothing ts = SEdge (sizeM ts) ks (getWordMap ts)
   edge !ks (Just v) ts = SEdgeX (getSize v + sizeM ts) ks v (getWordMap ts)
   edge' sz !ks Nothing ts = SEdge sz ks (getWordMap ts)
   edge' sz !ks (Just v) ts = SEdgeX sz ks v (getWordMap ts)
+  stack ks v ts = SStack ks v (getWordMap ts)
   
   root = SRoot
   deep path !ks Nothing tHole = SDeep path ks (getHole tHole)
@@ -123,22 +106,13 @@ instance Label S.Vector Word where
 
   loc ks ts path = SLoc ks (getWordMap ts) path
 
-  stack !ks (Just v) kk stk (Just stkB) = SBranchX ks v kk stk stkB
-  stack ks (Just v) kk stk Nothing = SBranch ks v kk stk
-  stack ks Nothing kk stk (Just stkB) = SBranch0 ks kk stk stkB
-  stack _ _ _ _ _ = error "Error: invalid stack"
-  end = SEnd
-
   eView (SEdge s ks ts) = Edge s ks Nothing (WordMap ts)
   eView (SEdgeX s ks v ts) = Edge s ks (Just v) (WordMap ts)
   pView SRoot = Root
   pView (SDeep path ks tHole) = Deep path ks Nothing (Hole tHole)
   pView (SDeepX path ks v tHole) = Deep path ks (Just v) (Hole tHole)
   locView (SLoc ks ts path) = Loc ks (WordMap ts) path
-  sView (SBranchX ks v kk stk stkB) = Stack ks (Just v) kk stk (Just stkB)
-  sView (SBranch ks v kk stk) = Stack ks (Just v) kk stk Nothing
-  sView (SBranch0 ks kk stk stkB) = Stack ks Nothing kk stk (Just stkB)
-  sView (SEnd ks v) = End ks v
+  sView (SStack ks v ts) = Stack ks v (WordMap ts)
 
 {-# SPECIALIZE singletonEdge ::
     (TrieKey k, Sized a) => V() -> a -> V(Edge) a,
@@ -185,3 +159,27 @@ compact e = Just e
     Sized a => U() -> Maybe a -> U(Branch) a -> U(MEdge) a #-}
 cEdge :: (Label v k, Sized a) => v k -> Maybe a -> Branch v k a -> MEdge v k a
 cEdge ks v ts = compact (edge ks v ts)
+
+data StackView v k a z = Stack (v k) a (TrieMap Word (Hang a z))
+
+data HangView a z = 
+  Branch !Int (Maybe a) (Maybe z)
+data Hang a z = H !Int z | HT !Int a z | T !Int a
+
+branch :: Int -> Maybe a -> Maybe z -> Hang a z
+branch !i Nothing (Just z) = H i z
+branch !i (Just a) Nothing = T i a
+branch !i (Just a) (Just z) = HT i a z
+branch _ _ _ = error "Error: bad branch"
+
+bView :: Hang a z -> HangView a z
+bView (H i z) = Branch i Nothing (Just z)
+bView (HT i a z) = Branch i (Just a) (Just z)
+bView (T i a) = Branch i (Just a) Nothing
+
+instance Sized (Hang a z) where
+  getSize# _ = 1#
+
+{-# RULES
+    "sView/stack" forall ks v ts . sView (stack ks v ts) = Stack ks v ts
+    #-}
