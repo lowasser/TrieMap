@@ -15,7 +15,7 @@ import Data.Vector.Storable
 -- | @'Rep' 'ByteString' = 'Rep' ('Vector' 'Word8')@
 instance Repr ByteString where
 	type Rep ByteString = Rep (Vector Word8)
-	toRep (PS fp off len) = toRep (unsafeFromForeignPtr fp off len)
+	toRep (PS fp off len) = {-# SCC "bsToRep" #-} toRep (unsafeFromForeignPtr fp off len)
 	type RepList ByteString = DRepList ByteString
 	toRepList = dToRepList
 
