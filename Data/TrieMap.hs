@@ -760,14 +760,14 @@ partitionWithKey p = mapEitherWithKey (\ k a -> (if p k a then Left else Right) 
 -- > filter (< "a") (fromList [(5,"a"), (3,"b")]) == empty
 {-# INLINE filter #-}
 filter :: TKey k => (a -> Bool) -> TMap k a -> TMap k a
-filter = filterWithKey . const
+filter p = mapMaybeWithKey (\ _ a -> mfilter p (Just a))
 
 -- | Filter all keys\/values that satisfy the predicate.
 --
 -- > filterWithKey (\k _ -> k > 4) (fromList [(5,"a"), (3,"b")]) == singleton 5 "a"
 {-# INLINE filterWithKey #-}
 filterWithKey :: TKey k => (k -> a -> Bool) -> TMap k a -> TMap k a
-filterWithKey p = mapMaybeWithKey (\ k a -> if p k a then Just a else Nothing)
+filterWithKey p = mapMaybeWithKey (\ k a -> mfilter (p k) (Just a))
 
 -- | The expression (@'split' k map@) is a pair @(map1,map2)@ where
 -- the keys in @map1@ are smaller than @k@ and the keys in @map2@ larger than @k@.

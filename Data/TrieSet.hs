@@ -58,14 +58,15 @@ module Data.TrieSet (
 	fromDistinctAscList)
  		where
 
+import Control.Monad
+import Control.Monad.Ends
+
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances ()
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Sized
 import Data.TrieMap.Utils
-
-import Control.Monad.Ends
 
 import Data.Maybe
 import qualified Data.Foldable as F
@@ -122,7 +123,7 @@ TSet s1 `intersection` TSet s2 = TSet (isectM (const . Just) s1 s2)
 
 -- | Filter all elements that satisfy the predicate.
 filter :: TKey a => (a -> Bool) -> TSet a -> TSet a
-filter p (TSet s) = TSet (mapMaybeM (\ (Elem a) -> if p a then Just (Elem a) else Nothing) s)
+filter p (TSet s) = TSet (mapMaybeM (mfilter (p . getElem) . Just) s)
 
 -- | Partition the set into two sets, one with all elements that satisfy
 -- the predicate and one with all elements that don't satisfy the predicate.
@@ -157,7 +158,7 @@ map :: (TKey a, TKey b) => (a -> b) -> TSet a -> TSet b
 map f s = fromList [f x | x <- elems s]
 
 -- | 
--- @'mapMonotonic' f s == 'map' f s@, but works only when @f@ is monotonic.
+-- @'mapMonotonic' f s == 'map' f s@, but works only when @f@ is strictly monotonic.
 -- /The precondition is not checked./
 -- Semi-formally, we have:
 -- 
@@ -165,7 +166,7 @@ map f s = fromList [f x | x <- elems s]
 -- >                     ==> mapMonotonic f s == map f s
 -- >     where ls = toList s
 mapMonotonic :: (TKey a, TKey b) => (a -> b) -> TSet a -> TSet b
-mapMonotonic f s = fromAscList [f x | x <- toAscList s]
+mapMonotonic f s = fromDistinctAscList [f x | x <- toAscList s]
 
 -- | Post-order fold.
 foldr :: TKey a => (a -> b -> b) -> b -> TSet a -> b
