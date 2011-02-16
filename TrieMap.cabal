@@ -36,7 +36,7 @@ Library{
 build-Depends:       base < 5.0.0.0, containers, template-haskell, bytestring, th-expand-syns, vector, primitive
 ghc-options:
   -Wall -fno-warn-name-shadowing -fno-warn-orphans -O2 -fno-spec-constr-count -fno-spec-constr-threshold
-  -fno-liberate-case-threshold -fmax-worker-args=100 -fllvm -optlo-O3
+  -fno-liberate-case-threshold -fmax-worker-args=100 -fllvm -optlo-O3 -optlo-std-compile-opts
 exposed-modules:  
   Data.TrieMap,
   Data.TrieSet,

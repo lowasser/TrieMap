@@ -23,7 +23,7 @@ debug: $(FAST_DIR)/Data/TrieSet.p_o $(FAST_DIR)/Data/TrieMap.p_o
 opt : $(OPTIMIZED_DIR)/Data/TrieSet.o $(OPTIMIZED_DIR)/Data/TrieMap.o
 prof : $(OPTIMIZED_DIR)/Data/TrieSet.p_o $(OPTIMIZED_DIR)/Data/TrieMap.p_o
 install : test
-	cabal install
+	cabal install --enable-documentation
 
 test : Tests
 	./Tests
