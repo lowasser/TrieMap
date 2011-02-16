@@ -19,10 +19,14 @@ class Repr a where
   toRep :: a -> Rep a
   toRepList :: [a] -> RepList a
 
+-- | A default implementation of @'RepList' a@.
 type DRepList a = Vector (Rep a)
+
+-- | A default implementation of 'toRepList'.
 dToRepList :: Repr a => [a] -> DRepList a
 dToRepList = fromList . Prelude.map toRep
 
+-- | Uses the 'RepList' instance of @a@.  (This allows for efficient and automatic implementations of e.g. @Rep String@.)
 instance Repr a => Repr [a] where
   type Rep [a] = RepList a
   type RepList [a] = Vector (RepList a)
