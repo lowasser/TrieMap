@@ -632,10 +632,10 @@ updateMaxWithKey f m = fromMaybe m $ do
 deleteFindMin :: TKey k => TMap k a -> ((k, a), TMap k a)
 deleteFindMin m = fromMaybe (error "Cannot return the minimal element of an empty map") (minViewWithKey m)
 
--- | Delete and find the minimal element.
+-- | Delete and find the maximal element.
 --
--- > deleteFindMin (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((3,"b"), fromList[(5,"a"), (10,"c")]) 
--- > deleteFindMin                                            Error: can not return the minimal element of an empty map
+-- > deleteFindMax (fromList [(5,"a"), (3,"b"), (10,"c")]) == ((10,"c"), fromList[(3,"b"),(5,"a")]) 
+-- > deleteFindMax                                            Error: can not return the maximal element of an empty map
 {-# INLINEABLE deleteFindMax #-}
 deleteFindMax :: TKey k => TMap k a -> ((k, a), TMap k a)
 deleteFindMax m = fromMaybe (error "Cannot return the maximal element of an empty map") (maxViewWithKey m)
