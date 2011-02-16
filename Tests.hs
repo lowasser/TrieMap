@@ -237,6 +237,9 @@ concretes = [
 	printTestCase "deleteAt works for OrdMap"
 	  (let input = [(1.4 :: Double, 'a'), (-4.0, 'b')] in T.assocs (T.deleteAt 0 (T.fromList input)) == [(1.4, 'a')]),
 	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a == toRep b))
+	,printTestCase "after works for RadixTrie" 
+	  (let input = [("abcd", 'a'), ("abcdef", 'b')]; m = T.fromList input in 
+	    T.assocs (T.after (snd (T.search "abcde" m))) == [("abcdef", 'b')])
 	,
 	(printTestCase "fromDistinctAscList"
 	  (\ (SDA sinput) -> expect (sinput :: [(Key, Val)]) (T.assocs (T.fromDistinctAscList sinput))))

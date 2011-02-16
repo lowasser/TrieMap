@@ -148,16 +148,13 @@ clearEdge LOC(ks ts path) = rebuild (cEdge ks Nothing ts) path where
 unionEdge :: (Label v k, Sized a) => 
 	(a -> a -> Maybe a) -> Edge v k a -> Edge v k a -> MEdge v k a
 unionEdge f = unionE where
-  unionE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = matcher 0 where
-    kLen = length ks0
-    lLen = length ls0
-    !len = min kLen lLen
-    matcher !i = if i >= len then matches else let k = ks0 !$ i; l = ls0 !$ i in 
-      if k == l then matcher (i+1) else Just (edge (takeSlice i ks0) Nothing $
-	insertWithM id k eK' $ singletonM l eL')
+  unionE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = iMatchSlice matcher matches ks0 ls0 where
+    matcher !i k l z
+      | k == l		= z
+      | otherwise	= Just (edge (takeSlice i ks0) Nothing $ insertWithM id k eK' $ singletonM l eL')
       where eK' = dropEdge (i+1) eK
 	    eL' = dropEdge (i+1) eL
-    matches = case compare kLen lLen of
+    matches kLen lLen = case compare kLen lLen of
       EQ -> cEdge ks0 (unionMaybe f vK vL) $ unionM unionE tsK tsL
       LT -> searchMC l tsK nomatch match where
 	eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen
@@ -189,13 +186,11 @@ isectEdge f = isectE where
 diffEdge :: (Eq k, Label v k, Sized a) =>
 	(a -> b -> Maybe a) -> Edge v k a -> Edge v k b -> MEdge v k a
 diffEdge f = diffE where
-  diffE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = matcher 0 where
-    kLen = length ks0
-    lLen = length ls0
-    !len = min kLen lLen
-    matcher !i = if i >= len then matches else
-      let k = ks0 !$ i; l = ls0 !$ i in if k == l then matcher (i+1) else Just eK
-    matches = case compare kLen lLen of
+  diffE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = matchSlice matcher matches ks0 ls0 where
+    matcher k l z
+      | k == l		= z
+      | otherwise	= Just eK
+    matches kLen lLen = case compare kLen lLen of
       EQ -> cEdge ks0 (diffMaybe f vK vL) $ diffM diffE tsK tsL
       LT -> searchMC l tsK nomatch  match where
 	l = ls0 !$ kLen; eL' = dropEdge (kLen + 1) eL 
@@ -235,12 +230,12 @@ beforeEdge v LOC(ks ts path) = case cEdge ks v ts of
 afterEdge v LOC(ks ts path) = case cEdge ks v ts of
   Nothing	-> after path
   Just e	-> Just $ afterWith e path
-  where	after DEEP(path ks v tHole) = case cEdge ks v (afterM tHole) of
+  where	after DEEP(path ks v tHole) = case cEdge ks Nothing (afterM tHole) of
 	    Nothing	-> after path
 	    Just e	-> Just $ afterWith e path
 	after _ 	= Nothing
 	afterWith e DEEP(path ks v tHole)
-			= afterWith (edge ks v (afterWithM e tHole)) path
+			= afterWith (edge ks Nothing (afterWithM e tHole)) path
 	afterWith e _	= e
 
 {-# SPECIALIZE extractEdgeLoc :: 
