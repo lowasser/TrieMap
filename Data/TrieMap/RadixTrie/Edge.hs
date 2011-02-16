@@ -115,21 +115,23 @@ traverseEdge f = traverseE where
 	  Edge _ ks Nothing ts	-> edge ks Nothing <$> traverseM traverseE ts
 	  Edge _ ks (Just v) ts	-> edge ks . Just <$> f v <*> traverseM traverseE ts
 
-instance Label v k => Foldable (EView v k) where
-  {-# INLINE foldr #-}
-  {-# INLINE foldl #-}
-  {-# INLINE foldMap #-}
-  foldMap f (Edge _ _ Nothing ts) = foldMap (foldMap f) ts
-  foldMap f (Edge _ _ (Just v) ts) = f v `mappend` foldMap (foldMap f) ts
-  foldr f z (Edge _ _ v ts) = foldr f (foldr (flip $ foldr f) z ts) v
-  foldl f z (Edge _ _ v ts) = foldl (foldl f) (foldl f z v) ts
-
 instance Label v k => Foldable (Edge v k) where
   {-# SPECIALIZE instance TrieKey k => Foldable (V(Edge)) #-}
   {-# SPECIALIZE instance Foldable (U(Edge)) #-}
-  foldMap f e = foldMap f (eView e)
-  foldr f z e = foldr f z (eView e)
-  foldl f z e = foldl f z (eView e)
+  foldMap f = fold where
+    fold e = case eView e of
+      Edge _ _ Nothing ts	-> foldMap fold ts
+      Edge _ _ (Just a) ts	-> f a `mappend` foldMap fold ts
+  
+  foldr f = flip fold where
+    fold e z = case eView e of
+      Edge _ _ Nothing ts -> foldr fold z ts
+      Edge _ _ (Just a) ts -> a `f` foldr fold z ts
+
+  foldl f = fold where
+    fold z e = case eView e of
+      Edge _ _ Nothing ts -> foldl fold z ts
+      Edge _ _ (Just a) ts -> foldl fold (z `f` a) ts
 
 {-# INLINE assignEdge #-}
 assignEdge :: (Label v k, Sized a) => a -> EdgeLoc v k a -> Edge v k a
