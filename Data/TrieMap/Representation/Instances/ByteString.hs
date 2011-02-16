@@ -19,7 +19,6 @@ import Data.Word
 
 import Data.ByteString.Internal
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as L
 
 import Data.Vector.Primitive
 
@@ -63,10 +62,12 @@ readLastWordAt !n !off !ptr =
 	w1 = accum 1 w0
 	w2 = accum 2 w1
 	w3 = accum 3 w2
+#if WORD_SIZE_IN_BITS > 32
 	w4 = accum 4 w3
 	w5 = accum 5 w4
 	w6 = accum 6 w5
 	w7 = accum 7 w6
+#endif
     in case n `remPow` bytesPerWord of
       1	-> w0
       2	-> w1
