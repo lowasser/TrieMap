@@ -185,18 +185,21 @@ traverse f = trav where
   trav BIN(p m l r) = bin' p m <$> trav l <*> trav r
 
 instance Foldable SNode where
-  foldMap _ NIL = mempty
-  foldMap f TIP(_ x) = f x
-  foldMap f BIN(_ _ l r) = foldMap f l `mappend` foldMap f r
+  foldMap f = fold where
+    fold NIL = mempty
+    fold TIP(_ x) = f x
+    fold BIN(_ _ l r) = fold l `mappend` fold r
+  
+  foldr f = flip fold where
+    fold BIN(_ _ l r) z = fold l (fold r z)
+    fold TIP(_ x) z = f x z
+    fold NIL z = z
+  
+  foldl f = fold where
+    fold z BIN(_ _ l r) = fold (fold z l) r
+    fold z TIP(_ x) = f z x
+    fold z NIL = z
 
-  foldr f z BIN(_ _ l r) = foldr f (foldr f z r) l
-  foldr f z TIP(_ x) = f x z
-  foldr _ z NIL = z
-  
-  foldl f z BIN(_ _ l r) = foldl f (foldl f z l) r
-  foldl f z TIP(_ x) = f z x
-  foldl _ z NIL = z
-  
   foldr1 _ NIL = foldr1Empty
   foldr1 _ TIP(_ x) = x
   foldr1 f BIN(_ _ l r) = foldr f (foldr1 f r) l
