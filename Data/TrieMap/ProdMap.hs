@@ -30,8 +30,7 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	singletonM (k1, k2) = PMap . singletonM k1 . singletonM k2
 	getSimpleM (PMap m) = getSimpleM m >>= getSimpleM
 	sizeM (PMap m) = sizeM m
-	lookupMC (k1, k2) (PMap m) no yes = 
-	  lookupMC k1 m no (\ m' -> lookupMC k2 m' no yes)
+	lookupMC (k1, k2) (PMap m) = lookupMC k1 m >>= lookupMC k2
 	mapMaybeM f (PMap m) = PMap (mapMaybeM (mapMaybeM' f) m)
 	mapEitherM f (PMap m) = both PMap PMap (mapEitherM (mapEitherM' f)) m
 	unionM f (PMap m1) (PMap m2) = PMap (unionM (unionM' f) m1 m2)

@@ -146,7 +146,7 @@ $(FAST_DIR)/Data/TrieMap/Representation.o : $(FAST_DIR)/Data/TrieMap/Representat
 $(FAST_DIR)/Data/TrieMap/Representation.o : $(FAST_DIR)/Data/TrieMap/Representation/Instances.o
 $(FAST_DIR)/Data/TrieMap/Representation.o : $(FAST_DIR)/Data/TrieMap/Representation/Class.o
 
-
+$(FAST_DIR)/Data/TrieMap/TrieKey.o : $(FAST_DIR)/Control/Monad/Lookup.o
 $(FAST_DIR)/Data/TrieMap/TrieKey.o : $(FAST_DIR)/Control/Monad/Ends.o
 $(FAST_DIR)/Data/TrieMap/TrieKey.o : $(FAST_DIR)/Data/TrieMap/Utils.o
 $(FAST_DIR)/Data/TrieMap/TrieKey.o : $(FAST_DIR)/Data/TrieMap/Sized.o
@@ -283,7 +283,7 @@ $(OPTIMIZED_DIR)/Data/TrieMap/Representation.o : $(OPTIMIZED_DIR)/Data/TrieMap/R
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation.o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation.o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.o
 
-
+$(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o : $(OPTIMIZED_DIR)/Control/Monad/Lookup.o
 $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o : $(OPTIMIZED_DIR)/Control/Monad/Ends.o
 $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o : $(OPTIMIZED_DIR)/Data/TrieMap/Utils.o
 $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.o
@@ -420,7 +420,7 @@ $(FAST_DIR)/Data/TrieMap/Representation.p_o : $(FAST_DIR)/Data/TrieMap/Represent
 $(FAST_DIR)/Data/TrieMap/Representation.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Instances.p_o
 $(FAST_DIR)/Data/TrieMap/Representation.p_o : $(FAST_DIR)/Data/TrieMap/Representation/Class.p_o
 
-
+$(FAST_DIR)/Data/TrieMap/TrieKey.p_o : $(FAST_DIR)/Control/Monad/Lookup.p_o
 $(FAST_DIR)/Data/TrieMap/TrieKey.p_o : $(FAST_DIR)/Control/Monad/Ends.p_o
 $(FAST_DIR)/Data/TrieMap/TrieKey.p_o : $(FAST_DIR)/Data/TrieMap/Utils.p_o
 $(FAST_DIR)/Data/TrieMap/TrieKey.p_o : $(FAST_DIR)/Data/TrieMap/Sized.p_o
@@ -557,7 +557,7 @@ $(OPTIMIZED_DIR)/Data/TrieMap/Representation.p_o : $(OPTIMIZED_DIR)/Data/TrieMap
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/Representation.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Class.p_o
 
-
+$(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o : $(OPTIMIZED_DIR)/Control/Monad/Lookup.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o : $(OPTIMIZED_DIR)/Control/Monad/Ends.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Utils.p_o
 $(OPTIMIZED_DIR)/Data/TrieMap/TrieKey.p_o : $(OPTIMIZED_DIR)/Data/TrieMap/Sized.p_o

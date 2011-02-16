@@ -17,6 +17,8 @@ module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
       unionEdge,
       fromAscListEdge) where
 
+import Control.Monad.Lookup
+
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
 import Data.TrieMap.WordMap ()
@@ -70,20 +72,20 @@ instance Label v k => Traversable (Edge v k) where
       Edge sz ks (Just a) ts	-> edge' sz ks . Just <$> f a <*> traverse trav ts
 
 {-# SPECIALIZE lookupEdge ::
-      TrieKey k => V() -> V(Edge) a -> LookupCont a r,
-      U() -> U(Edge) a -> LookupCont a r #-}
-lookupEdge :: (Eq k, Label v k) => v k -> Edge v k a -> LookupCont a r
-lookupEdge ks e no yes = lookupE ks e where
-	lookupE !ks EDGE(_ ls v ts) = if kLen < lLen then no else matchSlice matcher matches ks ls where
+      TrieKey k => V() -> V(Edge) a -> Lookup r a,
+      U() -> U(Edge) a -> Lookup r a #-}
+lookupEdge :: (Eq k, Label v k) => v k -> Edge v k a -> Lookup r a
+lookupEdge = lookupE where
+	lookupE !ks EDGE(_ ls v ts) = if kLen < lLen then mzero else matchSlice matcher matches ks ls where
 	  !kLen = length ks
 	  !lLen = length ls
 	  matcher k l z
 		  | k == l	  = z
-		  | otherwise	  = no
+		  | otherwise	  = mzero
 	  matches _ _
-		  | kLen == lLen  = maybe no yes v
+		  | kLen == lLen  = maybe mzero return v
 		  | (_, k, ks') <- splitSlice lLen ks
-		  		= lookupMC k ts no (lookupE ks')
+		  		= lookupMC k ts >>= lookupE ks'
 
 {-# INLINE searchEdgeC #-}
 searchEdgeC :: (Eq k, Label v k) => v k -> Edge v k a -> SearchCont (EdgeLoc v k a) a r
@@ -175,9 +177,9 @@ isectEdge f = isectE where
     matcher k l z = guard (k == l) >> z
     matches kLen lLen = case compare kLen lLen of
       EQ -> compact $ edge ks0 (isectMaybe f vK vL) $ isectM isectE tsK tsL
-      LT -> let l = ls0 !$ kLen in lookupMC l tsK Nothing $ \ eK' ->
+      LT -> let l = ls0 !$ kLen in runLookup (lookupMC l tsK) Nothing $ \ eK' ->
 	      let eL' = dropEdge (kLen + 1) eL in unDropEdge (kLen + 1) <$> eK' `isectE` eL'
-      GT -> let k = ks0 !$ lLen in lookupMC k tsL Nothing $ \ eL' -> 
+      GT -> let k = ks0 !$ lLen in runLookup (lookupMC k tsL) Nothing $ \ eL' -> 
 	      let eK' = dropEdge (lLen + 1) eK in unDropEdge (lLen + 1) <$> eK' `isectE` eL'
 
 {-# SPECIALIZE diffEdge ::
@@ -197,7 +199,7 @@ diffEdge f = diffE where
 	nomatch _ = Just eK
 	match eK' holeKT = cEdge ks0 vK $ fillHoleM (eK' `diffE` eL') holeKT
       GT -> let k = ks0 !$ lLen; eK' = dropEdge (lLen + 1) eK in 
-	lookupMC k tsL (Just eK) (\ eL' -> fmap (unDropEdge (lLen + 1)) (eK' `diffE` eL'))
+	runLookup (lookupMC k tsL) (Just eK) (\ eL' -> fmap (unDropEdge (lLen + 1)) (eK' `diffE` eL'))
 
 instance (Eq k, Label v k) => Subset (Edge v k) where
   {-# SPECIALIZE instance (Eq k, TrieKey k) => Subset (V(Edge)) #-}
@@ -207,7 +209,7 @@ instance (Eq k, Label v k) => Subset (Edge v k) where
     matches kLen lLen = case compare kLen lLen of
       LT	-> False
       EQ	-> vK <=? vL && tsK <<=? tsL
-      GT	-> let k = ks0 !$ lLen in lookupMC k tsL False (dropEdge (lLen + 1) eK <=?)
+      GT	-> let k = ks0 !$ lLen in runLookup (lookupMC k tsL) False (dropEdge (lLen + 1) eK <=?)
 
 {-# SPECIALIZE beforeEdge :: 
       (TrieKey k, Sized a) => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,

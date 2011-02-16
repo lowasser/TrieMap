@@ -8,6 +8,7 @@ import Data.TrieMap.Sized
 import Data.TrieMap.Utils
 
 import Control.Exception (assert)
+import Control.Monad.Lookup
 
 import Data.Bits
 import Data.Maybe hiding (mapMaybe)
@@ -174,12 +175,13 @@ branchHole !k !p path t
   where	m = branchMask k p
   	p' = mask k m
 
-lookupC :: Key -> SNode a -> LookupCont a r
-lookupC !k t no yes = look t where
+{-# INLINE lookupC #-}
+lookupC :: Key -> SNode a -> Lookup r a
+lookupC !k = look where
   look BIN(_ m l r) = if zeroN k m then look l else look r
   look TIP(kx x)
-    | k == kx	= yes x
-  look _ = no
+    | k == kx	= return x
+  look _ = mzero
 
 singleton :: Sized a => Key -> a -> SNode a
 singleton k a = sNode (Tip k a)
@@ -261,8 +263,8 @@ intersectionWith f = isect where
     (Nil, _)	-> nil
     (Tip{}, Nil)	-> nil
     (Bin{}, Nil)	-> nil
-    (Tip k x, _)	-> lookupC k n2 nil (singletonMaybe k . f x)
-    (_, Tip k y)	-> lookupC k n1 nil (singletonMaybe k . flip f y)
+    (Tip k x, _)	-> runLookup (lookupC k n2) nil (singletonMaybe k . f x)
+    (_, Tip k y)	-> runLookup (lookupC k n1) nil (singletonMaybe k . flip f y)
     (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
       | shorter m1 m2  -> intersection1
       | shorter m2 m1  -> intersection2
@@ -282,7 +284,7 @@ differenceWith f = diff where
   n1@(SNode _ t1) `diff` n2@(SNode _ t2) = case (t1, t2) of
     (Nil, _)	-> nil
     (_, Nil)	-> n1
-    (Tip k x, _)	-> lookupC k n2 n1 (singletonMaybe k . f x)
+    (Tip k x, _)	-> runLookup (lookupC k n2) n1 (singletonMaybe k . f x)
     (_, Tip k y)	-> alter (>>= flip f y) k n1
     (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
       | shorter m1 m2  -> difference1
@@ -306,7 +308,7 @@ instance Subset SNode where
 							  else t1 `subMap` r2)
       | otherwise	= (p1==p2) && l1 `subMap` l2 && r1 `subMap` r2
     BIN({}) `subMap` _		= False
-    TIP(k x) `subMap` t2	= lookupC k t2 False (?le x)
+    TIP(k x) `subMap` t2	= runLookup (lookupC k t2) False (?le x)
     NIL `subMap` _		= True
 
 mask0 :: Key -> Mask -> Bool

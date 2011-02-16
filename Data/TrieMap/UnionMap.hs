@@ -101,7 +101,7 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	
 	lookupMC (Left k) (UVIEW (Just m1) _) = lookupMC k m1
 	lookupMC (Right k) (UVIEW _ (Just m2)) = lookupMC k m2
-	lookupMC _ _ = \ no _ -> no
+	lookupMC _ _ = mzero
 
 	mapMaybeM f (UVIEW m1 m2) = (m1 >>= mapMaybeM' f) ^ (m2 >>= mapMaybeM' f)
 

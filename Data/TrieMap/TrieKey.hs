@@ -15,6 +15,7 @@ import Data.TrieMap.Utils
 
 import Control.Applicative hiding (empty)
 import Control.Monad
+import Control.Monad.Lookup
 import Control.Monad.Ends
 
 import Data.Monoid (Monoid(..))
@@ -28,7 +29,6 @@ import GHC.Exts
 type LEq a b = a -> b -> Bool
 type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
 type IndexCont h a r = (Int# -> a -> h -> r) -> r
-type LookupCont a r = r -> (a -> r) -> r
 
 data Foldl k a z = forall z0 . 
   Foldl {snoc :: z0 -> k -> a -> z0,
@@ -69,12 +69,6 @@ combineKeys f Foldl{..} = Foldl{snoc = snoc', begin = Begin, zero, done = done'}
 
 data Simple a = Null | Singleton a | NonSimple
 
-lookupYes :: a -> LookupCont a r
-lookupYes a _ yes = yes a
-
-lookupNo :: LookupCont a r
-lookupNo no _ = no
-
 instance Monad Simple where
 	return = Singleton
 	Null >>= _ = Null
@@ -106,7 +100,7 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	getSimpleM :: TrieMap k a -> Simple a
 	sizeM# :: Sized a => TrieMap k a -> Int#
 	sizeM :: Sized a => TrieMap k a -> Int
-	lookupMC :: k -> TrieMap k a -> r -> (a -> r) -> r
+	lookupMC :: k -> TrieMap k a -> Lookup r a
 	mapMaybeM :: Sized b => (a -> Maybe b) -> TrieMap k a -> TrieMap k b
 	mapEitherM :: (Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> TrieMap k a -> (# TrieMap k b, TrieMap k c #)
 	unionM :: Sized a => (a -> a -> Maybe a) -> TrieMap k a -> TrieMap k a -> TrieMap k a
@@ -187,7 +181,7 @@ mapIndex f run res = run res' where
 
 {-# INLINE lookupM #-}
 lookupM :: TrieKey k => k -> TrieMap k a -> Maybe a
-lookupM k m = lookupMC k m Nothing Just
+lookupM k m = runLookup (lookupMC k m) Nothing Just
 
 {-# INLINE mappendM #-}
 mappendM :: Monoid m => Maybe m -> Maybe m -> m

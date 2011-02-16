@@ -33,7 +33,8 @@ instance TrieKey () where
 	singletonM _ = single
 	getSimpleM (Unit m) = maybe Null Singleton m
 	sizeM (Unit m) = getSize m
-	lookupMC _ (Unit m) no yes = maybe no yes m
+	lookupMC _ (Unit (Just a)) = return a
+	lookupMC _ _ = mzero
 	mapMaybeM f (Unit m) = Unit (m >>= f)
 	mapEitherM f (Unit a) = both Unit Unit (mapEitherMaybe f) a
 	unionM f (Unit m1) (Unit m2) = Unit (unionMaybe f m1 m2)
