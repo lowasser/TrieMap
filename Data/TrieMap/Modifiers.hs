@@ -1,9 +1,16 @@
 {-# LANGUAGE FlexibleContexts, UndecidableInstances, TypeFamilies #-}
+
+-- | 
+-- Operators for use in 'Repr' instances for types.
 module Data.TrieMap.Modifiers where
 
 import Data.TrieMap.Representation.Class
 
+-- | Denotes that maps on this type should be implemented with traditional binary search trees.
 newtype Ordered a = Ord {unOrd :: a} deriving (Eq, Ord)
+
+-- | Denotes that maps on this type should be treated as reversed.  For instance, @'Rep' 'Int'@ might be
+-- implemented as @'Either' ('Rev' Word) Word@, to handle negative numbers properly.
 newtype Rev k = Rev {getRev :: k} deriving (Eq)
 instance Ord k => Ord (Rev k) where
 	compare (Rev a) (Rev b) = compare b a
@@ -11,7 +18,6 @@ instance Ord k => Ord (Rev k) where
 	Rev a <= Rev b	= b <= a
 	(>)		= flip (<)
 	(>=)		= flip (<=)
-	
 
 instance Functor Ordered where
 	fmap f (Ord a) = Ord (f a)
@@ -19,6 +25,17 @@ instance Functor Ordered where
 instance Functor Rev where
 	fmap f (Rev a) = Rev (f a)
 
+-- | Indicates that the map for this type should be bootstrapped from its @TKey@ instance.
+-- This modifier is necessary to define a @TKey@ instance for a recursively defined type.
+-- For example:
+-- 
+-- > data Tree = Node Char [Tree]
+-- > 
+-- > instance 'Repr' Tree where
+-- > 	type 'Rep' Tree = ('Rep' 'Char', ['Key' Tree])
+-- > 	'toRep' (Node label children) = ('toRep' label, 'map' 'Key' children)
+-- > 	...
+-- 
 newtype Key k = Key {getKey :: k}
 
 instance (Repr k, Eq (Rep k)) => Eq (Key k) where
