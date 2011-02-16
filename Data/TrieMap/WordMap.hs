@@ -1,5 +1,5 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances, RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, ImplicitParams #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), getWordMap, getHole) where
 
@@ -62,6 +62,9 @@ hole k path = Hole (WHole k path)
 
 #define HOLE(args) (Hole (WHole args))
 
+instance Subset (TrieMap Word) where
+  WordMap m1 <=? WordMap m2 = m1 <=? m2
+
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
 	newtype TrieMap Word a = WordMap {getWordMap :: SNode a}
@@ -81,7 +84,6 @@ instance TrieKey Word where
 	unionM f (WordMap m1) (WordMap m2) = WordMap (unionWith f m1 m2)
 	isectM f (WordMap m1) (WordMap m2) = WordMap (intersectionWith f m1 m2)
 	diffM f (WordMap m1) (WordMap m2) = WordMap (differenceWith f m1 m2)
-	isSubmapM (<=) (WordMap m1) (WordMap m2) = isSubmapOfBy (<=) m1 m2
 	
 	singleHoleM k = hole k Root
 	beforeM HOLE(_ path) = WordMap (before path)
@@ -297,15 +299,16 @@ differenceWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
 		  | mask0 p1 m2        = differenceWith f n1 l2
 		  | otherwise         = differenceWith f n1 r2
 
-isSubmapOfBy :: LEq a b -> LEq (SNode a) (SNode b)
-isSubmapOfBy (<=) t1@BIN(p1 m1 l1 r1) BIN(p2 m2 l2 r2)
-    | shorter m1 m2  = False
-    | shorter m2 m1  = match p1 p2 m2 && (if mask0 p1 m2 then isSubmapOfBy (<=) t1 l2
-							else isSubmapOfBy (<=) t1 r2)
-    | otherwise      = (p1==p2) && isSubmapOfBy (<=) l1 l2 && isSubmapOfBy (<=) r1 r2
-isSubmapOfBy _ BIN(_ _ _ _) _	= False
-isSubmapOfBy (<=) TIP(k x) t2	= lookupC k t2 False (x <=)
-isSubmapOfBy _ NIL _		= True
+instance Subset SNode where
+  (<=?) = subMap where
+    t1@BIN(p1 m1 l1 r1) `subMap` BIN(p2 m2 l2 r2)
+      | shorter m1 m2 	= False
+      | shorter m2 m1	= match p1 p2 m2 && (if mask0 p1 m2 then t1 `subMap` l2
+							  else t1 `subMap` r2)
+      | otherwise	= (p1==p2) && l1 `subMap` l2 && r1 `subMap` r2
+    BIN({}) `subMap` _		= False
+    TIP(k x) `subMap` t2	= lookupC k t2 False (?le x)
+    NIL `subMap` _		= True
 
 mask0 :: Key -> Mask -> Bool
 mask0 i m

@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE UnboxedTuples, ImplicitParams #-}
 module Data.TrieSet (
 	-- * Set type
 	TSet,
@@ -264,7 +264,7 @@ notMember = not .: member
 
 -- | Is this a subset? @(s1 `isSubsetOf` s2)@ tells whether @s1@ is a subset of @s2@.
 isSubsetOf :: TKey a => TSet a -> TSet a -> Bool
-TSet s1 `isSubsetOf` TSet s2 = isSubmapM (\ _ _ -> True) s1 s2
+TSet s1 `isSubsetOf` TSet s2 = let ?le = \ _ _ -> True in s1 <=? s2
 
 -- | Is this a proper subset? (ie. a subset but not equal).
 isProperSubsetOf :: TKey a => TSet a -> TSet a -> Bool

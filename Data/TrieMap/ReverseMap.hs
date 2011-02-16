@@ -33,6 +33,9 @@ instance TrieKey k => Foldable (TrieMap (Rev k)) where
   foldr1 f (RevMap m) = foldl1 (flip f) m
   foldl1 f (RevMap m) = foldr1 (flip f) m
 
+instance TrieKey k => Subset (TrieMap (Rev k)) where
+  RevMap m1 <=? RevMap m2 = m1 <=? m2
+
 -- | @'TrieMap' ('Rev' k) a@ is a wrapper around a @'TrieMap' k a@ that reverses the order of the operations.
 instance TrieKey k => TrieKey (Rev k) where
 	newtype TrieMap (Rev k) a = RevMap (TrieMap k a)
@@ -52,7 +55,6 @@ instance TrieKey k => TrieKey (Rev k) where
 	unionM f (RevMap m1) (RevMap m2) = RevMap (unionM f m1 m2)
 	isectM f (RevMap m1) (RevMap m2) = RevMap (isectM f m1 m2)
 	diffM f (RevMap m1) (RevMap m2) = RevMap (diffM f m1 m2)
-	isSubmapM (<=) (RevMap m1) (RevMap m2) = isSubmapM (<=) m1 m2
 	
 	singleHoleM (Rev k) = RHole (singleHoleM k)
 	beforeM (RHole hole) = RevMap (afterM hole)

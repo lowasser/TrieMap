@@ -79,6 +79,10 @@ instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (Either k1 k2)) where
   foldr1 f (K2 m2) = foldr1 f m2
   foldr1 f (Union _ m1 m2) = foldr f (foldr1 f m2) m1
 
+instance (TrieKey k1, TrieKey k2) => Subset (TrieMap (Either k1 k2)) where
+  (UVIEW m11 m12) <=? (UVIEW m21 m22)
+    = m11 <<=? m21 && m12 <<=? m22
+
 -- | @'TrieMap' ('Either' k1 k2) a@ is essentially a @(TrieMap k1 a, TrieMap k2 a)@, but
 -- specialized for the cases where one or both maps are empty.
 instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
@@ -137,9 +141,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	diffM f m1@(UVIEW m11 m12) m2@(UVIEW m21 m22)
 		| Empty <- m2	= m1
 		| otherwise	= diffMaybe (diffM' f) m11 m21 ^ diffMaybe (diffM' f) m12 m22
-
-	isSubmapM (<=) (UVIEW m11 m12) (UVIEW m21 m22) =
-		subMaybe (isSubmapM (<=)) m11 m21 && subMaybe (isSubmapM (<=)) m12 m22
 
 	insertWithM f (Left k) a (UVIEW m1 m2)
 		= Just (insertWithM' f k a m1) ^ m2

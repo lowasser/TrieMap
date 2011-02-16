@@ -10,7 +10,6 @@ module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
       extractEdgeLoc,
       indexEdge,
       insertEdge,
-      isSubEdge,
       isectEdge,
       lookupEdge,
       mapEdge,
@@ -215,17 +214,15 @@ diffEdge f = diffE where
       GT -> let k = ks0 !$ lLen; eK' = dropEdge (lLen + 1) eK in 
 	lookupMC k tsL (Just eK) (\ eL' -> fmap (unDropEdge (lLen + 1)) (eK' `diffE` eL'))
 
-{-# SPECIALIZE isSubEdge ::
-      TrieKey k => LEq a b -> LEq (V(Edge) a) (V(Edge) b),
-      LEq a b -> LEq (U(Edge) a) (U(Edge) b) #-}
-isSubEdge :: (Eq k, Label v k) => LEq a b -> LEq (Edge v k a) (Edge v k b)
-isSubEdge (<=) = isSubE where
-  isSubE !eK@EDGE(_ ks0 vK tsK) EDGE(_ ls0 vL tsL) = matchSlice matcher matches ks0 ls0 where
+instance (Eq k, Label v k) => Subset (Edge v k) where
+  {-# SPECIALIZE instance (Eq k, TrieKey k) => Subset (V(Edge)) #-}
+  {-# SPECIALIZE instance Subset (U(Edge)) #-}
+  eK@EDGE(_ ks0 vK tsK) <=? EDGE(_ ls0 vL tsL) = matchSlice matcher matches ks0 ls0 where
     matcher k l z = k == l && z
     matches kLen lLen = case compare kLen lLen of
       LT	-> False
-      EQ	-> subMaybe (<=) vK vL && isSubmapM isSubE tsK tsL
-      GT	-> let k = ks0 !$ lLen in lookupMC k tsL False (isSubE (dropEdge (lLen + 1) eK))
+      EQ	-> vK <=? vL && tsK <<=? tsL
+      GT	-> let k = ks0 !$ lLen in lookupMC k tsL False (dropEdge (lLen + 1) eK <=?)
 
 {-# SPECIALIZE beforeEdge :: 
       (TrieKey k, Sized a) => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,

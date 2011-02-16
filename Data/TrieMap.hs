@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE UnboxedTuples, ImplicitParams #-}
 
 module Data.TrieMap (
 	-- * Map type
@@ -821,8 +821,7 @@ isSubmapOf = isSubmapOfBy (==)
 -}
 {-# INLINEABLE isSubmapOfBy #-}
 isSubmapOfBy :: TKey k => (a -> b -> Bool) -> TMap k a -> TMap k b -> Bool
-isSubmapOfBy (<=) (TMap m1) (TMap m2) = isSubmapM (<<=) m1 m2 where
-	Assoc _ a <<= Assoc _ b = a <= b
+isSubmapOfBy (<=) (TMap m1) (TMap m2) = let ?le = \ (Assoc _ a) (Assoc _ b) -> a <= b in m1 <=? m2
 
 -- | Build a map from a list of key\/value pairs. See also 'fromAscList'.
 -- If the list contains more than one value for the same key, the last value

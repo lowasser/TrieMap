@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleInstances, GeneralizedNewtypeDeriving, StandaloneDeriving #-}
 
 module Data.TrieMap.UnitMap () where
 
@@ -21,6 +21,9 @@ instance Foldable (TrieMap ()) where
   foldr1 f (Unit m) = foldr1 f m
   foldl1 f (Unit m) = foldl1 f m
 
+instance Subset (TrieMap ()) where
+  Unit m1 <=? Unit m2 = m1 <=? m2
+
 -- | @'TrieMap' () a@ is implemented as @'Maybe' a@.
 instance TrieKey () where
 	newtype TrieMap () a = Unit (Maybe a)
@@ -38,7 +41,6 @@ instance TrieKey () where
 	unionM f (Unit m1) (Unit m2) = Unit (unionMaybe f m1 m2)
 	isectM f (Unit m1) (Unit m2) = Unit (isectMaybe f m1 m2)
 	diffM f (Unit m1) (Unit m2) = Unit (diffMaybe f m1 m2)
-	isSubmapM (<=) (Unit m1) (Unit m2) = subMaybe (<=) m1 m2
 	
 	insertWithM f _ a (Unit m) = Unit (Just (maybe a f m))
 	

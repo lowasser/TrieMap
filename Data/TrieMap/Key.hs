@@ -18,12 +18,15 @@ keyMap m = KeyMap (sizeM m) m
 
 #define KMAP(m) KeyMap{tMap = m}
 
-instance TKey k => Foldable (TrieMap (Key k)) where
+instance (Repr k, TrieKey (Rep k)) => Foldable (TrieMap (Key k)) where
   foldMap f KMAP(m) = foldMap f m
   foldr f z KMAP(m) = foldr f z m
   foldl f z KMAP(m) = foldl f z m
   foldr1 f KMAP(m) = foldr1 f m
   foldl1 f KMAP(m) = foldl1 f m
+
+instance (Repr k, TrieKey (Rep k)) => Subset (TrieMap (Key k)) where
+  KMAP(m1) <=? KMAP(m2) = m1 <=? m2
 
 -- | @'TrieMap' ('Key' k) a@ is a wrapper around a @TrieMap (Rep k) a@.
 instance TKey k => TrieKey (Key k) where
@@ -42,7 +45,6 @@ instance TKey k => TrieKey (Key k) where
 	unionM f KMAP(m1) KMAP(m2) = keyMap (unionM f m1 m2)
 	isectM f KMAP(m1) KMAP(m2) = keyMap (isectM f m1 m2)
 	diffM f KMAP(m1) KMAP(m2) = keyMap (diffM f m1 m2)
-	isSubmapM (<=) KMAP(m1) KMAP(m2) = isSubmapM (<=) m1 m2
 
 	singleHoleM (Key k) = KeyHole (singleHoleM (toRep k))
 	beforeM (KeyHole hole) = keyMap (beforeM hole)

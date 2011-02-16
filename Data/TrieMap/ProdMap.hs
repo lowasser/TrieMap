@@ -3,6 +3,7 @@
 module Data.TrieMap.ProdMap () where
 
 import Data.TrieMap.TrieKey
+import Data.TrieMap.Sized
 
 import Control.Monad
 import Data.Functor
@@ -14,6 +15,9 @@ instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (k1, k2)) where
   foldMap f (PMap m) = foldMap (foldMap f) m
   foldr f z (PMap m) = foldr (flip $ foldr f) z m
   foldl f z (PMap m) = foldl (foldl f) z m
+
+instance (TrieKey k1, TrieKey k2) => Subset (TrieMap (k1, k2)) where
+  PMap m1 <=? PMap m2 = m1 <<=? m2
 
 -- | @'TrieMap' (k1, k2) a@ is implemented as a @'TrieMap' k1 ('TrieMap' k2 a)@.
 instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
@@ -30,7 +34,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	fmapM f (PMap m) = PMap (fmapM (fmapM f) m)
 	mapMaybeM f (PMap m) = PMap (mapMaybeM (mapMaybeM' f) m)
 	mapEitherM f (PMap m) = both PMap PMap (mapEitherM (mapEitherM' f)) m
-	isSubmapM (<=) (PMap m1) (PMap m2) = isSubmapM (isSubmapM (<=)) m1 m2
 	unionM f (PMap m1) (PMap m2) = PMap (unionM (unionM' f) m1 m2)
 	isectM f (PMap m1) (PMap m2) = PMap (isectM (isectM' f) m1 m2)
 	diffM f (PMap m1) (PMap m2) = PMap (diffM (diffM' f) m1 m2)

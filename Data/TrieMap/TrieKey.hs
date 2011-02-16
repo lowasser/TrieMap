@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts, TupleSections, Rank2Types, ExistentialQuantification #-}
-{-# LANGUAGE NamedFieldPuns, RecordWildCards #-}
+{-# LANGUAGE NamedFieldPuns, RecordWildCards, ImplicitParams #-}
 
 module Data.TrieMap.TrieKey where
 
@@ -90,7 +90,7 @@ onThird g f a = case f a of
 
 -- | A @TrieKey k@ instance implies that @k@ is a standardized representation for which a
 -- generalized trie structure can be derived.
-class (Ord k, Foldable (TrieMap k)) => TrieKey k where
+class (Ord k, Foldable (TrieMap k), Subset (TrieMap k)) => TrieKey k where
 	data TrieMap k :: * -> *
 	emptyM :: TrieMap k a
 	singletonM :: Sized a => k -> a -> TrieMap k a
@@ -107,7 +107,6 @@ class (Ord k, Foldable (TrieMap k)) => TrieKey k where
 	isectM :: (Sized a, Sized b, Sized c) =>
 		(a -> b -> Maybe c) -> TrieMap k a -> TrieMap k b -> TrieMap k c
 	diffM :: Sized a => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> TrieMap k a
-	isSubmapM :: (Sized a, Sized b) => LEq a b -> LEq (TrieMap k a) (TrieMap k b)
 	
 	fromListFold, fromAscListFold :: Sized a => (a -> a -> a) -> FromList k a
 	fromDistAscListFold :: Sized a => FromList k a

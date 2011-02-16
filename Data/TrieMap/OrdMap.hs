@@ -1,5 +1,5 @@
 {-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, PatternGuards, MagicHash, CPP, TupleSections, NamedFieldPuns, FlexibleInstances #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, ImplicitParams #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.OrdMap () where
 
@@ -50,6 +50,9 @@ sNode !n = SNode (getSize n) (nCount n) n
 tip :: SNode k a
 tip = SNode 0 0 Tip
 
+instance Ord k => Subset (TrieMap (Ordered k)) where
+  OrdMap m1 <=? OrdMap m2 = m1 <=? m2
+
 -- | @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
 instance Ord k => TrieKey (Ordered k) where
 	newtype TrieMap (Ordered k) a = OrdMap (SNode k a)
@@ -69,7 +72,6 @@ instance Ord k => TrieKey (Ordered k) where
 	fmapM f (OrdMap m) = OrdMap (map f m)
 	mapMaybeM f (OrdMap m) = OrdMap (mapMaybe f m)
 	mapEitherM f (OrdMap m) = both OrdMap OrdMap (mapEither f) m
-	isSubmapM (<=) (OrdMap m1) (OrdMap m2) = isSubmap (<=) m1 m2
 	fromAscListFold f = combineKeys f fromDistAscListFold
 	fromDistAscListFold = OrdMap <$> mapFoldlKey unOrd fromDistAscList
 	unionM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeUnion f (const LT) (const GT) m1 m2
@@ -174,12 +176,13 @@ splitLookup k t cont = search k t (split Nothing) (split . Just) where
   split v (Empty _ path) = cont (before tip path) v (after tip path)
   split v (Full _ path l r) = cont (before l path) v (after r path)
 
-isSubmap :: (Ord k, Sized a, Sized b) => LEq a b -> LEq (SNode k a) (SNode k b)
-isSubmap _ TIP _ = True
-isSubmap _ _ TIP = False
-isSubmap (<=) BIN(kx x l r) t = splitLookup kx t result
-  where	result _ Nothing _	= False
-  	result tl (Just y) tr	= x <= y && isSubmap (<=) l tl && isSubmap (<=) r tr
+instance Ord k => Subset (SNode k) where
+  (<=?) = subMap where
+    TIP `subMap` _	= True
+    _ `subMap` TIP	= False
+    BIN(kx x l r) `subMap` t = splitLookup kx t result
+      where result _ Nothing _	= False
+	    result tl (Just y) tr	= ?le x y && l `subMap` tl && r `subMap` tr
 
 fromDistAscList :: (Eq k, Sized a) => Foldl k a (SNode k a)
 fromDistAscList = Foldl{zero = tip, ..} where

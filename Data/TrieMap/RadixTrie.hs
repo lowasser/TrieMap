@@ -23,6 +23,9 @@ instance TrieKey k => Foldable (TrieMap (Vector k)) where
   foldr f z (Radix m) = foldl (foldr f) z m
   foldl f z (Radix m) = foldl (foldl f) z m
 
+instance TrieKey k => Subset (TrieMap (Vector k)) where
+  Radix m1 <=? Radix m2 = m1 <<=? m2
+
 -- | @'TrieMap' ('Vector' k) a@ is a traditional radix trie.
 instance TrieKey k => TrieKey (Vector k) where
 	newtype TrieMap (Vector k) a = Radix (MEdge Vector k a)
@@ -44,8 +47,6 @@ instance TrieKey k => TrieKey (Vector k) where
 	unionM f (Radix m1) (Radix m2) = Radix (unionMaybe (unionEdge f) m1 m2)
 	isectM f (Radix m1) (Radix m2) = Radix (isectMaybe (isectEdge f) m1 m2)
 	diffM f (Radix m1) (Radix m2) = Radix (diffMaybe (diffEdge f) m1 m2)
-	
-	isSubmapM (<=) (Radix m1) (Radix m2) = subMaybe (isSubEdge (<=)) m1 m2
 
 	singleHoleM ks = Hole (singleLoc ks)
 	{-# INLINE searchMC #-}
@@ -82,6 +83,9 @@ instance Foldable (TrieMap (P.Vector Word)) where
   foldr f z (WRadix m) = foldl (foldr f) z m
   foldl f z (WRadix m) = foldl (foldl f) z m
 
+instance Subset (TrieMap WordVec) where
+  WRadix m1 <=? WRadix m2 = m1 <<=? m2
+
 -- | @'TrieMap' ('P.Vector' Word) a@ is a traditional radix trie specialized for word arrays.
 instance TrieKey (P.Vector Word) where
 	newtype TrieMap WordVec a = WRadix (MEdge P.Vector Word a)
@@ -103,8 +107,6 @@ instance TrieKey (P.Vector Word) where
 	unionM f (WRadix m1) (WRadix m2) = WRadix (unionMaybe (unionEdge f) m1 m2)
 	isectM f (WRadix m1) (WRadix m2) = WRadix (isectMaybe (isectEdge f) m1 m2)
 	diffM f (WRadix m1) (WRadix m2) = WRadix (diffMaybe (diffEdge f) m1 m2)
-
-	isSubmapM (<=) (WRadix m1) (WRadix m2) = subMaybe (isSubEdge (<=)) m1 m2
 
 	singleHoleM ks = WHole (singleLoc ks)
 	{-# INLINE searchMC #-}
