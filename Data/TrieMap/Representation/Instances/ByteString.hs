@@ -49,12 +49,13 @@ bytesPerWord = sizeOf (0 :: Word)
 readWordAt :: Ptr Word8 -> Int -> IO Word
 readWordAt ptr off = 
 #if WORD_SIZE_IN_BITS == 32
-  accum 3 0 $ accum 2 8 $ accum 1 16 $ accum 0 24 $ return 0
+  accum 3 $ accum 2 $ accum 1 $ accum 0 $ return 0
 #else
-  accum 7 0 $ accum 6 8 $ accum 5 16 $ accum 4 24 $ accum 3 32 $ accum 2 40 $ accum 1 48 $ accum 0 56
+  accum 7 $ accum 6 $ accum 5 $ accum 4 $ accum 3 $ accum 2 $ accum 1 $ accum 0 $ return 0
 #endif
   where !off' = off * bytesPerWord
-	accum x s w = liftM2 (.|.) w $ liftM (\ w -> fromIntegral w .<<. s) $ peekElemOff ptr (x + off')
+	accum x w = let s = 8 * (bytesPerWord - 1 - x) in
+	  liftM2 (.|.) w $ liftM (\ w -> fromIntegral w .<<. s) $ peekElemOff ptr (x + off')
 
 readLastWordAt :: Int -> Int -> Ptr Word8 -> IO Word
 readLastWordAt !n !off !ptr =
