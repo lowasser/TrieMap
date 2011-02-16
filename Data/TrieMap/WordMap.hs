@@ -176,7 +176,7 @@ branchHole !k !p path t
 
 lookupC :: Key -> SNode a -> LookupCont a r
 lookupC !k t no yes = look t where
-  look BIN(_ m l r) = look (if zeroN k m then l else r)
+  look BIN(_ m l r) = if zeroN k m then look l else look r
   look TIP(kx x)
     | k == kx	= yes x
   look _ = no
@@ -231,69 +231,72 @@ mapEither f TIP(kx x)	= both (singletonMaybe kx) (singletonMaybe kx) f x
 mapEither _ _		= (# nil, nil #)
 
 unionWith :: Sized a => (a -> a -> Maybe a) -> SNode a -> SNode a -> SNode a
-unionWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
-  (Nil, _)	-> n2
-  (_, Nil)	-> n1
-  (Tip k x, _)	-> alter (maybe (Just x) (f x)) k n2
-  (_, Tip k x)	-> alter (maybe (Just x) (`f` x)) k n1
-  (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
-    | shorter m1 m2  -> union1
-    | shorter m2 m1  -> union2
-    | p1 == p2       -> bin p1 m1 (unionWith f l1 l2) (unionWith f r1 r2)
-    | otherwise      -> join p1 n1 p2 n2
-    where
-      union1  | nomatch p2 p1 m1  = join p1 n1 p2 n2
-	      | mask0 p2 m1        = bin p1 m1 (unionWith f l1 n2) r1
-	      | otherwise         = bin p1 m1 l1 (unionWith f r1 n2)
+unionWith f = union where
+  n1@(SNode _ t1) `union` n2@(SNode _ t2) = case (t1, t2) of
+    (Nil, _)	-> n2
+    (_, Nil)	-> n1
+    (Tip k x, _)	-> alter (maybe (Just x) (f x)) k n2
+    (_, Tip k x)	-> alter (maybe (Just x) (`f` x)) k n1
+    (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
+      | shorter m1 m2  -> union1
+      | shorter m2 m1  -> union2
+      | p1 == p2       -> bin p1 m1 (l1 `union` l2) (r1 `union` r2)
+      | otherwise      -> join p1 n1 p2 n2
+      where
+	union1  | nomatch p2 p1 m1  = join p1 n1 p2 n2
+		| mask0 p2 m1       = bin p1 m1 (l1 `union` n2) r1
+		| otherwise         = bin p1 m1 l1 (r1 `union` n2)
 
-      union2  | nomatch p1 p2 m2  = join p1 n1 p2 n2
-	      | mask0 p1 m2        = bin p2 m2 (unionWith f n1 l2) r2
-	      | otherwise         = bin p2 m2 l2 (unionWith f n1 r2)
+	union2  | nomatch p1 p2 m2  = join p1 n1 p2 n2
+		| mask0 p1 m2       = bin p2 m2 (unionWith f n1 l2) r2
+		| otherwise         = bin p2 m2 l2 (unionWith f n1 r2)
 
 {-# INLINE alter #-}
 alter :: Sized a => (Maybe a -> Maybe a) -> Key -> SNode a -> SNode a
 alter f k t = getWordMap $ alterM f k (WordMap t)
 
 intersectionWith :: Sized c => (a -> b -> Maybe c) -> SNode a -> SNode b -> SNode c
-intersectionWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
-  (Nil, _)	-> nil
-  (Tip{}, Nil)	-> nil
-  (Bin{}, Nil)	-> nil
-  (Tip k x, _)	-> lookupC k n2 nil (singletonMaybe k . f x)
-  (_, Tip k y)	-> lookupC k n1 nil (singletonMaybe k . flip f y)
-  (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
-    | shorter m1 m2  -> intersection1
-    | shorter m2 m1  -> intersection2
-    | p1 == p2       -> bin p1 m1 (intersectionWith f l1 l2) (intersectionWith f r1 r2)
-    | otherwise      -> nil
-    where
-      intersection1 | nomatch p2 p1 m1  = nil
-		    | mask0 p2 m1        = intersectionWith f l1 n2
-		    | otherwise         = intersectionWith f r1 n2
+intersectionWith f = isect where
+  n1@(SNode _ t1) `isect` n2@(SNode _ t2) = case (t1, t2) of
+    (Nil, _)	-> nil
+    (Tip{}, Nil)	-> nil
+    (Bin{}, Nil)	-> nil
+    (Tip k x, _)	-> lookupC k n2 nil (singletonMaybe k . f x)
+    (_, Tip k y)	-> lookupC k n1 nil (singletonMaybe k . flip f y)
+    (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
+      | shorter m1 m2  -> intersection1
+      | shorter m2 m1  -> intersection2
+      | p1 == p2       -> bin p1 m1 (l1 `isect` l2) (r1 `isect` r2)
+      | otherwise      -> nil
+      where
+	intersection1 | nomatch p2 p1 m1  = nil
+		      | mask0 p2 m1       = l1 `isect` n2
+		      | otherwise         = r1 `isect` n2
 
-      intersection2 | nomatch p1 p2 m2  = nil
-		    | mask0 p1 m2        = intersectionWith f n1 l2
-		    | otherwise         = intersectionWith f n1 r2
+	intersection2 | nomatch p1 p2 m2  = nil
+		      | mask0 p1 m2       = n1 `isect` l2
+		      | otherwise         = n1 `isect` r2
 
 differenceWith :: Sized a => (a -> b -> Maybe a) -> SNode a -> SNode b -> SNode a
-differenceWith f n1@(SNode _ t1) n2@(SNode _ t2) = case (t1, t2) of
-  (Nil, _)	-> nil
-  (_, Nil)	-> n1
-  (Tip k x, _)	-> lookupC k n2 n1 (singletonMaybe k . f x)
-  (_, Tip k y)	-> alter (>>= flip f y) k n1
-  (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
-    | shorter m1 m2  -> difference1
-    | shorter m2 m1  -> difference2
-    | p1 == p2       -> bin p1 m1 (differenceWith f l1 l2) (differenceWith f r1 r2)
-    | otherwise      -> n1
-    where
-      difference1 | nomatch p2 p1 m1  = n1
-		  | mask0 p2 m1        = bin p1 m1 (differenceWith f l1 n2) r1
-		  | otherwise         = bin p1 m1 l1 (differenceWith f r1 n2)
+differenceWith f = diff where
+  n1@(SNode _ t1) `diff` n2@(SNode _ t2) = case (t1, t2) of
+    (Nil, _)	-> nil
+    (_, Nil)	-> n1
+    (Tip k x, _)	-> lookupC k n2 n1 (singletonMaybe k . f x)
+    (_, Tip k y)	-> alter (>>= flip f y) k n1
+    (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
+      | shorter m1 m2  -> difference1
+      | shorter m2 m1  -> difference2
+      | p1 == p2       -> bin p1 m1 (l1 `diff` l2) (r1 `diff` r2)
+      | otherwise      -> n1
+      where
+	difference1 | nomatch p2 p1 m1  = n1
+		    | mask0 p2 m1       = bin p1 m1 (l1 `diff` n2) r1
+		    | otherwise         = bin p1 m1 l1 (r1 `diff` n2)
 
-      difference2 | nomatch p1 p2 m2  = n1
-		  | mask0 p1 m2        = differenceWith f n1 l2
-		  | otherwise         = differenceWith f n1 r2
+	difference2 | nomatch p1 p2 m2  = n1
+		    | mask0 p1 m2       = n1 `diff` l2
+		    | otherwise         = n1 `diff` r2
 
 instance Subset SNode where
   (<=?) = subMap where

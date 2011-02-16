@@ -30,8 +30,6 @@ instance TrieKey k => Foldable (TrieMap (Rev k)) where
   foldMap f (RevMap m) = M.getDual (foldMap (M.Dual . f) m)
   foldr f z (RevMap m) = foldl (flip f) z m
   foldl f z (RevMap m) = foldr (flip f) z m
-  foldr1 f (RevMap m) = foldl1 (flip f) m
-  foldl1 f (RevMap m) = foldr1 (flip f) m
 
 instance TrieKey k => Traversable (TrieMap (Rev k)) where
   traverse f (RevMap m) = RevMap <$> runDual (traverse (Dual . f) m)

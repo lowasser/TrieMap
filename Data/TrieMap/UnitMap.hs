@@ -16,8 +16,6 @@ instance Foldable (TrieMap ()) where
   foldMap f (Unit m) = foldMap f m
   foldr f z (Unit m) = foldr f z m
   foldl f z (Unit m) = foldl f z m
-  foldr1 f (Unit m) = foldr1 f m
-  foldl1 f (Unit m) = foldl1 f m
 
 instance Traversable (TrieMap ()) where
   traverse f (Unit (Just a)) = Unit . Just <$> f a

@@ -220,7 +220,7 @@ filterGt cmp BIN(kx x l r)
       LT -> join kx x (filterGt  cmp l) r
       GT -> filterGt  cmp r
       EQ -> r
-      
+
 filterLt :: (Ord k, Sized a) => (k -> Ordering) -> SNode k a -> SNode k a
 filterLt _   TIP = tip
 filterLt cmp BIN(kx x l r)
