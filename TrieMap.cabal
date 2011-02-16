@@ -1,22 +1,26 @@
 name:		     TrieMap
-version:             3.0.1
+version:             4.0.0
 cabal-version:       >= 1.6
 tested-with:	     GHC
 category:            Algorithms
 synopsis:	     Automatic type inference of generalized tries with Template Haskell.
 description:	     Provides a efficient and compact implementation of generalized tries, and Template Haskell tools to generate
                      the necessary translation code.  This is meant as a drop-in replacement for Data.Map.
-                     
+                     .
                      The most recent release combines zipper-based ideas from recently proposed changes to Data.Map, as well
                      as heavily optimized ByteString and Vector instances based on the vector package.
-                     
+                     .
                      Since version 2, unit tests and benchmarks have been taken much more seriously, and major optimizations
                      have been made.
-                     
-                     Compared to Data.Map and Data.Set, on e.g. @ByteString@s, TrieMaps support 6-12x faster @union@, 
-                     @intersection@, and @difference@ operations, 2x faster @lookup@, but 2x slower @toList@, and 4x slower @filter@.
+                     .
+                     On an English dictionary file read into @ByteString@s, compared to Data.Map and Data.Set,
+                     TrieMaps support 8-9x faster @union@, 15-18x faster @intersection@, 14-16x faster @difference@,
+                     2x faster @lookup@, and 1.6x faster @split@, but 1.6x slower @toList@, 2x slower @elemAt@, and 3x slower @filter@.
                      Other operations are closely tied.  TrieMaps tend to use somewhat more memory, and frequently perform better
-                     with increased heap space and allocation area.
+                     with increased heap space and allocation area.  
+                     .
+                     Since @TrieMap@ can be used as a drop-in replacement,
+                     the user is encouraged to benchmark both @TrieMap@ and @Data.Map@ to see which works better for their application.
 license:             BSD3
 license-file:	     LICENSE
 author:              Louis Wasserman
@@ -32,7 +36,7 @@ Library{
 build-Depends:       base < 5.0.0.0, containers, template-haskell, bytestring, th-expand-syns, vector, primitive
 ghc-options:
   -Wall -fno-warn-name-shadowing -fno-warn-orphans -O2 -fno-spec-constr-count -fno-spec-constr-threshold
-  -fno-liberate-case-threshold -fmax-worker-args=100
+  -fno-liberate-case-threshold -fmax-worker-args=100 -fllvm -optlo-O3
 exposed-modules:  
   Data.TrieMap,
   Data.TrieSet,
