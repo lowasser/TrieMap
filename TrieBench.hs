@@ -1,3 +1,4 @@
+{-# OPTIONS -fasm #-}
 module TrieBench (main) where
 
 import Criterion.Main

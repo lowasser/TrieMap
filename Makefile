@@ -7,7 +7,9 @@ OPTIMIZED_DIR := out/opt
 GHC_OPTS := -Wall -fno-warn-name-shadowing -fno-warn-orphans -rtsopts
 FAST_GHC_OPTS := -O0 -ddump-minimal-imports -odir $(FAST_DIR) $(GHC_OPTS)
 DEBUG_GHC_OPTS := -prof -hisuf p_hi -auto-all  -rtsopts -osuf p_o  $(FAST_GHC_OPTS) $(GHC_OPTS)
+LLVM_OPTS := -O3 -std-compile-opts
 OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
+  -fllvm $(addprefix -optlo, $(LLVM_OPTS)) \
   -fmax-worker-args=100 -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
 THREADSCOPE_OPTS := $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS) -eventlog
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)

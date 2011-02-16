@@ -1,6 +1,6 @@
 {-# LANGUAGE MagicHash, BangPatterns, UnboxedTuples, PatternGuards, CPP, ViewPatterns, NamedFieldPuns, ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# OPTIONS -funbox-strict-fields #-}
+{-# OPTIONS -funbox-strict-fields -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
       afterEdge,
       assignEdge,
@@ -35,12 +35,12 @@ import Data.Word
 
 import Data.Vector.Generic (length)
 import qualified Data.Vector (Vector)
-import qualified Data.Vector.Storable (Vector)
+import qualified Data.Vector.Primitive (Vector)
 import Prelude hiding (length, foldr, foldl, zip, take)
 import GHC.Exts
 
 #define V(f) f (Data.Vector.Vector) (k)
-#define U(f) f (Data.Vector.Storable.Vector) (Word)
+#define U(f) f (Data.Vector.Primitive.Vector) (Word)
 #define EDGE(args) (!(eView -> Edge args))
 #define LOC(args) !(locView -> Loc args)
 #define DEEP(args) !(pView -> Deep args)
@@ -157,13 +157,16 @@ clearEdge LOC(ks ts path) = rebuild (cEdge ks Nothing ts) path where
 unionEdge :: (Label v k, Sized a) => 
 	(a -> a -> Maybe a) -> Edge v k a -> Edge v k a -> MEdge v k a
 unionEdge f = unionE where
-  unionE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = iMatchSlice matcher matches ks0 ls0 where
-    matcher i k l z = case unifyM k eK' l eL' of
-      Nothing	-> z
-      Just ts	-> Just (edge (takeSlice i ks0) Nothing ts)
+  unionE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = matcher 0 where
+    kLen = length ks0
+    lLen = length ls0
+    !len = min kLen lLen
+    matcher !i = if i >= len then matches else let k = ks0 !$ i; l = ls0 !$ i in 
+      if k == l then matcher (i+1) else Just (edge (takeSlice i ks0) Nothing $
+	insertWithM id k eK' $ singletonM l eL')
       where eK' = dropEdge (i+1) eK
 	    eL' = dropEdge (i+1) eL
-    matches kLen lLen = case compare kLen lLen of
+    matches = case compare kLen lLen of
       EQ -> cEdge ks0 (unionMaybe f vK vL) $ unionM unionE tsK tsL
       LT -> searchMC l tsK nomatch match where
 	eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen
@@ -195,13 +198,15 @@ isectEdge f = isectE where
 diffEdge :: (Eq k, Label v k, Sized a) =>
 	(a -> b -> Maybe a) -> Edge v k a -> Edge v k b -> MEdge v k a
 diffEdge f = diffE where
-  diffE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = matchSlice matcher matches ks0 ls0 where
-    matcher k l z
-      | k == l		= z
-      | otherwise	= Just eK
-    matches kLen lLen = case compare kLen lLen of
+  diffE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = matcher 0 where
+    kLen = length ks0
+    lLen = length ls0
+    !len = min kLen lLen
+    matcher !i = if i >= len then matches else
+      let k = ks0 !$ i; l = ls0 !$ i in if k == l then matcher (i+1) else Just eK
+    matches = case compare kLen lLen of
       EQ -> cEdge ks0 (diffMaybe f vK vL) $ diffM diffE tsK tsL
-      LT -> searchMC l tsK nomatch match where
+      LT -> searchMC l tsK nomatch  match where
 	l = ls0 !$ kLen; eL' = dropEdge (kLen + 1) eL 
 	nomatch _ = Just eK
 	match eK' holeKT = cEdge ks0 vK $ fillHoleM (eK' `diffE` eL') holeKT

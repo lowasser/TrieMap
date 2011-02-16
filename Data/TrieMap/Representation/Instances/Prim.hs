@@ -9,7 +9,7 @@ import Data.Word
 import Data.Int
 import Data.Char
 import Data.Bits
-import Data.Vector.Storable
+import Data.Vector.Primitive
 import qualified Data.Vector.Unboxed as U
 import Prelude hiding (map)
 

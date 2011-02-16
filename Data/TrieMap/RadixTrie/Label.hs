@@ -10,12 +10,12 @@ import Data.TrieMap.WordMap
 import Data.Word
 import Data.Vector.Generic
 import qualified Data.Vector as V
-import qualified Data.Vector.Storable as S
+import qualified Data.Vector.Primitive as P
 
 import Prelude hiding (length)
 
 #define V(ty) (ty (V.Vector) (k))
-#define U(ty) (ty (S.Vector) Word)
+#define U(ty) (ty (P.Vector) Word)
 
 class (Vector v k, TrieKey k) => Label v k where
   data Edge v k :: * -> *
@@ -82,17 +82,17 @@ instance TrieKey k => Label V.Vector k where
   locView (VLoc ks ts path) = Loc ks ts path
   sView (VStack ks v ts) = Stack ks v (WordMap ts)
 
-instance Label S.Vector Word where
-  data Edge S.Vector Word a =
+instance Label P.Vector Word where
+  data Edge P.Vector Word a =
     SEdge !Int !(U()) !(SNode (U(Edge) a))
     | SEdgeX !Int !(U()) a !(SNode (U(Edge) a))
-  data Path S.Vector Word a =
+  data Path P.Vector Word a =
     SRoot
     | SDeep (U(Path) a) !(U()) !(WHole (U(Edge) a))
     | SDeepX (U(Path) a) !(U()) a !(WHole (U(Edge) a))
-  data EdgeLoc S.Vector Word a =
+  data EdgeLoc P.Vector Word a =
     SLoc !(U()) !(SNode (U(Edge) a)) (U(Path) a)
-  data Stack S.Vector Word a z = SStack !(U()) a !(SNode (Hang a z))
+  data Stack P.Vector Word a z = SStack !(U()) a !(SNode (Hang a z))
   
   edge !ks Nothing ts = SEdge (sizeM ts) ks (getWordMap ts)
   edge !ks (Just v) ts = SEdgeX (getSize v + sizeM ts) ks v (getWordMap ts)

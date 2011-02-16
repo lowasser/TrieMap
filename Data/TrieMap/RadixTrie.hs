@@ -1,5 +1,4 @@
 {-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, MagicHash, FlexibleInstances #-}
-
 module Data.TrieMap.RadixTrie () where
 
 import Data.TrieMap.TrieKey
@@ -10,7 +9,7 @@ import Data.Foldable (Foldable(..))
 import Control.Monad
 
 import Data.Vector (Vector)
-import qualified Data.Vector.Storable as S
+import qualified Data.Vector.Primitive as P
 import Data.Traversable
 import Data.Word
 
@@ -76,17 +75,17 @@ instance TrieKey k => TrieKey (Vector k) where
 		 done = Radix . Just}
 	fromAscListFold f = Radix <$> fromAscListEdge f
 
-type WordVec = S.Vector Word
+type WordVec = P.Vector Word
 
-instance Foldable (TrieMap (S.Vector Word)) where
+instance Foldable (TrieMap (P.Vector Word)) where
   foldMap f (WRadix m) = foldMap (foldMap f) m
   foldr f z (WRadix m) = foldl (foldr f) z m
   foldl f z (WRadix m) = foldl (foldl f) z m
 
--- | @'TrieMap' ('S.Vector' Word) a@ is a traditional radix trie specialized for word arrays.
-instance TrieKey (S.Vector Word) where
-	newtype TrieMap WordVec a = WRadix (MEdge S.Vector Word a)
-	newtype Hole WordVec a = WHole (EdgeLoc S.Vector Word a)
+-- | @'TrieMap' ('P.Vector' Word) a@ is a traditional radix trie specialized for word arrays.
+instance TrieKey (P.Vector Word) where
+	newtype TrieMap WordVec a = WRadix (MEdge P.Vector Word a)
+	newtype Hole WordVec a = WHole (EdgeLoc P.Vector Word a)
 	
 	emptyM = WRadix Nothing
 	singletonM ks a = WRadix (Just (singletonEdge ks a))

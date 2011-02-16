@@ -1,3 +1,4 @@
+{-# OPTIONS -fasm #-}
 module SetBench (main) where
 
 import Criterion.Main
