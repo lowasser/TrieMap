@@ -7,7 +7,7 @@ import Data.Word
 import Data.Bits
 import Data.TrieMap.Modifiers
 import qualified Data.Vector as V
-import qualified Data.Vector.Storable as S
+import qualified Data.Vector.Primitive as P
 import qualified Data.Set as S
 import qualified Data.Map as M
 import qualified Data.Sequence as Seq
@@ -45,14 +45,14 @@ genRepr ''Tree
 genRepr ''Ratio
 
 instance Repr Integer where
-	type Rep Integer = Either (Rev (Word, S.Vector Word)) (Word, S.Vector Word)
+	type Rep Integer = Either (Rev (Word, P.Vector Word)) (Word, P.Vector Word)
 	toRep x
-	  | x < 0	= let bs = unroll (-x); n = fromIntegral (S.length bs) in Left (Rev (n, bs))
-	  | otherwise	= let bs = unroll x; n = fromIntegral (S.length bs) in Right (n, bs)
+	  | x < 0	= let bs = unroll (-x); n = fromIntegral (P.length bs) in Left (Rev (n, bs))
+	  | otherwise	= let bs = unroll x; n = fromIntegral (P.length bs) in Right (n, bs)
 	DefList(Integer)
 
-unroll :: Integer -> S.Vector Word
-unroll x = S.reverse (S.unfoldr split x)
+unroll :: Integer -> P.Vector Word
+unroll x = P.reverse (P.unfoldr split x)
   where	wSize = bitSize (0 :: Word)
 	split 0 = Nothing
 	split x = Just (fromIntegral x :: Word, shiftR x wSize)
