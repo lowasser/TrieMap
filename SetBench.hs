@@ -35,8 +35,6 @@ tSortBench strings = toList (fromList strings)
 
 tIntersectBench (strings, revs) = size (intersection strings revs)
 
-tLookupBench (strings, revs) = length [r | r <- revs, r `member` strings]
-
 tUnionBench (strings, revs) = size strings + size revs - size (union strings revs)
 
 tDiffBench (strings, revs) = size strings - size (difference strings revs)
@@ -57,8 +55,10 @@ tIndex strs = M.elemAt (31415926 `rem` M.size strs) strs
 
 nf' f a = f a `deepseq` nf f a
 
+tLookupBench (strings, s1, s2) = (s1 `member` strings, s2 `member` strings)
+
 tBenches strings revs = bgroup ""
-  [bench "Lookup" (nf' tLookupBench (strSet, revs)),
+  [bench "Lookup" (nf' tLookupBench (strSet, someStr1,someStr2)),
     revSet `seq` bench "Intersect" (nf' tIntersectBench (strSet, revSet)),
     bench "Sort" (nf' tSortBench strings),
     bench "Union" (nf' tUnionBench (strSet, revSet)),
@@ -71,6 +71,8 @@ tBenches strings revs = bgroup ""
     bench "ToList" (nf' tToList strSet),
     bench "Insert" (nf' tInsert strSet)]
   where !strSet = fromList strings; !revSet = fromList revs; !strMap = M.fromList [(str, str) | str <- strings]
+	someStr1 = strings !! (314159 `rem` n); someStr2 = revs !! (314159 `rem` n)
+	n = length strings
 
 main :: IO ()
 main = do
