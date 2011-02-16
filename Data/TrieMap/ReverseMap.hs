@@ -1,11 +1,8 @@
 {-# LANGUAGE TypeFamilies, UnboxedTuples, GeneralizedNewtypeDeriving, FlexibleInstances, NamedFieldPuns, RecordWildCards, MagicHash #-}
 module Data.TrieMap.ReverseMap () where
 
-import Control.Applicative
-import Control.Monad
 import Control.Monad.Ends
 
-import Data.Foldable
 import qualified Data.Monoid as M
 
 import Data.TrieMap.TrieKey
@@ -26,12 +23,18 @@ instance MonadPlus m => MonadPlus (DualPlus m) where
   mzero = DualPlus mzero
   DualPlus m `mplus` DualPlus k = DualPlus (k `mplus` m)
 
+instance TrieKey k => Functor (TrieMap (Rev k)) where
+  fmap f (RevMap m) = RevMap (f <$> m)
+
 instance TrieKey k => Foldable (TrieMap (Rev k)) where
   foldMap f (RevMap m) = M.getDual (foldMap (M.Dual . f) m)
   foldr f z (RevMap m) = foldl (flip f) z m
   foldl f z (RevMap m) = foldr (flip f) z m
   foldr1 f (RevMap m) = foldl1 (flip f) m
   foldl1 f (RevMap m) = foldr1 (flip f) m
+
+instance TrieKey k => Traversable (TrieMap (Rev k)) where
+  traverse f (RevMap m) = RevMap <$> runDual (traverse (Dual . f) m)
 
 instance TrieKey k => Subset (TrieMap (Rev k)) where
   RevMap m1 <=? RevMap m2 = m1 <=? m2
@@ -46,10 +49,7 @@ instance TrieKey k => TrieKey (Rev k) where
 	lookupMC (Rev k) (RevMap m) = lookupMC k m
 	sizeM (RevMap m) = sizeM m
 	getSimpleM (RevMap m) = getSimpleM m
-	
-	fmapM f (RevMap m) = RevMap (fmapM f m)
-	traverseM f (RevMap m) = RevMap <$> runDual (traverseM (Dual . f) m)
-	
+		
 	mapMaybeM f (RevMap m) = RevMap (mapMaybeM f m)
 	mapEitherM f (RevMap m) = both RevMap RevMap (mapEitherM f) m
 	unionM f (RevMap m1) (RevMap m2) = RevMap (unionM f m1 m2)

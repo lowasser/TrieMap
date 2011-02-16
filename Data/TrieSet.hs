@@ -63,7 +63,7 @@ import Control.Monad.Ends
 
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances ()
-import Data.TrieMap.TrieKey
+import Data.TrieMap.TrieKey (TrieKey(..), nullM)
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Sized
 import Data.TrieMap.Utils
@@ -277,7 +277,7 @@ s1 `isProperSubsetOf` s2 = size s1 < size s2 && s1 `isSubsetOf` s2
 {-# INLINE [1] mapSet #-}
 -- | Generate a 'TMap' by mapping on the elements of a 'TSet'.
 mapSet :: TKey a => (a -> b) -> TSet a -> TMap a b
-mapSet f (TSet s) = TMap (fmapM (\ (Elem a) -> Assoc a (f a)) s)
+mapSet f (TSet s) = TMap (fmap (\ (Elem a) -> Assoc a (f a)) s)
 
 -- | Returns the element at the specified index.  Throws an error if an invalid index is specified.
 elemAt :: TKey a => Int -> TSet a -> a

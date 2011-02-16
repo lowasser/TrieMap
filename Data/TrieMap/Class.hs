@@ -26,18 +26,14 @@ class (Repr k, TrieKey (Rep k)) => TKey k
 instance (Repr k, TrieKey (Rep k)) => TKey k
 
 instance TKey k => Functor (TMap k) where
-	fmap f (TMap m) = TMap (fmapM (fmap f) m)
+	fmap f (TMap m) = TMap (fmap (fmap f) m)
 
 instance TKey k => Foldable (TMap k) where
 	foldMap f (TMap m) = foldMap (foldMap f) m
 	foldr f z (TMap m) = foldr (flip $ foldr f) z m
 	foldl f z (TMap m) = foldl (foldl f) z m
-	foldr1 f (TMap m) = getElem (foldr1 f' m') where
-	  f' (Elem a) (Elem b) = Elem (f a b)
-	  m' = fmapM (\ (Assoc _ a) -> Elem a) m
-	foldl1 f (TMap m) = getElem (foldl1 f' m') where
-	  f' (Elem a) (Elem b) = Elem (f a b)
-	  m' = fmapM (\ (Assoc _ a) -> Elem a) m
+	foldr1 f (TMap m) = foldr1 f (getValue <$> m)
+	foldl1 f (TMap m) = foldl1 f (getValue <$> m)
 
 instance TKey k => Traversable (TMap k) where
-	traverse f (TMap m) = TMap <$> traverseM (traverse f) m
+	traverse f (TMap m) = TMap <$> traverse (traverse f) m

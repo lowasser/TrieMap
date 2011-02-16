@@ -5,16 +5,18 @@ module Data.TrieMap.ProdMap () where
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 
-import Control.Monad
-import Data.Functor
-import Data.Foldable hiding (foldlM, foldrM)
-
 import Prelude hiding (foldl, foldl1, foldr, foldr1)
+
+instance (TrieKey k1, TrieKey k2) => Functor (TrieMap (k1, k2)) where
+  fmap f (PMap m) = PMap (fmap (fmap f) m)
 
 instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (k1, k2)) where
   foldMap f (PMap m) = foldMap (foldMap f) m
   foldr f z (PMap m) = foldr (flip $ foldr f) z m
   foldl f z (PMap m) = foldl (foldl f) z m
+
+instance (TrieKey k1, TrieKey k2) => Traversable (TrieMap (k1, k2)) where
+  traverse f (PMap m) = PMap <$> traverse (traverse f) m
 
 instance (TrieKey k1, TrieKey k2) => Subset (TrieMap (k1, k2)) where
   PMap m1 <=? PMap m2 = m1 <<=? m2
@@ -30,8 +32,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	sizeM (PMap m) = sizeM m
 	lookupMC (k1, k2) (PMap m) no yes = 
 	  lookupMC k1 m no (\ m' -> lookupMC k2 m' no yes)
-	traverseM f (PMap m) = PMap <$> traverseM (traverseM f) m
-	fmapM f (PMap m) = PMap (fmapM (fmapM f) m)
 	mapMaybeM f (PMap m) = PMap (mapMaybeM (mapMaybeM' f) m)
 	mapEitherM f (PMap m) = both PMap PMap (mapEitherM (mapEitherM' f)) m
 	unionM f (PMap m1) (PMap m2) = PMap (unionM (unionM' f) m1 m2)

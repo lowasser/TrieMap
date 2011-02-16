@@ -5,16 +5,12 @@ module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), getWord
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
+import Data.TrieMap.Utils
 
 import Control.Exception (assert)
-import Control.Applicative (Applicative(..), (<$>))
-import Control.Monad hiding (join)
 
 import Data.Bits
-import Data.Foldable
 import Data.Maybe hiding (mapMaybe)
-import Data.Monoid
-import Data.TrieMap.Utils
 
 import GHC.Exts
 
@@ -65,6 +61,19 @@ hole k path = Hole (WHole k path)
 instance Subset (TrieMap Word) where
   WordMap m1 <=? WordMap m2 = m1 <=? m2
 
+instance Functor (TrieMap Word) where
+  fmap f (WordMap m) = WordMap (f <$> m)
+
+instance Foldable (TrieMap Word) where
+  foldMap f (WordMap m) = foldMap f m
+  foldr f z (WordMap m) = foldr f z m
+  foldl f z (WordMap m) = foldl f z m
+  foldr1 f (WordMap m) = foldr1 f m
+  foldl1 f (WordMap m) = foldl1 f m
+
+instance Traversable (TrieMap Word) where
+  traverse f (WordMap m) = WordMap <$> traverse f m
+
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
 	newtype TrieMap Word a = WordMap {getWordMap :: SNode a}
@@ -77,8 +86,6 @@ instance TrieKey Word where
 	  _		-> NonSimple
 	sizeM (WordMap t) = getSize t
 	lookupMC k (WordMap m) = lookupC k m
-	traverseM f (WordMap m) = WordMap <$> traverse f m
-	fmapM f (WordMap m) = WordMap (map f m)
 	mapMaybeM f (WordMap m) = WordMap (mapMaybe f m)
 	mapEitherM f (WordMap m) = both WordMap WordMap (mapEither f) m
 	unionM f (WordMap m1) (WordMap m2) = WordMap (unionWith f m1 m2)
@@ -180,11 +187,12 @@ singleton k a = sNode (Tip k a)
 singletonMaybe :: Sized a => Key -> Maybe a -> SNode a
 singletonMaybe k = maybe nil (singleton k)
 
-traverse :: (Applicative f, Sized b) => (a -> f b) -> SNode a -> f (SNode b)
-traverse f = trav where
-  trav NIL	= pure nil
-  trav TIP(kx x) = singleton kx <$> f x
-  trav BIN(p m l r) = bin' p m <$> trav l <*> trav r
+instance Functor SNode where
+  fmap f = map where
+    map SNode{sz, node} = SNode sz $ case node of
+      Nil		-> Nil
+      Tip k x		-> Tip k (f x)
+      Bin p m l r	-> Bin p m (map l) (map r)
 
 instance Foldable SNode where
   foldMap f = fold where
@@ -202,25 +210,13 @@ instance Foldable SNode where
     fold z TIP(_ x) = f z x
     fold z NIL = z
 
-  foldr1 _ NIL = foldr1Empty
-  foldr1 _ TIP(_ x) = x
-  foldr1 f BIN(_ _ l r) = foldr f (foldr1 f r) l
-  
-  foldl1 _ NIL = foldl1Empty
-  foldl1 _ TIP(_ x) = x
-  foldl1 f BIN(_ _ l r) = foldl f (foldl1 f l) r
-
-instance Foldable (TrieMap Word) where
-  foldMap f (WordMap m) = foldMap f m
-  foldr f z (WordMap m) = foldr f z m
-  foldl f z (WordMap m) = foldl f z m
-  foldr1 f (WordMap m) = foldr1 f m
-  foldl1 f (WordMap m) = foldl1 f m
-
-map :: Sized b => (a -> b) -> SNode a -> SNode b
-map f BIN(p m l r)	= bin' p m (map f l) (map f r)
-map f TIP(kx x)		= singleton kx (f x)
-map _ _			= nil
+instance Traversable SNode where
+  traverse f = trav where
+    trav NIL	= pure nil
+    trav SNode{sz, node = Tip kx x}
+    		= SNode sz . Tip kx <$> f x
+    trav SNode{sz, node = Bin p m l r}
+		= SNode sz .: Bin p m <$> trav l <*> trav r
 
 mapMaybe :: Sized b => (a -> Maybe b) -> SNode a -> SNode b
 mapMaybe f BIN(p m l r)	= bin p m (mapMaybe f l) (mapMaybe f r)

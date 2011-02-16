@@ -135,8 +135,8 @@ import Data.TrieMap.Representation.Instances ()
 import Data.TrieMap.Sized
 import Data.TrieMap.Utils
 
-import Control.Applicative hiding (empty)
 import Control.Monad
+
 import qualified Data.Foldable as F
 import Data.Maybe hiding (mapMaybe)
 import Data.Monoid(Monoid(..))
@@ -342,7 +342,7 @@ foldlWithKey f z (TMap m) = F.foldl (\ z (Assoc k a) -> f z k a) z m
 -- | Map each key\/element pair to an action, evaluate these actions from left to right, and collect the results.
 {-# INLINE traverseWithKey #-}
 traverseWithKey :: (TKey k, Applicative f) => (k -> a -> f b) -> TMap k a -> f (TMap k b)
-traverseWithKey f (TMap m) = TMap <$> traverseM (\ (Assoc k a) -> Assoc k <$> f k a) m
+traverseWithKey f (TMap m) = TMap <$> traverse (\ (Assoc k a) -> Assoc k <$> f k a) m
 
 -- | Map a function over all values in the map.
 --
@@ -357,7 +357,7 @@ map = fmap
 -- > mapWithKey f (fromList [(5,"a"), (3,"b")]) == fromList [(3, "3:b"), (5, "5:a")]
 {-# INLINEABLE mapWithKey #-}
 mapWithKey :: TKey k => (k -> a -> b) -> TMap k a -> TMap k b
-mapWithKey f (TMap m) = TMap (fmapM (\ (Assoc k a) -> Assoc k (f k a)) m)
+mapWithKey f (TMap m) = TMap (fmap (\ (Assoc k a) -> Assoc k (f k a)) m)
 
 -- |
 -- @'mapKeys' f s@ is the map obtained by applying @f@ to each key of @s@.
@@ -917,7 +917,7 @@ notMember = not .: member
 -- > keysSet empty == Data.TrieSet.empty
 {-# INLINE keysSet #-}
 keysSet :: TKey k => TMap k a -> TSet k
-keysSet (TMap m) = TSet (fmapM (\ (Assoc k _) -> Elem k) m)
+keysSet (TMap m) = TSet (fmap (\ (Assoc k _) -> Elem k) m)
 
 -- | /O(1)/.  The key marking the position of the \"hole\" in the map.
 {-# INLINE key #-}

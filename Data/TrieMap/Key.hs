@@ -1,9 +1,6 @@
-{-# LANGUAGE TypeFamilies, MagicHash, CPP, FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies, MagicHash, CPP, FlexibleInstances, FlexibleContexts, NamedFieldPuns, RecordWildCards #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.Key () where
-
-import Data.Functor
-import Data.Foldable
 
 import Data.TrieMap.Class
 import Data.TrieMap.TrieKey
@@ -22,8 +19,12 @@ instance (Repr k, TrieKey (Rep k)) => Foldable (TrieMap (Key k)) where
   foldMap f KMAP(m) = foldMap f m
   foldr f z KMAP(m) = foldr f z m
   foldl f z KMAP(m) = foldl f z m
-  foldr1 f KMAP(m) = foldr1 f m
-  foldl1 f KMAP(m) = foldl1 f m
+
+instance (Repr k, TrieKey (Rep k)) => Functor (TrieMap (Key k)) where
+  fmap f KeyMap{..} = KeyMap{sz, tMap = f <$> tMap}
+
+instance (Repr k, TrieKey (Rep k)) => Traversable (TrieMap (Key k)) where
+  traverse f KeyMap{..} = KeyMap sz <$> traverse f tMap
 
 instance (Repr k, TrieKey (Rep k)) => Subset (TrieMap (Key k)) where
   KMAP(m1) <=? KMAP(m2) = m1 <=? m2
@@ -38,8 +39,6 @@ instance TKey k => TrieKey (Key k) where
 	getSimpleM KMAP(m) = getSimpleM m
 	sizeM = sz
 	lookupMC (Key k) KMAP(m) = lookupMC (toRep k) m
-	traverseM f KMAP(m) = keyMap <$> traverseM f m
-	fmapM f KMAP(m) = keyMap (fmapM f m)
 	mapMaybeM f KMAP(m) = keyMap (mapMaybeM f m)
 	mapEitherM f KMAP(m) = both keyMap keyMap (mapEitherM f) m
 	unionM f KMAP(m1) KMAP(m2) = keyMap (unionM f m1 m2)

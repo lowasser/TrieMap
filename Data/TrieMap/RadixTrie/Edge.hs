@@ -12,10 +12,8 @@ module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
       insertEdge,
       isectEdge,
       lookupEdge,
-      mapEdge,
       mapEitherEdge,
       mapMaybeEdge,
-      traverseEdge,
       unionEdge,
       fromAscListEdge) where
 
@@ -25,17 +23,12 @@ import Data.TrieMap.WordMap ()
 import Data.TrieMap.RadixTrie.Label
 import Data.TrieMap.RadixTrie.Slice
 
-import Control.Applicative
-import Control.Monad
-
-import Data.Foldable
-import Data.Monoid
 import Data.Word
 
 import Data.Vector.Generic (length)
 import qualified Data.Vector (Vector)
 import qualified Data.Vector.Primitive (Vector)
-import Prelude hiding (length, foldr, foldl, zip, take)
+import Prelude hiding (length, foldr, foldl, zip, take, map)
 import GHC.Exts
 
 #define V(f) f (Data.Vector.Vector) (k)
@@ -43,6 +36,38 @@ import GHC.Exts
 #define EDGE(args) (!(eView -> Edge args))
 #define LOC(args) !(locView -> Loc args)
 #define DEEP(args) !(pView -> Deep args)
+
+instance Label v k => Functor (Edge v k) where
+  {-# SPECIALIZE instance TrieKey k => Functor (V(Edge)) #-}
+  {-# SPECIALIZE instance Functor (U(Edge)) #-}
+  fmap f = map where
+    map EDGE(sz ks v ts) = edge' sz ks (f <$> v) (map <$> ts)
+
+instance Label v k => Foldable (Edge v k) where
+  {-# SPECIALIZE instance TrieKey k => Foldable (V(Edge)) #-}
+  {-# SPECIALIZE instance Foldable (U(Edge)) #-}
+  foldMap f = fold where
+    fold e = case eView e of
+      Edge _ _ Nothing ts	-> foldMap fold ts
+      Edge _ _ (Just a) ts	-> f a `mappend` foldMap fold ts
+  
+  foldr f = flip fold where
+    fold e z = case eView e of
+      Edge _ _ Nothing ts -> foldr fold z ts
+      Edge _ _ (Just a) ts -> a `f` foldr fold z ts
+
+  foldl f = fold where
+    fold z e = case eView e of
+      Edge _ _ Nothing ts -> foldl fold z ts
+      Edge _ _ (Just a) ts -> foldl fold (z `f` a) ts
+
+instance Label v k => Traversable (Edge v k) where
+  {-# SPECIALIZE instance TrieKey k => Traversable (V(Edge)) #-}
+  {-# SPECIALIZE instance Traversable (U(Edge)) #-}
+  traverse f = trav where
+    trav e = case eView e of
+      Edge sz ks Nothing ts	-> edge' sz ks Nothing <$> traverse trav ts
+      Edge sz ks (Just a) ts	-> edge' sz ks . Just <$> f a <*> traverse trav ts
 
 {-# SPECIALIZE lookupEdge ::
       TrieKey k => V() -> V(Edge) a -> LookupCont a r,
@@ -80,13 +105,6 @@ searchEdgeC ks0 e nomatch0 match0 = searchE ks0 e root where
 	  match' e' tHole = searchE ks' e' (deep path ls v tHole)
 	  in searchMC kk ts nomatch' match'
 
-{-# SPECIALIZE mapEdge ::
-      (TrieKey k, Sized b) => (a -> b) -> V(Edge) a -> V(Edge) b,
-      Sized b => (a -> b) -> U(Edge) a -> U(Edge) b #-}
-mapEdge :: (Label v k, Sized b) => (a -> b) -> Edge v k a -> Edge v k b
-mapEdge f = mapE where
-	mapE EDGE(_ ks v ts) = edge ks (f <$> v) (fmapM mapE ts)
-
 {-# SPECIALIZE mapMaybeEdge ::
       (TrieKey k, Sized b) => (a -> Maybe b) -> V(Edge) a -> V(MEdge) b,
       Sized b => (a -> Maybe b) -> U(Edge) a -> U(MEdge) b #-}
@@ -103,34 +121,6 @@ mapEitherEdge f = mapEitherE where
 	mapEitherE EDGE(_ ks v ts) = (# cEdge ks vL tsL, cEdge ks vR tsR #)
 	  where	!(# vL, vR #) = mapEitherMaybe f v
 		!(# tsL, tsR #) = mapEitherM mapEitherE ts
-
-{-# SPECIALIZE traverseEdge ::
-      (TrieKey k, Applicative f, Sized b) => (a -> f b) -> V(Edge) a -> f (V(Edge) b),
-      (Applicative f, Sized b) => (a -> f b) -> U(Edge) a -> f (U(Edge) b) #-}
-traverseEdge :: (Label v k, Applicative f, Sized b) =>
-	(a -> f b) -> Edge v k a -> f (Edge v k b)
-traverseEdge f = traverseE where
-	traverseE e = case eView e of
-	  Edge _ ks Nothing ts	-> edge ks Nothing <$> traverseM traverseE ts
-	  Edge _ ks (Just v) ts	-> edge ks . Just <$> f v <*> traverseM traverseE ts
-
-instance Label v k => Foldable (Edge v k) where
-  {-# SPECIALIZE instance TrieKey k => Foldable (V(Edge)) #-}
-  {-# SPECIALIZE instance Foldable (U(Edge)) #-}
-  foldMap f = fold where
-    fold e = case eView e of
-      Edge _ _ Nothing ts	-> foldMap fold ts
-      Edge _ _ (Just a) ts	-> f a `mappend` foldMap fold ts
-  
-  foldr f = flip fold where
-    fold e z = case eView e of
-      Edge _ _ Nothing ts -> foldr fold z ts
-      Edge _ _ (Just a) ts -> a `f` foldr fold z ts
-
-  foldl f = fold where
-    fold z e = case eView e of
-      Edge _ _ Nothing ts -> foldl fold z ts
-      Edge _ _ (Just a) ts -> foldl fold (z `f` a) ts
 
 {-# INLINE assignEdge #-}
 assignEdge :: (Label v k, Sized a) => a -> EdgeLoc v k a -> Edge v k a

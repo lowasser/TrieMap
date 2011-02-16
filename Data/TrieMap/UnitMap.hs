@@ -5,14 +5,12 @@ module Data.TrieMap.UnitMap () where
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 
-import Data.Functor
-import Control.Monad
-
-import Data.Foldable
-import Data.Traversable
 import Data.Maybe
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1)
+
+instance Functor (TrieMap ()) where
+  fmap f (Unit m) = Unit (f <$> m)
 
 instance Foldable (TrieMap ()) where
   foldMap f (Unit m) = foldMap f m
@@ -20,6 +18,10 @@ instance Foldable (TrieMap ()) where
   foldl f z (Unit m) = foldl f z m
   foldr1 f (Unit m) = foldr1 f m
   foldl1 f (Unit m) = foldl1 f m
+
+instance Traversable (TrieMap ()) where
+  traverse f (Unit (Just a)) = Unit . Just <$> f a
+  traverse _ _ = pure (Unit Nothing)
 
 instance Subset (TrieMap ()) where
   Unit m1 <=? Unit m2 = m1 <=? m2
@@ -34,8 +36,6 @@ instance TrieKey () where
 	getSimpleM (Unit m) = maybe Null Singleton m
 	sizeM (Unit m) = getSize m
 	lookupMC _ (Unit m) no yes = maybe no yes m
-	traverseM f (Unit m) = Unit <$> traverse f m
-	fmapM f (Unit m) = Unit (f <$> m)
 	mapMaybeM f (Unit m) = Unit (m >>= f)
 	mapEitherM f (Unit a) = both Unit Unit (mapEitherMaybe f) a
 	unionM f (Unit m1) (Unit m2) = Unit (unionMaybe f m1 m2)

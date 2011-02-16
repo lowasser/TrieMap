@@ -1,16 +1,25 @@
 {-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts, TupleSections, Rank2Types, ExistentialQuantification #-}
 {-# LANGUAGE NamedFieldPuns, RecordWildCards, ImplicitParams #-}
 
-module Data.TrieMap.TrieKey where
+module Data.TrieMap.TrieKey (
+  module Data.TrieMap.TrieKey,
+  module Data.Foldable,
+  module Data.Traversable,
+  module Control.Applicative,
+  MonadPlus(..),
+  Monoid(..),
+  guard) where
 
 import Data.TrieMap.Sized
 import Data.TrieMap.Utils
 
-import Control.Applicative (Applicative)
+import Control.Applicative hiding (empty)
 import Control.Monad
 import Control.Monad.Ends
 
-import Data.Foldable hiding (foldrM, foldlM)
+import Data.Monoid (Monoid(..))
+import Data.Foldable
+import Data.Traversable
 
 import Prelude hiding (foldr, foldl)
 
@@ -90,7 +99,7 @@ onThird g f a = case f a of
 
 -- | A @TrieKey k@ instance implies that @k@ is a standardized representation for which a
 -- generalized trie structure can be derived.
-class (Ord k, Foldable (TrieMap k), Subset (TrieMap k)) => TrieKey k where
+class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	data TrieMap k :: * -> *
 	emptyM :: TrieMap k a
 	singletonM :: Sized a => k -> a -> TrieMap k a
@@ -98,9 +107,6 @@ class (Ord k, Foldable (TrieMap k), Subset (TrieMap k)) => TrieKey k where
 	sizeM# :: Sized a => TrieMap k a -> Int#
 	sizeM :: Sized a => TrieMap k a -> Int
 	lookupMC :: k -> TrieMap k a -> r -> (a -> r) -> r
-	fmapM :: Sized b => (a -> b) -> TrieMap k a -> TrieMap k b
-	traverseM :: (Applicative f, Sized b) =>
-		(a -> f b) -> TrieMap k a -> f (TrieMap k b)
 	mapMaybeM :: Sized b => (a -> Maybe b) -> TrieMap k a -> TrieMap k b
 	mapEitherM :: (Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> TrieMap k a -> (# TrieMap k b, TrieMap k c #)
 	unionM :: Sized a => (a -> a -> Maybe a) -> TrieMap k a -> TrieMap k a -> TrieMap k a
@@ -182,6 +188,13 @@ mapIndex f run res = run res' where
 {-# INLINE lookupM #-}
 lookupM :: TrieKey k => k -> TrieMap k a -> Maybe a
 lookupM k m = lookupMC k m Nothing Just
+
+{-# INLINE mappendM #-}
+mappendM :: Monoid m => Maybe m -> Maybe m -> m
+Nothing `mappendM` Nothing = mempty
+Nothing `mappendM` Just m = m
+Just m `mappendM` Nothing = m
+Just m1 `mappendM` Just m2 = m1 `mappend` m2
 
 {-# INLINE unifyM #-}
 unifyM :: (TrieKey k, Sized a) => k -> a -> k -> a -> Maybe (TrieMap k a)

@@ -6,11 +6,6 @@ import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 import Data.TrieMap.UnitMap ()
 
-import Control.Applicative
-import Control.Monad
-
-import Data.Monoid
-import Data.Foldable (Foldable(..))
 import Prelude hiding (foldr, foldr1, foldl, foldl1, (^))
 import GHC.Exts
 
@@ -56,28 +51,22 @@ hole2 (Just m1) hole2 = Hole1X m1 hole2
 
 #define UVIEW uView -> UView
 
-instance (TrieKey k1, TrieKey k2) => Foldable (UView k1 k2) where
-  {-# INLINE foldr #-}
-  {-# INLINE foldl #-}
-  {-# INLINE foldMap #-}
-  foldMap f (UView m1 m2) = foldMap (foldMap f) m1 `mappend` foldMap (foldMap f) m2
-  foldr f z (UView m1 m2) = foldl (foldr f) (foldl (foldr f) z m2) m1
-  foldl f z (UView m1 m2) = foldl (foldl f) (foldl (foldl f) z m1) m2
+instance (TrieKey k1, TrieKey k2) => Functor (TrieMap (Either k1 k2)) where
+  fmap _ Empty = Empty
+  fmap f (K1 m1) = K1 (f <$> m1)
+  fmap f (K2 m2) = K2 (f <$> m2)
+  fmap f (Union s m1 m2) = Union s (f <$> m1) (f <$> m2)
 
 instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (Either k1 k2)) where
-  foldMap f m = foldMap f (uView m)
-  foldr f z m = foldr f z (uView m)
-  foldl f z m = foldl f z (uView m)
-  
-  foldl1 _ Empty = foldl1Empty
-  foldl1 f (K1 m1) = foldl1 f m1
-  foldl1 f (K2 m2) = foldl1 f m2
-  foldl1 f (Union _ m1 m2) = foldl f (foldl1 f m1) m2
-  
-  foldr1 _ Empty = foldr1Empty
-  foldr1 f (K1 m1) = foldr1 f m1
-  foldr1 f (K2 m2) = foldr1 f m2
-  foldr1 f (Union _ m1 m2) = foldr f (foldr1 f m2) m1
+  foldMap f (UVIEW m1 m2) = fmap (foldMap f) m1 `mappendM` fmap (foldMap f) m2
+  foldr f z (UVIEW m1 m2) = foldl (foldr f) (foldl (foldr f) z m2) m1
+  foldl f z (UVIEW m1 m2) = foldl (foldl f) (foldl (foldl f) z m1) m2
+
+instance (TrieKey k1, TrieKey k2) => Traversable (TrieMap (Either k1 k2)) where
+  traverse _ Empty = pure Empty
+  traverse f (K1 m1) = K1 <$> traverse f m1
+  traverse f (K2 m2) = K2 <$> traverse f m2
+  traverse f (Union s m1 m2) = Union s <$> traverse f m1 <*> traverse f m2
 
 instance (TrieKey k1, TrieKey k2) => Subset (TrieMap (Either k1 k2)) where
   (UVIEW m11 m12) <=? (UVIEW m21 m22)
@@ -113,16 +102,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	lookupMC (Left k) (UVIEW (Just m1) _) = lookupMC k m1
 	lookupMC (Right k) (UVIEW _ (Just m2)) = lookupMC k m2
 	lookupMC _ _ = \ no _ -> no
-
-	traverseM f (Union _ m1 m2) = union <$> traverseM f m1 <*> traverseM f m2
-	traverseM f (K1 m1) = K1 <$> traverseM f m1
-	traverseM f (K2 m2) = K2 <$> traverseM f m2
-	traverseM _ _ = pure Empty
-
-	fmapM f (Union _ m1 m2) = fmapM f m1 `union` fmapM f m2
-	fmapM f (K1 m1)		= K1 (fmapM f m1)
-	fmapM f (K2 m2)		= K2 (fmapM f m2)
-	fmapM _ _		= Empty
 
 	mapMaybeM f (UVIEW m1 m2) = (m1 >>= mapMaybeM' f) ^ (m2 >>= mapMaybeM' f)
 

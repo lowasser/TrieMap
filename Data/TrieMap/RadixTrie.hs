@@ -4,13 +4,8 @@ module Data.TrieMap.RadixTrie () where
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 
-import Data.Functor
-import Data.Foldable (Foldable(..))
-import Control.Monad
-
 import Data.Vector (Vector)
 import qualified Data.Vector.Primitive as P
-import Data.Traversable
 import Data.Word
 
 import Data.TrieMap.RadixTrie.Edge
@@ -18,10 +13,17 @@ import Data.TrieMap.RadixTrie.Label
 
 import Prelude hiding (length, and, zip, zipWith, foldr, foldl)
 
+instance TrieKey k => Functor (TrieMap (Vector k)) where
+  fmap f (Radix m) = Radix (fmap f <$> m)
+
 instance TrieKey k => Foldable (TrieMap (Vector k)) where
   foldMap f (Radix m) = foldMap (foldMap f) m
   foldr f z (Radix m) = foldl (foldr f) z m
   foldl f z (Radix m) = foldl (foldl f) z m
+
+instance TrieKey k => Traversable (TrieMap (Vector k)) where
+  traverse _ (Radix Nothing) = pure emptyM
+  traverse f (Radix (Just m)) = Radix . Just <$> traverse f m
 
 instance TrieKey k => Subset (TrieMap (Vector k)) where
   Radix m1 <=? Radix m2 = m1 <<=? m2
@@ -39,10 +41,8 @@ instance TrieKey k => TrieKey (Vector k) where
 	lookupMC ks (Radix (Just e)) no yes = lookupEdge ks e no yes
 	lookupMC _ _ no _ = no
 
-	fmapM f (Radix m) = Radix (mapEdge f <$> m)
 	mapMaybeM f (Radix m) = Radix (m >>= mapMaybeEdge f)
 	mapEitherM f (Radix e) = both Radix Radix (mapEitherMaybe (mapEitherEdge f)) e
-	traverseM f (Radix m) = Radix <$> traverse (traverseEdge f) m
 
 	unionM f (Radix m1) (Radix m2) = Radix (unionMaybe (unionEdge f) m1 m2)
 	isectM f (Radix m1) (Radix m2) = Radix (isectMaybe (isectEdge f) m1 m2)
@@ -78,10 +78,17 @@ instance TrieKey k => TrieKey (Vector k) where
 
 type WordVec = P.Vector Word
 
+instance Functor (TrieMap (P.Vector Word)) where
+  fmap f (WRadix m) = WRadix (fmap f <$> m)
+
 instance Foldable (TrieMap (P.Vector Word)) where
   foldMap f (WRadix m) = foldMap (foldMap f) m
   foldr f z (WRadix m) = foldl (foldr f) z m
   foldl f z (WRadix m) = foldl (foldl f) z m
+
+instance Traversable (TrieMap (P.Vector Word)) where
+  traverse _ (WRadix Nothing) = pure emptyM
+  traverse f (WRadix (Just m)) = WRadix . Just <$> traverse f m
 
 instance Subset (TrieMap WordVec) where
   WRadix m1 <=? WRadix m2 = m1 <<=? m2
@@ -99,10 +106,8 @@ instance TrieKey (P.Vector Word) where
 	lookupMC ks (WRadix (Just e)) no yes = lookupEdge ks e no yes
 	lookupMC _ _ no _ = no
 
-	fmapM f (WRadix m) = WRadix (mapEdge f <$> m)
 	mapMaybeM f (WRadix m) = WRadix (m >>= mapMaybeEdge f)
 	mapEitherM f (WRadix e) = both WRadix WRadix (mapEitherMaybe (mapEitherEdge f)) e
-	traverseM f (WRadix m) = WRadix <$> traverse (traverseEdge f) m
 
 	unionM f (WRadix m1) (WRadix m2) = WRadix (unionMaybe (unionEdge f) m1 m2)
 	isectM f (WRadix m1) (WRadix m2) = WRadix (isectMaybe (isectEdge f) m1 m2)
