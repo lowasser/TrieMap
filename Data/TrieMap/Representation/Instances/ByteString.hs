@@ -84,9 +84,3 @@ readLastWordAt !n !off !ptr =
 	{-# INLINE accum #-}
 	accum x w = let s = 8 * (bytesPerWord - 1 - x) in
 	  liftM2 (.|.) w $ liftM (\ w -> fromIntegral w .<<. s) $ peekElemOff ptr (x + off')
-
-instance Repr L.ByteString where
-	type Rep L.ByteString = Rep ByteString
-	toRep = toRep . B.concat . L.toChunks
-	type RepList L.ByteString = DRepList L.ByteString
-	toRepList = dToRepList
