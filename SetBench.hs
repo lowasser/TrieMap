@@ -52,6 +52,8 @@ tToList strs = sum [BS.length str | str <- toList strs]
 
 tInsert strs = size (insert (BS.pack "scientifitude") strs)
 tIndex strs = M.elemAt (31415926 `rem` M.size strs) strs
+tNeighborhood (strs, str) = case splitMember str strs of
+  (l, x, r) -> (findMax l, x, findMin r)
 
 nf' f a = f a `deepseq` nf f a
 
@@ -65,6 +67,7 @@ tBenches strings revs = bgroup ""
     bench "Difference" (nf' tDiffBench (strSet, revSet)),
     bench "Filter" (nf' tFilterBench strSet),
     bench "Split" (nf' tSplitBench strSet),
+    bench "Neighborhood" (nf' tNeighborhood (strSet, someStr2)),
     bench "Index" (nf' tIndex strMap),
     bench "Min/Max" (nf' tEnds strSet),
     bench "FromList" (nf' tFromList strings),

@@ -54,6 +54,9 @@ tFDAL strings = size (fromDistinctAscList strings)
 tInsert strs = size (insert (BS.pack "scientifitude") strs)
 tIndex strs = elemAt (31415926 `rem` size strs) strs
 
+tNeighborhood (strs, str) = case splitMember str strs of
+  (l, x, r) -> (findMax l, x, findMin r)
+
 nf' f a = f a `deepseq` nf f a
 
 tBenches strings revs = bgroup ""
@@ -64,6 +67,7 @@ tBenches strings revs = bgroup ""
     bench "Difference" (nf' tDiffBench (strSet, revSet)),
     bench "Filter" (nf' tFilterBench strSet),
     bench "Split" (nf' tSplitBench strSet),
+    bench "Neighborhood" (nf' tNeighborhood (strSet, someStr2)),
     bench "Index" (nf' tIndex strSet),
     bench "Min/Max" (nf' tEnds strSet),
     bench "ToList" (nf' tToList strSet),
