@@ -28,15 +28,15 @@ shuffleM xs = forM_ [0..VM.length xs - 1] $ \ i -> do
   j <- getRandomR (0, VM.length xs - 1)
   lift $ VM.swap xs i j
 
-tSortBench strings = toList (fromList strings)
+tSortBench strings = keys (fromList strings)
 
 tLookupBench (strings, s1, s2) = (s1 `member` strings, s2 `member` strings)
 
-tUnionBench (strings, revs) = size strings + size revs - size (unionL strings revs)
+tUnionBench (strings, revs) = unionL strings revs `seq` ()
 
-tFilterBench strings = size (filterMap (\ str -> if not (BS.null str) && BS.last str /= 's' then Just str else Nothing) strings)
+tFilterBench strings = filterMap (\ str -> if not (BS.null str) && BS.last str /= 's' then Just str else Nothing) strings `seq` ()
 
-tFromList strings = size (fromList strings)
+tFromList strings = fromList strings `seq` ()
 tToList strs = sum [BS.length str | (str, _) <- toList strs]
 
 tInsert strs = insert s s strs `seq` ()
