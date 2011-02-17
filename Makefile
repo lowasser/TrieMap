@@ -7,7 +7,7 @@ OPTIMIZED_DIR := out/opt
 GHC_OPTS := -Wall -fno-warn-name-shadowing -fno-warn-orphans -rtsopts
 FAST_GHC_OPTS := -O0 -ddump-minimal-imports -odir $(FAST_DIR) $(GHC_OPTS)
 DEBUG_GHC_OPTS := -prof -hisuf p_hi -auto-all  -rtsopts -osuf p_o  $(FAST_GHC_OPTS) $(GHC_OPTS)
-LLVM_OPTS := -O3 -std-compile-opts -partialspecialization -stats
+LLVM_OPTS := -O3 -std-compile-opts -partialspecialization
 OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
   -fllvm $(addprefix -optlo, $(LLVM_OPTS)) \
   -fmax-worker-args=100 -funfolding-keeness-factor=100 -odir $(OPTIMIZED_DIR) $(GHC_OPTS)
@@ -34,19 +34,25 @@ testdbg :: TestsP
 bench : SAMPLES = 30
 bench : $(PLOT_FILE)
 
-TRIEBENCH_OPTS = --name="TrieBench" --mode=run --group=$(PROGRESSION_GROUP) --prefixes=$(PROGRESSION_PREFIXES) \
+BENCH_OPTS = --mode=run --group=$(PROGRESSION_GROUP) --prefixes=$(PROGRESSION_PREFIXES) \
 		--compare="" -- -s $(SAMPLES)
 
 bench.png : bench-TrieBench.csv bench-SetBench.csv
 	./TrieBench --mode=graph --group=$(PROGRESSION_GROUP) --compare="TrieBench,SetBench" --plot=$(PLOT_FILE) \
 		--plot-log-y
 
+benchbs.png : bench-TrieBench.csv bench-SetBench.csv bench-BSTrieBench.csv
+	./TrieBench --mode=graph --group=$(PROGRESSION_GROUP) --compare="TrieBench,SetBench,BSTrieBench" --plot=$(PLOT_FILE) \
+		--plot-log-y
+
 bench-TrieBench.csv : TrieBench
-	./TrieBench +RTS $(RTS_OPTS) -RTS $(TRIEBENCH_OPTS)
+	./TrieBench +RTS $(RTS_OPTS) -RTS --name="TrieBench" $(BENCH_OPTS)
 
 bench-SetBench.csv : SetBench
-	./SetBench +RTS $(RTS_OPTS) -RTS --name="SetBench" --mode=run --group=bench --prefixes=$(PROGRESSION_PREFIXES) \
-		--compare="" -- -s $(SAMPLES)
+	./SetBench +RTS $(RTS_OPTS) -RTS --name="SetBench" $(BENCH_OPTS)
+
+bench-BSTrieBench.csv : BSTrieBench
+	./BSTrieBench +RTS $(RTS_OPTS) -RTS --name="BSTrieBench" $(BENCH_OPTS)
 
 benchprof : BenchmarkP.prof BenchmarkP.ps
 	less BenchmarkP.prof
@@ -81,8 +87,10 @@ Benchmark : opt
 
 TrieBench : TrieBench.hs opt
 	ghc $(OPTIMIZED_GHC_OPTS) -w $< -o $@ -main-is TrieBench.main
-SetBench : SetBench.hs opt
+SetBench : SetBench.hs
 	ghc $(OPTIMIZED_GHC_OPTS) -w $< -o $@ -main-is SetBench.main
+BSTrieBench : BSTrieBench.hs
+	ghc $(OPTIMIZED_GHC_OPTS) -w $< -o $@ -main-is BSTrieBench.main
 
 Benchlog : opt
 	ghc $(THREADSCOPE_OPTS) -w TrieBench -o Benchlog -main-is TrieBench.main
