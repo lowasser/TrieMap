@@ -49,19 +49,22 @@ instance Label v k => Foldable (Edge v k) where
   {-# SPECIALIZE instance TrieKey k => Foldable (V(Edge)) #-}
   {-# SPECIALIZE instance Foldable (U(Edge)) #-}
   foldMap f = fold where
+    foldBranch = foldMap fold
     fold e = case eView e of
-      Edge _ _ Nothing ts	-> foldMap fold ts
-      Edge _ _ (Just a) ts	-> f a `mappend` foldMap fold ts
+      Edge _ _ Nothing ts	-> foldBranch ts
+      Edge _ _ (Just a) ts	-> f a `mappend` foldBranch ts
   
   foldr f = flip fold where
+    foldBranch = foldr fold
     fold e z = case eView e of
-      Edge _ _ Nothing ts -> foldr fold z ts
-      Edge _ _ (Just a) ts -> a `f` foldr fold z ts
+      Edge _ _ Nothing ts -> foldBranch z ts
+      Edge _ _ (Just a) ts -> a `f` foldBranch z ts
 
   foldl f = fold where
+    foldBranch = foldl fold
     fold z e = case eView e of
-      Edge _ _ Nothing ts -> foldl fold z ts
-      Edge _ _ (Just a) ts -> foldl fold (z `f` a) ts
+      Edge _ _ Nothing ts -> foldBranch z ts
+      Edge _ _ (Just a) ts -> foldBranch (z `f` a) ts
 
 instance Label v k => Traversable (Edge v k) where
   {-# SPECIALIZE instance TrieKey k => Traversable (V(Edge)) #-}
@@ -75,17 +78,18 @@ instance Label v k => Traversable (Edge v k) where
       TrieKey k => V() -> V(Edge) a -> Lookup r a,
       U() -> U(Edge) a -> Lookup r a #-}
 lookupEdge :: (Eq k, Label v k) => v k -> Edge v k a -> Lookup r a
-lookupEdge = lookupE where
-	lookupE !ks EDGE(_ ls v ts) = if kLen < lLen then mzero else matchSlice matcher matches ks ls where
+lookupEdge ks e = Lookup $ \ no yes -> let
+	lookupE !ks !EDGE(_ ls !v ts) = if kLen < lLen then no else matchSlice matcher matches ks ls where
 	  !kLen = length ks
 	  !lLen = length ls
 	  matcher k l z
 		  | k == l	  = z
-		  | otherwise	  = mzero
+		  | otherwise	  = no
 	  matches _ _
-		  | kLen == lLen  = maybe mzero return v
+		  | kLen == lLen  = maybe no yes v
 		  | (_, k, ks') <- splitSlice lLen ks
-		  		= lookupMC k ts >>= lookupE ks'
+		  		= runLookup (lookupMC k ts) no (lookupE ks')
+	in lookupE ks e
 
 {-# INLINE searchEdgeC #-}
 searchEdgeC :: (Eq k, Label v k) => v k -> Edge v k a -> SearchCont (EdgeLoc v k a) a r
@@ -156,16 +160,20 @@ unionEdge f = unionE where
       | otherwise	= Just (edge (takeSlice i ks0) Nothing $ insertWithM id k eK' $ singletonM l eL')
       where eK' = dropEdge (i+1) eK
 	    eL' = dropEdge (i+1) eL
+    {-# INLINE fill #-}
+    fill ks v e hole = case e of
+      Nothing	-> cEdge ks v (clearM hole)
+      Just e	-> Just $ edge ks v $ assignM e hole
     matches kLen lLen = case compare kLen lLen of
       EQ -> cEdge ks0 (unionMaybe f vK vL) $ unionM unionE tsK tsL
       LT -> searchMC l tsK nomatch match where
 	eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen
-	nomatch holeKT = cEdge ks0 vK $ assignM eL' holeKT
-	match eK' holeKT = cEdge ks0 vK $ fillHoleM (eK' `unionE` eL') holeKT
+	nomatch holeKT = Just $ edge ks0 vK $ assignM eL' holeKT
+	match eK' holeKT = fill ks0 vK (eK' `unionE` eL') holeKT
       GT -> searchMC k tsL nomatch match where
 	eK' = dropEdge (lLen + 1) eK; k = ks0 !$ lLen
-	nomatch holeLT = cEdge ls0 vL $ assignM eK' holeLT
-	match eL' holeLT = cEdge ls0 vL $ fillHoleM (eK' `unionE` eL') holeLT
+	nomatch holeLT = Just $ edge ls0 vL $ assignM eK' holeLT
+	match eL' holeLT = fill ls0 vL (eK' `unionE` eL') holeLT
 
 {-# SPECIALIZE isectEdge ::
       (TrieKey k, Sized c) => (a -> b -> Maybe c) -> V(Edge) a -> V(Edge) b -> V(MEdge) c,
@@ -232,11 +240,11 @@ beforeEdge v LOC(ks ts path) = case cEdge ks v ts of
 afterEdge v LOC(ks ts path) = case cEdge ks v ts of
   Nothing	-> after path
   Just e	-> Just $ afterWith e path
-  where	after DEEP(path ks v tHole) = case cEdge ks Nothing (afterM tHole) of
+  where	after DEEP(path ks _ tHole) = case cEdge ks Nothing (afterM tHole) of
 	    Nothing	-> after path
 	    Just e	-> Just $ afterWith e path
 	after _ 	= Nothing
-	afterWith e DEEP(path ks v tHole)
+	afterWith e DEEP(path ks _ tHole)
 			= afterWith (edge ks Nothing (afterWithM e tHole)) path
 	afterWith e _	= e
 
@@ -289,7 +297,7 @@ fromAscListEdge f = case fromDistAscListFold of
 	roller br EDGE(!sz ks v ts) = case bView br of
 	  Branch i a z0	-> let k = ks !$ i; ks' = takeSlice i ks in
 	      edge ks' a $ doneB $ maybe beginB snocB z0 k $ edge' sz (dropSlice (i+1) ks) v ts
-	  
+
 	snoc !(sView -> Stack ks vk branches) ls vl = iMatchSlice matcher matches ks ls where
 	  matcher !i k l z
 	    | k == l	= z

@@ -177,11 +177,12 @@ branchHole !k !p path t
 
 {-# INLINE lookupC #-}
 lookupC :: Key -> SNode a -> Lookup r a
-lookupC !k = look where
+lookupC !k !t = Lookup $ \ no yes -> let
   look BIN(_ m l r) = if zeroN k m then look l else look r
   look TIP(kx x)
-    | k == kx	= return x
-  look _ = mzero
+      | k == kx = yes x
+  look _ = no
+  in look t
 
 singleton :: Sized a => Key -> a -> SNode a
 singleton k a = sNode (Tip k a)
