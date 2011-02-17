@@ -38,11 +38,12 @@ BENCH_OPTS = --mode=run --group=$(PROGRESSION_GROUP) --prefixes=$(PROGRESSION_PR
 		--compare="" -- -s $(SAMPLES)
 
 bench.png : bench-TrieBench.csv bench-SetBench.csv
-	./TrieBench --mode=graph --group=$(PROGRESSION_GROUP) --compare="TrieBench,SetBench" --plot=$(PLOT_FILE) \
+	./TrieBench --mode=graph --group=$(PROGRESSION_GROUP) --compare="TrieBench,SetBench" --plot=$@ \
 		--plot-log-y
 
+benchbs.png : SAMPLES = 30
 benchbs.png : bench-TrieBench.csv bench-SetBench.csv bench-BSTrieBench.csv
-	./TrieBench --mode=graph --group=$(PROGRESSION_GROUP) --compare="TrieBench,SetBench,BSTrieBench" --plot=$(PLOT_FILE) \
+	./TrieBench --mode=graph --group=$(PROGRESSION_GROUP) --compare="TrieBench,SetBench,BSTrieBench" --plot=$@ \
 		--plot-log-y
 
 bench-TrieBench.csv : TrieBench
