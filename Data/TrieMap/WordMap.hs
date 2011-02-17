@@ -222,9 +222,10 @@ instance Traversable SNode where
 		= SNode sz .: Bin p m <$> trav l <*> trav r
 
 mapMaybe :: Sized b => (a -> Maybe b) -> SNode a -> SNode b
-mapMaybe f BIN(p m l r)	= bin p m (mapMaybe f l) (mapMaybe f r)
-mapMaybe f TIP(kx x)	= singletonMaybe  kx (f x)
-mapMaybe _ _		= nil
+mapMaybe f !t = mMaybe t where
+  mMaybe BIN(p m l r)	= bin p m (mMaybe l) (mMaybe r)
+  mMaybe TIP(kx x)	= singletonMaybe kx (f x)
+  mMaybe _		= nil
 
 mapEither :: (Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> 
 	SNode a -> (# SNode b, SNode c #)
@@ -251,8 +252,8 @@ unionWith f = union where
 		| otherwise         = bin p1 m1 l1 (r1 `union` n2)
 
 	union2  | nomatch p1 p2 m2  = join p1 n1 p2 n2
-		| mask0 p1 m2       = bin p2 m2 (unionWith f n1 l2) r2
-		| otherwise         = bin p2 m2 l2 (unionWith f n1 r2)
+		| mask0 p1 m2       = bin p2 m2 (n1 `union` l2) r2
+		| otherwise         = bin p2 m2 l2 (n1 `union` r2)
 
 {-# INLINE alter #-}
 alter :: Sized a => (Maybe a -> Maybe a) -> Key -> SNode a -> SNode a

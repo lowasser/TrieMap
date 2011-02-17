@@ -1,6 +1,6 @@
 
 PLOT_FILE := bench.png
-.PHONY : opt bench clean install prof test debug benchprof threadscope $(PLOT_FILE) bench-TrieBench.csv BenchmarkP.prof
+.PHONY : opt bench clean install prof test debug benchprof threadscope $(PLOT_FILE) BenchmarkP.prof
 
 FAST_DIR := out/fast
 OPTIMIZED_DIR := out/opt
