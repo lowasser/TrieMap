@@ -70,26 +70,27 @@ instance Label v k => Traversable (Edge v k) where
   {-# SPECIALIZE instance TrieKey k => Traversable (V(Edge)) #-}
   {-# SPECIALIZE instance Traversable (U(Edge)) #-}
   traverse f = trav where
+    travBranch = traverse trav
     trav e = case eView e of
-      Edge sz ks Nothing ts	-> edge' sz ks Nothing <$> traverse trav ts
-      Edge sz ks (Just a) ts	-> edge' sz ks . Just <$> f a <*> traverse trav ts
+      Edge sz ks Nothing ts	-> edge' sz ks Nothing <$> travBranch ts
+      Edge sz ks (Just a) ts	-> edge' sz ks . Just <$> f a <*> travBranch ts
 
 {-# SPECIALIZE lookupEdge ::
       TrieKey k => V() -> V(Edge) a -> Lookup r a,
       U() -> U(Edge) a -> Lookup r a #-}
 lookupEdge :: (Eq k, Label v k) => v k -> Edge v k a -> Lookup r a
 lookupEdge ks e = Lookup $ \ no yes -> let
-	lookupE !ks !EDGE(_ ls !v ts) = if kLen < lLen then no else matchSlice matcher matches ks ls where
-	  !kLen = length ks
-	  !lLen = length ls
-	  matcher k l z
-		  | k == l	  = z
-		  | otherwise	  = no
-	  matches _ _
-		  | kLen == lLen  = maybe no yes v
-		  | (_, k, ks') <- splitSlice lLen ks
-		  		= runLookup (lookupMC k ts) no (lookupE ks')
-	in lookupE ks e
+  lookupE !ks !EDGE(_ ls !v ts) = if kLen < lLen then no else matchSlice matcher matches ks ls where
+    !kLen = length ks
+    !lLen = length ls
+    matcher k l z
+	    | k == l	  = z
+	    | otherwise	  = no
+    matches _ _
+	    | kLen == lLen  = maybe no yes v
+	    | (_, k, ks') <- splitSlice lLen ks
+			  = runLookup (lookupMC k ts) no (lookupE ks')
+  in lookupE ks e
 
 {-# INLINE searchEdgeC #-}
 searchEdgeC :: (Eq k, Label v k) => v k -> Edge v k a -> SearchCont (EdgeLoc v k a) a r

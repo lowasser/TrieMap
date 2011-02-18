@@ -30,10 +30,10 @@ type Key    = Word
 type Size   = Int
 
 data Path a = Root 
-	| LeftBin !Prefix !Mask (Path a) !(SNode a)
-	| RightBin !Prefix !Mask !(SNode a) (Path a)
+	| LeftBin !Prefix !Mask !(Path a) !(SNode a)
+	| RightBin !Prefix !Mask !(SNode a) !(Path a)
 
-data SNode a = SNode {sz :: !Size, node :: (Node a)}
+data SNode a = SNode {sz :: !Size, node :: !(Node a)}
 {-# ANN type SNode ForceSpecConstr #-}
 data Node a = Nil | Tip !Key a | Bin !Prefix !Mask !(SNode a) !(SNode a)
 
@@ -158,8 +158,8 @@ afterWith !t (RightBin _ _ _ path)	= afterWith t path
 afterWith !t (LeftBin p m path r)	= afterWith (bin' p m t r) path
 
 {-# INLINE assign #-}
-clear :: Sized a => Path a -> SNode a
-assign :: Sized a => SNode a -> Path a -> SNode a
+clear :: Path a -> SNode a
+assign :: SNode a -> Path a -> SNode a
 clear Root = nil
 clear (LeftBin _ _ path r) = assign r path
 clear (RightBin _ _ l path) = assign l path
