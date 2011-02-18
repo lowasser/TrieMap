@@ -11,21 +11,19 @@ description:	     Provides a efficient and compact implementation of generalized
                      The most recent release combines zipper-based ideas from recently proposed changes to Data.Map, as well
                      as heavily optimized ByteString and Vector instances based on the vector package.
                      .
-                     On an English dictionary file read into @ByteString@s, compared to Data.Map and Data.Set,
-                     TrieMaps support 30-46% faster @lookup@, 28-36% faster @splitLookup@, 85% faster @union@, 91% faster @difference@,
-                     93% faster @intersection@.  It is statistically tied on @insert@ and @findMin@/@findMax@. 
-                     Notable losses include @fromList@, which is 13-22% slower, and @filter@, @elemAt@, and @toList@, 
-                     which are each 2.5x slower.  TrieMaps tend to use somewhat more memory, and frequently perform better
+                     Benchmarks indicate that compared to @Data.Map@, @TrieMap@ is faster (1.4-1.9x) at @lookup@ 
+                     and @splitLookup@ and tremendously (7-14x) faster for set operations (@union@, @difference@, @intersection).
+                     
+                     It is statistically tied on @insert@ and @findMin@/@findMax@.
+                     
+                     However, it is slightly slower at @fromList@ and considerably (2.5x) slower for @filter@, @elemAt@,
+                     and @toList@.  @TrieMap@ tends to use somewhat more memory, and frequently perform better
                      with increased heap space and allocation area.
                      .
-                     Using the same benchmarks, compared to the @bytestring-trie-0.2.3@ package, this implementation has
-                     222-30% faster @insert@, 17-37% faster @lookup@,
-                     50-55% faster @toList@, approximately tied @fromList@ and @union@, and 55-70% slower @filter@.
+                     Compared to the @bytestring-trie-0.2.3@ package, this implementation has faster (~1.25x)
+                     @insert@ and @lookup@ and significantly faster (2x) @toList@, but slower (2-3x) @filter@.
                      @bytestring-trie@ does not, however, support any of the other operations mentioned above,
-                     and it supports @size@ in /O(n)/ time, while @TrieMap@ offers /O(1)/ @size@.
-                     .
-                     All benchmarks were compiled with @-O2 -fno-spec-constr-count -fno-spec-constr-threshold -fllvm -optlo-O3@.
-                     Criterion was used to get upper and lower bounds on the average runtime of operations with 95% confidence.
+                     and it needs /O(n)/ time for @size@, while @TrieMap@ offers /O(1)/ @size@.
 license:             BSD3
 license-file:	     LICENSE
 author:              Louis Wasserman
