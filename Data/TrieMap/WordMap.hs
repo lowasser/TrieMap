@@ -157,7 +157,6 @@ afterWith !t Root			= t
 afterWith !t (RightBin _ _ _ path)	= afterWith t path
 afterWith !t (LeftBin p m path r)	= afterWith (bin' p m t r) path
 
-{-# INLINE assign #-}
 clear :: Path a -> SNode a
 assign :: SNode a -> Path a -> SNode a
 clear Root = nil

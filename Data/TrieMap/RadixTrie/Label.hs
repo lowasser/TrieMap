@@ -134,31 +134,25 @@ getSimpleEdge !(eView -> Edge _ _ v ts)
   | nullM ts	= maybe Null Singleton v
   | otherwise	= NonSimple
 
-{-# SPECIALIZE INLINE dropEdge ::
+{-# SPECIALIZE dropEdge ::
     TrieKey k => Int -> V(Edge) a -> V(Edge) a,
     Int -> U(Edge) a -> U(Edge) a #-}
-{-# SPECIALIZE INLINE unDropEdge ::
+{-# SPECIALIZE unDropEdge ::
     TrieKey k => Int -> V(Edge) a -> V(Edge) a,
     Int -> U(Edge) a -> U(Edge) a #-}
 dropEdge, unDropEdge :: Label v k => Int -> Edge v k a -> Edge v k a
 dropEdge !n !(eView -> Edge sz# ks v ts) = edge' sz# (dropSlice n ks) v ts
 unDropEdge !n !(eView -> Edge sz# ks v ts) = edge' sz# (unDropSlice n ks) v ts
 
-{-# SPECIALIZE INLINE compact ::
-    TrieKey k => V(Edge) a -> V(MEdge) a,
-    U(Edge) a -> U(MEdge) a #-}
-compact :: Label v k => Edge v k a -> MEdge v k a
-compact !e@(eView -> Edge _ ks Nothing ts) = case getSimpleM ts of
-  Null		-> Nothing
-  Singleton e'	-> Just (unDropEdge (length ks + 1) e')
-  NonSimple	-> Just e
-compact e = Just e
-
-{-# SPECIALIZE INLINE cEdge ::
+{-# SPECIALIZE cEdge ::
     (TrieKey k, Sized a) => V() -> Maybe a -> V(Branch) a -> V(MEdge) a,
     Sized a => U() -> Maybe a -> U(Branch) a -> U(MEdge) a #-}
 cEdge :: (Label v k, Sized a) => v k -> Maybe a -> Branch v k a -> MEdge v k a
-cEdge ks v ts = compact (edge ks v ts)
+cEdge !ks Nothing ts = case getSimpleM ts of
+  Null	-> Nothing
+  Singleton e' -> Just (unDropEdge (length ks + 1) e')
+  NonSimple	-> Just (edge ks Nothing ts)
+cEdge !ks v ts = Just (edge ks v ts)
 
 data StackView v k a z = Stack (v k) a (TrieMap Word (Hang a z))
 

@@ -157,7 +157,7 @@ clearEdge LOC(ks ts path) = rebuild (cEdge ks Nothing ts) path where
 unionEdge :: (Label v k, Sized a) => 
 	(a -> a -> Maybe a) -> Edge v k a -> Edge v k a -> MEdge v k a
 unionEdge f = unionE where
-  unionE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = iMatchSlice matcher matches ks0 ls0 where
+  unionE !eK@EDGE(_ ks0 !vK tsK) !eL@EDGE(_ ls0 !vL tsL) = iMatchSlice matcher matches ks0 ls0 where
     matcher !i k l z
       | k == l		= z
       | otherwise	= Just (edge (takeSlice i ks0) Nothing $ insertWithM id k eK' $ singletonM l eL')
@@ -187,7 +187,7 @@ isectEdge f = isectE where
   isectE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = matchSlice matcher matches ks0 ls0 where
     matcher k l z = guard (k == l) >> z
     matches kLen lLen = case compare kLen lLen of
-      EQ -> compact $ edge ks0 (isectMaybe f vK vL) $ isectM isectE tsK tsL
+      EQ -> cEdge ks0 (isectMaybe f vK vL) $ isectM isectE tsK tsL
       LT -> let l = ls0 !$ kLen in runLookup (lookupMC l tsK) Nothing $ \ eK' ->
 	      let eL' = dropEdge (kLen + 1) eL in unDropEdge (kLen + 1) <$> eK' `isectE` eL'
       GT -> let k = ks0 !$ lLen in runLookup (lookupMC k tsL) Nothing $ \ eL' -> 
@@ -199,7 +199,7 @@ isectEdge f = isectE where
 diffEdge :: (Eq k, Label v k, Sized a) =>
 	(a -> b -> Maybe a) -> Edge v k a -> Edge v k b -> MEdge v k a
 diffEdge f = diffE where
-  diffE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = matchSlice matcher matches ks0 ls0 where
+  diffE !eK@EDGE(_ ks0 !vK tsK) !eL@EDGE(_ ls0 !vL tsL) = matchSlice matcher matches ks0 ls0 where
     matcher k l z
       | k == l		= z
       | otherwise	= Just eK
