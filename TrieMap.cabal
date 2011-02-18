@@ -36,10 +36,13 @@ source-repository head
   location:          git@github.com:lowasser/TrieMap.git
 
 Library{
-build-Depends:       base < 5.0.0.0, containers, template-haskell, bytestring, th-expand-syns, vector, primitive
+build-Depends:    base < 5.0.0.0, containers, template-haskell >= 2.5.0.0, bytestring >= 0.9.1.0, th-expand-syns,
+                  vector >= 0.6, primitive >= 0.3
 ghc-options:
   -Wall -fno-warn-name-shadowing -fno-warn-orphans -O2 -fno-spec-constr-count -fno-spec-constr-threshold
-  -fno-liberate-case-threshold -fmax-worker-args=100 -fllvm -optlo-O3 -optlo-std-compile-opts
+  -fno-liberate-case-threshold -fmax-worker-args=100
+if impl(ghc >= 7.0.0)
+  ghc-options: -fllvm -optlo-O3 -optlo-std-compile-opts
 exposed-modules:  
   Data.TrieMap,
   Data.TrieSet,
