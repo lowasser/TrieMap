@@ -101,13 +101,8 @@ instance TrieKey Word where
 
 	{-# INLINE searchMC #-}
 	searchMC !k (WordMap t) = mapSearch (hole k) (searchC k t)
-	indexMC i (WordMap m) result = indexT i m Root where
-		indexT i# TIP(kx x) path = result i# x (hole kx path)
-		indexT i# BIN(p m l r) path
-			| i# <# sl#	= indexT i# l (LeftBin p m path r)
-			| otherwise	= indexT (i# -# sl#) r (RightBin p m l path)
-			where !sl# = getSize# l
-		indexT _ NIL _		= indexFail
+	{-# INLINE indexMC #-}
+	indexMC i (WordMap m) result = index i m (\ i# x kx# path -> result i# x (hole (W# kx#) path))
 	extractHoleM (WordMap m) = extractHole Root m where
 		extractHole _ (SNode _ Nil) = mzero
 		extractHole path TIP(kx x) = return (x, hole kx path)
@@ -123,6 +118,15 @@ instance TrieKey Word where
 	
 	{-# INLINE fromAscListFold #-}
 	fromAscListFold f = WordMap <$> fromAscList f
+
+index :: Int# -> SNode a -> (Int# -> a -> Word# -> Path a -> r) -> r
+index i !t result = indexT i t Root where
+	indexT i# TIP((W# kx#) x) path = result i# x kx# path
+	indexT i# BIN(p m l r) path
+		| i# <# sl#	= indexT i# l (LeftBin p m path r)
+		| otherwise	= indexT (i# -# sl#) r (RightBin p m l path)
+		where !sl# = getSize# l
+	indexT _ NIL _		= indexFail
 
 {-# INLINE searchC #-}
 searchC :: Key -> SNode a -> SearchCont (Path a) a r

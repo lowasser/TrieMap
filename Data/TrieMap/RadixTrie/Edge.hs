@@ -18,6 +18,7 @@ module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
       fromAscListEdge) where
 
 import Control.Monad.Lookup
+import Control.Monad.Ends
 
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
@@ -167,6 +168,7 @@ unionEdge f = unionE where
     fill ks v e hole = case e of
       Nothing	-> cEdge ks v (clearM hole)
       Just e	-> Just $ edge ks v $ assignM e hole
+    
     matches kLen lLen = case compare kLen lLen of
       EQ -> cEdge ks0 (unionMaybe f vK vL) $ unionM unionE tsK tsL
       LT -> searchMC l tsK nomatch match where
@@ -252,8 +254,10 @@ afterEdge v LOC(ks ts path) = case cEdge ks v ts of
 	afterWith e _	= e
 
 {-# SPECIALIZE extractEdgeLoc :: 
-      (TrieKey k, Functor m, MonadPlus m) => V(Edge) a -> V(Path) a -> m (a, V(EdgeLoc) a),
-      (Functor m, MonadPlus m) => U(Edge) a -> U(Path) a -> m (a, U(EdgeLoc) a) #-}
+      TrieKey k => V(Edge) a -> V(Path) a -> First (a, V(EdgeLoc) a),
+      TrieKey k => V(Edge) a -> V(Path) a -> Last (a, V(EdgeLoc) a),
+      U(Edge) a -> U(Path) a -> First (a, U(EdgeLoc) a),
+      U(Edge) a -> U(Path) a -> Last (a, U(EdgeLoc) a)#-}
 extractEdgeLoc :: (Label v k, Functor m, MonadPlus m) => Edge v k a -> Path v k a -> m (a, EdgeLoc v k a)
 extractEdgeLoc EDGE(_ ks v ts) path = case v of
 	Nothing	-> extractTS
@@ -266,7 +270,7 @@ extractEdgeLoc EDGE(_ ks v ts) path = case v of
       Sized a => Int# -> U(Edge) a -> IndexCont (U(EdgeLoc) a) a r #-}
 indexEdge :: (Label v k, Sized a) => Int# -> Edge v k a -> IndexCont (EdgeLoc v k a) a r
 indexEdge i# e result = indexE i# e root where
-  indexE i# e path = case eView e of
+  indexE i# !e path = case eView e of
     Edge _ ks v@(Just a) ts
       | i# <# sv#	-> result i# a (loc ks ts path)
       | otherwise	-> indexMC (i# -# sv#) ts $ \ i' e' tHole -> indexE i' e' (deep path ks v tHole)
