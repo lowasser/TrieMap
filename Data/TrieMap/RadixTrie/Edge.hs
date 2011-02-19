@@ -118,9 +118,7 @@ searchEdgeC ks0 e nomatch0 match0 = searchE ks0 e root where
       Sized b => (a -> Maybe b) -> U(Edge) a -> U(MEdge) b #-}
 mapMaybeEdge :: (Label v k, Sized b) => (a -> Maybe b) -> Edge v k a -> MEdge v k b
 mapMaybeEdge f = mapMaybeE where
-  mapMaybeE EDGE(_ ks v ts) = maybe go0 go1 (v >>= f)
-    where go0 = cEdge ks Nothing (mapMaybeM mapMaybeE ts)
-	  go1 v' = cEdge ks (Just v') (mapMaybeM mapMaybeE ts)
+  mapMaybeE !EDGE(_ ks !v ts) = let !v' = v >>= f in cEdge ks v' (mapMaybeM mapMaybeE ts)
 
 {-# SPECIALIZE mapEitherEdge ::
       (TrieKey k, Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> V(Edge) a -> (# V(MEdge) b, V(MEdge) c #),
@@ -149,7 +147,7 @@ assign e _			= e
 clearEdge :: (Label v k, Sized a) => EdgeLoc v k a -> MEdge v k a
 clearEdge LOC(ks ts path) = rebuild (cEdge ks Nothing ts) path where
   rebuild Nothing DEEP(path ks v tHole)	= rebuild (cEdge ks v (clearM tHole)) path
-  rebuild Nothing _			= Nothing
+  rebuild Nothing _	= Nothing
   rebuild (Just e) path = Just $ assign e path
 
 {-# SPECIALIZE unionEdge :: 
@@ -164,21 +162,17 @@ unionEdge f = unionE where
       | otherwise	= Just (edge (takeSlice i ks0) Nothing $ insertWithM id k eK' $ singletonM l eL')
       where eK' = dropEdge (i+1) eK
 	    eL' = dropEdge (i+1) eL
-    {-# INLINE fill #-}
-    fill ks v e hole = case e of
-      Nothing	-> cEdge ks v (clearM hole)
-      Just e	-> Just $ edge ks v $ assignM e hole
     
     matches kLen lLen = case compare kLen lLen of
       EQ -> cEdge ks0 (unionMaybe f vK vL) $ unionM unionE tsK tsL
       LT -> searchMC l tsK nomatch match where
 	eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen
-	nomatch holeKT = Just $ edge ks0 vK $ assignM eL' holeKT
-	match eK' holeKT = fill ks0 vK (eK' `unionE` eL') holeKT
+	nomatch holeKT = cEdge ks0 vK $ assignM eL' holeKT
+	match eK' holeKT = cEdge ks0 vK $ fillHoleM (eK' `unionE` eL') holeKT
       GT -> searchMC k tsL nomatch match where
 	eK' = dropEdge (lLen + 1) eK; k = ks0 !$ lLen
-	nomatch holeLT = Just $ edge ls0 vL $ assignM eK' holeLT
-	match eL' holeLT = fill ls0 vL (eK' `unionE` eL') holeLT
+	nomatch holeLT = cEdge ls0 vL $ assignM eK' holeLT
+	match eL' holeLT = cEdge ls0 vL $ fillHoleM (eK' `unionE` eL') holeLT
 
 {-# SPECIALIZE isectEdge ::
       (TrieKey k, Sized c) => (a -> b -> Maybe c) -> V(Edge) a -> V(Edge) b -> V(MEdge) c,
@@ -207,7 +201,7 @@ diffEdge f = diffE where
       | otherwise	= Just eK
     matches kLen lLen = case compare kLen lLen of
       EQ -> cEdge ks0 (diffMaybe f vK vL) $ diffM diffE tsK tsL
-      LT -> searchMC l tsK nomatch  match where
+      LT -> searchMC l tsK nomatch match where
 	l = ls0 !$ kLen; eL' = dropEdge (kLen + 1) eL 
 	nomatch _ = Just eK
 	match eK' holeKT = cEdge ks0 vK $ fillHoleM (eK' `diffE` eL') holeKT
