@@ -30,8 +30,8 @@ type Key    = Word
 type Size   = Int
 
 data Path a = Root 
-	| LeftBin !Prefix !Mask !(Path a) !(SNode a)
-	| RightBin !Prefix !Mask !(SNode a) !(Path a)
+	| LeftBin !Prefix !Mask (Path a) !(SNode a)
+	| RightBin !Prefix !Mask !(SNode a) (Path a)
 
 data SNode a = SNode {sz :: !Size, node :: !(Node a)}
 {-# ANN type SNode ForceSpecConstr #-}
@@ -112,6 +112,9 @@ instance TrieKey Word where
 	clearM HOLE(_ path) = WordMap (clear path)
 	{-# INLINE assignM #-}
 	assignM v HOLE(kx path) = WordMap (assign (singleton kx v) path)
+
+	{-# INLINE unifyM #-}
+	unifyM k1 a1 k2 a2 = WordMap <$> unify k1 a1 k2 a2
 
 	{-# INLINE unifierM #-}
 	unifierM k' k a = Hole <$> unifier k' k a
@@ -332,7 +335,7 @@ zeroN i m = (i .&. m) == 0
 
 mask :: Nat -> Nat -> Prefix
 mask i m
-  = i .&. compl ((m-1) .|. m)
+  = i .&. compl ((m-1) `xor` m)
 
 shorter :: Mask -> Mask -> Bool
 shorter m1 m2
@@ -355,11 +358,12 @@ highestBitMask x0
 {-# INLINE join #-}
 join :: Prefix -> SNode a -> Prefix -> SNode a -> SNode a
 join p1 t1 p2 t2
-  | mask0 p1 m = bin' p m t1 t2
-  | otherwise = bin' p m t2 t1
+  | mask0 p1 m = SNode{sz = sz', node = Bin p m t1 t2}
+  | otherwise = SNode{sz = sz', node = Bin p m t2 t1}
   where
     m = branchMask p1 p2
     p = mask p1 m
+    sz' = sz t1 + sz t2
 
 nil :: SNode a
 nil = SNode 0 Nil
@@ -374,6 +378,12 @@ bin' :: Prefix -> Mask -> SNode a -> SNode a -> SNode a
 bin' p m l@SNode{sz=sl} r@SNode{sz=sr} = assert (nonempty l && nonempty r) $ SNode (sl + sr) (Bin p m l r)
   where	nonempty NIL = False
   	nonempty _ = True
+
+{-# INLINE unify #-}
+unify :: Sized a => Key -> a -> Key -> a -> Maybe (SNode a)
+unify k1 a1 k2 a2
+  | k1 == k2	= Nothing
+  | otherwise	= Just (join k1 (singleton k1 a1) k2 (singleton k2 a2))
 
 {-# INLINE unifier #-}
 unifier :: Sized a => Key -> Key -> a -> Maybe (WHole a)

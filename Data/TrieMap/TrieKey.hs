@@ -136,6 +136,7 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	assignM :: Sized a => a -> Hole k a -> TrieMap k a
 	clearM :: Sized a => Hole k a -> TrieMap k a
 	unifierM :: Sized a => k -> k -> a -> Maybe (Hole k a)
+	unifyM :: Sized a => k -> a -> k -> a -> Maybe (TrieMap k a)
 	
 	fromListM, fromAscListM :: Sized a => (a -> a -> a) -> [(k, a)] -> TrieMap k a
 	fromListM f xs = runFoldl (fromListFold f) xs
@@ -155,6 +156,9 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	fromDistAscListFold = fromAscListFold const
 	
 	unifierM k' k a = searchMC k' (singletonM k a) Just (\ _ _ -> Nothing)
+	unifyM k1 a1 k2 a2 = case unifierM k1 k2 a2 of
+	  Nothing	-> Nothing
+	  Just hole	-> Just $ inline assignM a1 hole
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM#
@@ -189,12 +193,6 @@ Nothing `mappendM` Nothing = mempty
 Nothing `mappendM` Just m = m
 Just m `mappendM` Nothing = m
 Just m1 `mappendM` Just m2 = m1 `mappend` m2
-
-{-# INLINE unifyM #-}
-unifyM :: (TrieKey k, Sized a) => k -> a -> k -> a -> Maybe (TrieMap k a)
-unifyM k1 a1 k2 a2 = case unifierM k1 k2 a2 of
-  Nothing	-> Nothing
-  Just hole	-> Just $ inline assignM a1 hole
 
 insertWithM' :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> Maybe (TrieMap k a) -> TrieMap k a
 insertWithM' f k a = maybe (singletonM k a) (insertWithM f k a)

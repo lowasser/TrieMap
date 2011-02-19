@@ -259,7 +259,7 @@ extractEdgeLoc EDGE(_ ks v ts) path = case v of
   where	extractTS = do	(e', tHole) <- extractHoleM ts
 			extractEdgeLoc e' (deep path ks v tHole)
 
-{-# SPECIALIZE INLINE indexEdge :: 
+{-# SPECIALIZE indexEdge :: 
       (TrieKey k, Sized a) => Int# -> V(Edge) a -> IndexCont (V(EdgeLoc) a) a r,
       Sized a => Int# -> U(Edge) a -> IndexCont (U(EdgeLoc) a) a r #-}
 indexEdge :: (Label v k, Sized a) => Int# -> Edge v k a -> IndexCont (EdgeLoc v k a) a r
@@ -276,9 +276,22 @@ indexEdge i# e result = indexE i# e root where
       (TrieKey k, Sized a) => (a -> a) -> V() -> a -> V(Edge) a -> V(Edge) a,
       Sized a => (a -> a) -> U() -> a -> U(Edge) a -> U(Edge) a #-}
 insertEdge :: (Label v k, Sized a) => (a -> a) -> v k -> a -> Edge v k a -> Edge v k a
-insertEdge f ks v e = searchEdgeC ks e nomatch match where
-  nomatch = assignEdge v
-  match = assignEdge . f
+insertEdge f ks0 a e = insertE ks0 id e where
+  insertE !ks cont eL@EDGE(_ ls !v ts) = iMatchSlice matcher matches ks ls where
+    !eK = singletonEdge ks a
+    matcher !i k l z = case unifyM k eK' l eL' of
+      Nothing	-> z
+      Just branch -> cont (edge (takeSlice i ls) Nothing branch)
+      where	eK' = dropEdge (i+1) eK
+		eL' = dropEdge (i+1) eL
+    matches kLen lLen = case compare kLen lLen of
+      LT -> cont (edge ks (Just a) (singletonM l eL'))
+	  where	l = ls !$ kLen; eL' = dropEdge (kLen+1) eL
+      EQ -> cont (edge ls (Just (maybe a f v)) ts)
+      GT -> searchMC (ks !$ lLen) ts nomatch match where
+	ks' = dropSlice (lLen + 1) ks
+	nomatch tHole = cont (edge ls v (assignM (singletonEdge ks' a) tHole))
+	match e' tHole = insertE ks' (\ e'' -> cont (edge ls v (assignM e'' tHole))) e'
 
 {-# SPECIALIZE fromAscListEdge ::
       (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (V()) a (V(MEdge) a),
