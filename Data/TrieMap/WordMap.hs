@@ -10,7 +10,6 @@ import Data.TrieMap.Utils
 import Control.Exception (assert)
 import Control.Monad.Lookup
 import Control.Monad.Unpack
-import Control.Monad.Unpack.TH
 
 import Data.Bits
 import Data.Maybe hiding (mapMaybe)
@@ -56,7 +55,9 @@ data WHole a = WHole !Key (Path a)
 {-# ANN type WHole ForceSpecConstr #-}
 
 $(noUnpackInstance ''Path)
+$(noUnpackInstance ''Node)
 $(unpackInstance ''WHole)
+$(unpackInstance ''SNode)
 
 {-# INLINE hole #-}
 hole :: Key -> Path a -> Hole Word a

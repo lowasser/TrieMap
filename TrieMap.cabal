@@ -37,7 +37,7 @@ source-repository head
 
 Library{
 build-Depends:    base < 5.0.0.0, containers, template-haskell >= 2.5.0.0, bytestring >= 0.9.1.0, th-expand-syns,
-                  vector >= 0.6, primitive >= 0.3, unpack-funcs
+                  vector >= 0.6, primitive >= 0.3, unpack-funcs >= 0.1.2
 ghc-options:
   -Wall -fno-warn-name-shadowing -fno-warn-orphans -O2 -fno-spec-constr-count -fno-spec-constr-threshold
   -fno-liberate-case-threshold -fmax-worker-args=100
