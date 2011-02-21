@@ -279,6 +279,7 @@ insertEdge :: (Label v k, Sized a) => (a -> a) -> v k -> a -> Edge v k a -> Edge
 insertEdge f ks0 a e = insertE ks0 id e where
   insertE !ks cont eL@EDGE(szL ls !v ts) = iMatchSlice matcher matches ks ls where
     !sza = getSize a
+    !szV = szL - sizeM ts
     matcher !i k l z = case unifyM k eK' l eL' of
       Nothing	-> z
       Just branch -> cont (edge (takeSlice i ls) Nothing branch)
@@ -293,7 +294,7 @@ insertEdge f ks0 a e = insertE ks0 id e where
 	nomatch tHole = cont (edge' sz' ls v ts') where
 	  ts' = assignM (edge' sza ks' (Just a) emptyM) tHole; sz' = szL - sizeM ts + sizeM ts'
 	match e' tHole = insertE (dropSlice (lLen + 1) ks) (\ e'' -> 
-	  let ts' = assignM e'' tHole; sz' = szL - sizeM ts + sizeM ts' in cont (edge' sz' ls v ts')) e'
+	  let ts' = assignM e'' tHole; sz' = szV + sizeM ts' in cont (edge' sz' ls v ts')) e'
 
 {-# SPECIALIZE fromAscListEdge ::
       (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (V()) a (V(MEdge) a),
