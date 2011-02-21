@@ -1,5 +1,5 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances, RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables, ImplicitParams #-}
+{-# LANGUAGE ScopedTypeVariables, ImplicitParams, TemplateHaskell, TypeOperators #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), getWordMap, getHole) where
 
@@ -9,6 +9,8 @@ import Data.TrieMap.Utils
 
 import Control.Exception (assert)
 import Control.Monad.Lookup
+import Control.Monad.Unpack
+import Control.Monad.Unpack.TH
 
 import Data.Bits
 import Data.Maybe hiding (mapMaybe)
@@ -52,6 +54,9 @@ sNode !n = SNode (getSize n) n
 
 data WHole a = WHole !Key (Path a)
 {-# ANN type WHole ForceSpecConstr #-}
+
+$(noUnpackInstance ''Path)
+$(unpackInstance ''WHole)
 
 {-# INLINE hole #-}
 hole :: Key -> Path a -> Hole Word a
@@ -100,9 +105,9 @@ instance TrieKey Word where
 	afterWithM a HOLE(k path) = WordMap (afterWith (singleton k a) path)
 
 	{-# INLINE searchMC #-}
-	searchMC !k (WordMap t) = mapSearch (hole k) (searchC k t)
+	searchMC !k (WordMap t) notfound found = searchC k t (unpack (notfound .  Hole)) (\ a -> unpack (found a . Hole))
 	{-# INLINE indexMC #-}
-	indexMC i (WordMap m) result = index i m (\ i# x kx# path -> result i# x (hole (W# kx#) path))
+	indexMC i (WordMap m) result = index i m (\ i# x -> unpack (result i# x . Hole))
 	extractHoleM (WordMap m) = extractHole Root m where
 		extractHole _ (SNode _ Nil) = mzero
 		extractHole path TIP(kx x) = return (x, hole kx path)
@@ -143,28 +148,27 @@ insertWithC f !k a !t = ins t (#, #) where
       | otherwise	-> result ret (join k tip kx t)
     NIL			-> result ret tip
 
-index :: Int# -> SNode a -> (Int# -> a -> Word# -> Path a -> r) -> r
+index :: Int# -> SNode a -> (Int# -> a -> WHole a :~> r) -> r
 index i !t result = indexT i t Root where
-	indexT i# TIP((W# kx#) x) path = result i# x kx# path
-	indexT i# BIN(p m l r) path
-		| i# <# sl#	= indexT i# l (LeftBin p m path r)
-		| otherwise	= indexT (i# -# sl#) r (RightBin p m l path)
-		where !sl# = getSize# l
-	indexT _ NIL _		= indexFail
+  indexT i# TIP(kx x) path = result i# x $~ WHole kx path
+  indexT i# BIN(p m l r) path
+	  | i# <# sl#	= indexT i# l (LeftBin p m path r)
+	  | otherwise	= indexT (i# -# sl#) r (RightBin p m l path)
+	  where !sl# = getSize# l
+  indexT _ NIL _		= indexFail
 
-{-# INLINE searchC #-}
-searchC :: Key -> SNode a -> SearchCont (Path a) a r
+searchC :: Key -> SNode a -> (WHole a :~> r) -> (a -> WHole a :~> r) -> r
 searchC !k t notfound found = seek Root t where
   seek path t@BIN(p m l r)
-    | nomatch k p m	= notfound (branchHole k p path t)
+    | nomatch k p m	= notfound $~ WHole k (branchHole k p path t)
     | mask0 k m
 	    = seek (LeftBin p m path r) l
     | otherwise
 	    = seek (RightBin p m l path) r
   seek path t@TIP(ky y)
-    | k == ky	= found y path
-    | otherwise	= notfound (branchHole k ky path t)
-  seek path NIL = notfound path
+    | k == ky	= found y $~ WHole k path
+    | otherwise	= notfound $~ WHole k (branchHole k ky path t)
+  seek path NIL = notfound $~ WHole k path
 
 before, after :: Path a -> SNode a
 beforeWith, afterWith :: SNode a -> Path a -> SNode a
