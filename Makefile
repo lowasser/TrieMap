@@ -68,7 +68,7 @@ BenchmarkP.hp : BenchmarkP.prof
 
 BenchmarkP.prof : SAMPLES  = 5
 BenchmarkP.prof : BenchmarkP
-	./BenchmarkP +RTS -P -hd $(RTS_OPTS) -RTS $(TRIEBENCH_OPTS)
+	./BenchmarkP +RTS -P -hd $(RTS_OPTS) -RTS --name="BenchmarkP" $(BENCH_OPTS)
 
 Benchlog.eventlog : SAMPLES = 10
 Benchlog.eventlog : Benchlog

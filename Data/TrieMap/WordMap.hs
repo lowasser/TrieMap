@@ -33,7 +33,7 @@ data Path a = Root
 	| LeftBin !Prefix !Mask (Path a) !(SNode a)
 	| RightBin !Prefix !Mask !(SNode a) (Path a)
 
-data SNode a = SNode {sz :: !Size, node :: !(Node a)}
+data SNode a = SNode {sz :: !Size, node :: (Node a)}
 {-# ANN type SNode ForceSpecConstr #-}
 data Node a = Nil | Tip !Key a | Bin !Prefix !Mask !(SNode a) !(SNode a)
 
