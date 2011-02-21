@@ -277,21 +277,23 @@ indexEdge i# e result = indexE i# e root where
       Sized a => (a -> a) -> U() -> a -> U(Edge) a -> U(Edge) a #-}
 insertEdge :: (Label v k, Sized a) => (a -> a) -> v k -> a -> Edge v k a -> Edge v k a
 insertEdge f ks0 a e = insertE ks0 id e where
-  insertE !ks cont eL@EDGE(_ ls !v ts) = iMatchSlice matcher matches ks ls where
-    !eK = singletonEdge ks a
+  insertE !ks cont eL@EDGE(szL ls !v ts) = iMatchSlice matcher matches ks ls where
+    !sza = getSize a
+    {-# INLINE eK #-}
+    eK = edge' sza ks (Just a) emptyM
     matcher !i k l z = case unifyM k eK' l eL' of
       Nothing	-> z
-      Just branch -> cont (edge (takeSlice i ls) Nothing branch)
+      Just branch -> eK' `seq` cont (edge (takeSlice i ls) Nothing branch)
       where	eK' = dropEdge (i+1) eK
 		eL' = dropEdge (i+1) eL
     matches kLen lLen = case compare kLen lLen of
-      LT -> cont (edge ks (Just a) (singletonM l eL'))
+      LT -> cont (edge' (sza + szL) ks (Just a) (singletonM l eL'))
 	  where	l = ls !$ kLen; eL' = dropEdge (kLen+1) eL
       EQ -> cont (edge ls (Just (maybe a f v)) ts)
       GT -> searchMC (ks !$ lLen) ts nomatch match where
-	ks' = dropSlice (lLen + 1) ks
-	nomatch tHole = cont (edge ls v (assignM (singletonEdge ks' a) tHole))
-	match e' tHole = insertE ks' (\ e'' -> cont (edge ls v (assignM e'' tHole))) e'
+	eK' = dropEdge (lLen + 1) eK
+	nomatch tHole = eK' `seq` cont (edge ls v (assignM eK' tHole))
+	match e' tHole = insertE (dropSlice (lLen + 1) ks) (\ e'' -> cont (edge ls v (assignM e'' tHole))) e'
 
 {-# SPECIALIZE fromAscListEdge ::
       (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (V()) a (V(MEdge) a),

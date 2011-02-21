@@ -53,8 +53,8 @@ instance Label v k => Sized (Edge v k a) where
 
 instance TrieKey k => Label V.Vector k where
   data Edge V.Vector k a =
-    VEdge Int !(V()) (V(Branch) a)
-    | VEdgeX Int !(V()) a (V(Branch) a)
+    VEdge !Int !(V()) (V(Branch) a)
+    | VEdgeX !Int !(V()) a (V(Branch) a)
   data Path V.Vector k a =
     VRoot
     | VDeep (V(Path) a) !(V()) (V(BHole) a)
@@ -62,6 +62,7 @@ instance TrieKey k => Label V.Vector k where
   data EdgeLoc V.Vector k a = VLoc !(V()) (V(Branch) a) (V(Path) a)
   data Stack V.Vector k a z = VStack !(V()) a !(SNode (Hang a z))
   
+  {-# INLINE edge #-}
   edge !ks Nothing ts = VEdge (sizeM ts) ks ts
   edge !ks (Just a) ts = VEdgeX (sizeM ts + getSize a) ks a ts
   edge' s !ks Nothing ts = VEdge s ks ts
@@ -118,7 +119,7 @@ instance Label P.Vector Word where
     (TrieKey k, Sized a) => V() -> a -> V(Edge) a,
     Sized a => U() -> a -> U(Edge) a #-}
 singletonEdge :: (Label v k, Sized a) => v k -> a -> Edge v k a
-singletonEdge ks a = edge ks (Just a) emptyM
+singletonEdge !ks a = edge' (getSize a) ks (Just a) emptyM
 
 {-# SPECIALIZE singleLoc :: 
     TrieKey k => V() -> V(EdgeLoc) a,
@@ -148,11 +149,12 @@ unDropEdge !n !(eView -> Edge sz# ks v ts) = edge' sz# (unDropSlice n ks) v ts
     (TrieKey k, Sized a) => V() -> Maybe a -> V(Branch) a -> V(MEdge) a,
     Sized a => U() -> Maybe a -> U(Branch) a -> U(MEdge) a #-}
 cEdge :: (Label v k, Sized a) => v k -> Maybe a -> Branch v k a -> MEdge v k a
-cEdge !ks Nothing ts = case getSimpleM ts of
-  Null	-> Nothing
-  Singleton e' -> Just (unDropEdge (length ks + 1) e')
-  NonSimple	-> Just (edge ks Nothing ts)
-cEdge !ks v ts = Just (edge ks v ts)
+cEdge !ks v ts = case v of
+  Nothing -> case getSimpleM ts of
+    Null	-> Nothing
+    Singleton e' -> Just (unDropEdge (length ks + 1) e')
+    NonSimple	-> Just (edge ks Nothing ts)
+  _		-> Just (edge ks v ts)
 
 data StackView v k a z = Stack (v k) a (TrieMap Word (Hang a z))
 
