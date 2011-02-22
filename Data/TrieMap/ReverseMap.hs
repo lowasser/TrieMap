@@ -61,9 +61,10 @@ instance TrieKey k => TrieKey (Rev k) where
 	afterWithM a (RHole hole) = RevMap (beforeWithM a hole)
 	searchMC (Rev k) (RevMap m) = mapSearch RHole (searchMC k m)
 	indexMC (RevMap m) = unpack $ \ i result ->
-	    indexMC' m (revIndex i m) $ \ (Indexed i' a hole) -> result $~ Indexed (revIndex i' a) a (RHole hole)
+	    indexMC m $~ revIndex i m $ mapInput revResult result
 	  where	revIndex :: Sized a => Int -> a -> Int
 		revIndex i a = getSize a - 1 - i
+		revResult (Indexed i' a hole) = Indexed (revIndex i' a) a (RHole hole)
 	
 	extractHoleM (RevMap m) = fmap RHole <$> runDualPlus (extractHoleM m)
 	firstHoleM (RevMap m) = First (fmap RHole <$> getLast (lastHoleM m))

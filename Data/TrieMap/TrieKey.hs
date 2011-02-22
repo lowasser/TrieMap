@@ -106,7 +106,7 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	mapMaybeM :: Sized b => (a -> Maybe b) -> TrieMap k a -> TrieMap k b
 	mapEitherM :: (Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> TrieMap k a -> (# TrieMap k b, TrieMap k c #)
 	unionM :: Sized a => (a -> a -> Maybe a) -> TrieMap k a -> TrieMap k a -> TrieMap k a
-	isectM :: (Sized a, Sized b, Sized c) =>
+	isectM :: Sized c =>
 		(a -> b -> Maybe c) -> TrieMap k a -> TrieMap k b -> TrieMap k c
 	diffM :: Sized a => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> TrieMap k a
 	
@@ -220,7 +220,7 @@ mapEitherM'' = mapEitherMaybe . mapEitherM'
 unionM' :: (TrieKey k, Sized a) => (a -> a -> Maybe a) -> TrieMap k a -> TrieMap k a -> Maybe (TrieMap k a)
 unionM' f m1 m2 = guardNullM (unionM f m1 m2)
 
-isectM' :: (TrieKey k, Sized a, Sized b, Sized c) => (a -> b -> Maybe c) -> TrieMap k a -> TrieMap k b -> Maybe (TrieMap k c)
+isectM' :: (TrieKey k, Sized c) => (a -> b -> Maybe c) -> TrieMap k a -> TrieMap k b -> Maybe (TrieMap k c)
 isectM' f m1 m2 = guardNullM (isectM f m1 m2)
 
 diffM' :: (TrieKey k, Sized a) => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> Maybe (TrieMap k a)

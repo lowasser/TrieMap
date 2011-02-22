@@ -54,7 +54,7 @@ instance TrieKey () where
 	searchMC _ (Unit (Just v)) _ g = g v Hole
 	searchMC _ _ f _ = f Hole
 
-	indexMC (Unit (Just v)) = unpack $ \ i -> ($~ Indexed i v Hole)
+	indexMC (Unit (Just v)) = unpack $ \ i result -> result $~ Indexed i v Hole
 	indexMC _ = indexFail
 	
 	unifierM _ _ _ = Nothing

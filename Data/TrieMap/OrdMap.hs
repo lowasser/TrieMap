@@ -1,5 +1,5 @@
 {-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, PatternGuards, MagicHash, CPP, TupleSections, NamedFieldPuns, FlexibleInstances #-}
-{-# LANGUAGE RecordWildCards, ImplicitParams #-}
+{-# LANGUAGE RecordWildCards, ImplicitParams, GeneralizedNewtypeDeriving, StandaloneDeriving, MultiParamTypeClasses #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.OrdMap () where
 
@@ -27,6 +27,15 @@ data SNode k a = SNode{sz :: !Int, count :: !Int, node :: Node k a}
 
 #define TIP SNode{node=Tip}
 #define BIN(args) SNode{node=Bin args}
+
+-- Morally reprehensible exploitation of generalized newtype deriving.
+class ImmoralCast a b where
+  immoralCast :: SNode k a -> SNode k b
+
+instance ImmoralCast a a where
+  immoralCast = id
+
+deriving instance ImmoralCast a (Elem a)
 
 instance Sized a => Sized (Node k a) where
   getSize# m = unbox $ case m of
@@ -80,7 +89,7 @@ instance Ord k => TrieKey (Ordered k) where
 	fromAscListFold f = combineKeys f fromDistAscListFold
 	fromDistAscListFold = OrdMap <$> mapFoldlKey unOrd fromDistAscList
 	unionM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeUnion f (const LT) (const GT) m1 m2
-	isectM f (OrdMap m1) (OrdMap m2) = OrdMap $ isect f m1 m2
+	isectM f (OrdMap m1) (OrdMap m2) = OrdMap $ isect f (immoralCast m1) m2
 	diffM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeDiff f (const LT) (const GT) m1 m2
 	
 	singleHoleM (Ord k) = Empty k Root
@@ -166,18 +175,18 @@ mapEither f BIN(k a l r) = (# joinMaybe k aL lL rL, joinMaybe k aR lR rR #)
   where !(# aL, aR #) = f a; !(# lL, lR #) = mapEither f l; !(# rL, rR #) = mapEither f r
 mapEither _ _ = (# tip, tip #)
 
-splitLookup :: (Ord k, Sized a) => k -> SNode k a -> (SNode k a -> Maybe a -> SNode k a -> r) -> r
+splitLookup :: Ord k => k -> SNode k (Elem a) -> (SNode k (Elem a) -> Maybe (Elem a) -> SNode k (Elem a) -> r) -> r
 splitLookup k t cont = search k t (split Nothing) (split . Just) where
   split v (Empty _ path) = cont (before tip path) v (after tip path)
   split v (Full _ path l r) = cont (before l path) v (after r path)
 
 instance Ord k => Subset (SNode k) where
-  (<=?) = subMap where
+  t1 <=? t2 = immoralCast t1 `subMap` immoralCast t2 where
     TIP `subMap` _	= True
     _ `subMap` TIP	= False
     BIN(kx x l r) `subMap` t = splitLookup kx t result
       where result _ Nothing _	= False
-	    result tl (Just y) tr	= ?le x y && l `subMap` tl && r `subMap` tr
+	    result tl (Just y) tr	= x <=? y && l `subMap` tl && r `subMap` tr
 
 fromDistAscList :: (Eq k, Sized a) => Foldl k a (SNode k a)
 fromDistAscList = Foldl{zero = tip, ..} where
@@ -250,9 +259,9 @@ trimLookupLo lo cmphi t@BIN(kx x l r)
       GT -> trimLookupLo lo cmphi r
       EQ -> (Just (kx,x),trim (compare lo) cmphi r)
 
-isect :: (Ord k, Sized a, Sized b, Sized c) => (a -> b -> Maybe c) -> SNode k a -> SNode k b -> SNode k c
+isect :: (Ord k, Sized c) => (a -> b -> Maybe c) -> SNode k (Elem a) -> SNode k b -> SNode k c
 isect f t1@BIN(_ _ _ _) BIN(k2 x2 l2 r2) = splitLookup k2 t1 result where
-  result tl found tr = joinMaybe k2 (found >>= \ x1' -> f x1' x2) (isect f tl l2) (isect f tr r2)
+  result tl found tr = joinMaybe k2 (found >>= \ (Elem x1') -> f x1' x2) (isect f tl l2) (isect f tr r2)
 isect _ _ _ = tip
 
 hedgeDiff :: (Ord k, Sized a)

@@ -10,9 +10,9 @@ class Sized a where
 	getSize# :: a -> Int#
 
 class Subset f where
-  (<=?) :: (Sized b, ?le :: a -> b -> Bool) => f a -> f b -> Bool
+  (<=?) :: (?le :: a -> b -> Bool) => f a -> f b -> Bool
 
-(<<=?) :: (Sized b, Sized (g b), Subset f, Subset g, ?le :: a -> b -> Bool) => f (g a) -> f (g b) -> Bool
+(<<=?) :: (Subset f, Subset g, ?le :: a -> b -> Bool) => f (g a) -> f (g b) -> Bool
 f <<=? g = let ?le = (<=?) in f <=? g
 
 instance Subset Maybe where
