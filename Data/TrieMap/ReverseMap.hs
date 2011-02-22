@@ -79,10 +79,6 @@ instance TrieKey k => TrieKey (Rev k) where
 	fromAscListFold f = RevMap <$> mapFoldlKey getRev (reverseFold (fromAscListFold f))
 	fromDistAscListFold = RevMap <$> mapFoldlKey getRev (reverseFold fromDistAscListFold)
 	
-	fromListM f xs = RevMap (fromListM f [(k, a) | (Rev k, a) <- xs])
-	fromAscListM f xs = RevMap (fromAscListM (flip f) [(k, a) | (Rev k, a) <- reverse xs])
-	fromDistAscListM xs = RevMap (fromDistAscListM [(k, a) | (Rev k, a) <- reverse xs])
-	
 	unifierM (Rev k') (Rev k) a = RHole <$> unifierM k' k a
 
 {-# INLINE reverseFold #-}

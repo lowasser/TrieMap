@@ -140,12 +140,6 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	unifierM :: Sized a => k -> k -> a -> Lookup r (Hole k a)
 	unifyM :: Sized a => k -> a -> k -> a -> Lookup r (TrieMap k a)
 	
-	fromListM, fromAscListM :: Sized a => (a -> a -> a) -> [(k, a)] -> TrieMap k a
-	fromListM f xs = runFoldl (fromListFold f) xs
-	fromAscListM f xs = runFoldl (fromAscListFold f) xs
-	fromDistAscListM :: Sized a => [(k, a)] -> TrieMap k a
-	fromDistAscListM xs = runFoldl fromDistAscListFold xs
-	
 	{-# INLINE fromListFold #-}
 	fromListFold f = Foldl 
 	  {snoc = \ m k a -> insertWithM (f a) k a m,

@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, ImplicitParams #-}
+{-# LANGUAGE UnboxedTuples, ImplicitParams, RecordWildCards, FlexibleContexts #-}
 
 module Data.TrieMap (
 	-- * Map type
@@ -859,13 +859,23 @@ fromListWith = fromListWithKey . const
 fromAscListWith :: TKey k => (a -> a -> a) -> [(k, a)] -> TMap k a
 fromAscListWith = fromAscListWithKey . const
 
+{-# INLINE fromFold #-}
+fromFold :: (Repr k, TrieKey (Rep k)) => FromList (Rep k) (Assoc k a) -> [(k, a)] -> TMap k a
+fromFold Foldl{..} = fL where
+  fL [] = empty
+  fL ((k, a):xs) = fL' (begin (toRep k) (Assoc k a)) xs
+  
+  fL' s xs = s `seq` case xs of
+    []	-> TMap (done s)
+    (k,a):xs -> fL' (snoc s (toRep k) (Assoc k a)) xs
+
 -- | Build a map from a list of key\/value pairs with a combining function. See also 'fromAscListWith'.
 --
 -- > fromListWith (++) [(5,"a"), (5,"b"), (3,"b"), (3,"a"), (5,"a")] == fromList [(3, "ab"), (5, "aba")]
 -- > fromListWith (++) [] == empty
 {-# INLINEABLE fromListWithKey #-}
 fromListWithKey :: TKey k => (k -> a -> a -> a) -> [(k, a)] -> TMap k a
-fromListWithKey f xs = TMap (fromListM f' [(toRep k, Assoc k a) | (k, a) <- xs])
+fromListWithKey f = fromFold (fromListFold f')
 	where f' (Assoc k a) (Assoc _ b) = Assoc k (f k a b)
 
 -- | Build a map from an ascending list in linear time.
@@ -875,7 +885,7 @@ fromListWithKey f xs = TMap (fromListM f' [(toRep k, Assoc k a) | (k, a) <- xs])
 -- > fromAscList [(3,"b"), (5,"a"), (5,"b")] == fromList [(3, "b"), (5, "b")]
 {-# INLINEABLE fromAscListWithKey #-}
 fromAscListWithKey :: TKey k => (k -> a -> a -> a) -> [(k, a)] -> TMap k a
-fromAscListWithKey f xs = TMap (fromAscListM f' [(toRep k, Assoc k a) | (k, a) <- xs])
+fromAscListWithKey f = fromFold $ fromAscListFold f'
 	where f' (Assoc k a) (Assoc _ b) = Assoc k (f k a b)
 
 -- | Build a map from an ascending list of distinct elements in linear time.
@@ -884,7 +894,7 @@ fromAscListWithKey f xs = TMap (fromAscListM f' [(toRep k, Assoc k a) | (k, a) <
 -- > fromDistinctAscList [(3,"b"), (5,"a")] == fromList [(3, "b"), (5, "a")]
 {-# INLINEABLE fromDistinctAscList #-}
 fromDistinctAscList :: TKey k => [(k, a)] -> TMap k a
-fromDistinctAscList xs = TMap (fromDistAscListM [(toRep k, Assoc k a) | (k, a) <- xs])
+fromDistinctAscList = fromFold fromDistAscListFold
 
 -- | /O(1)/. The number of elements in the map.
 --

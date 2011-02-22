@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, ImplicitParams #-}
+{-# LANGUAGE UnboxedTuples, ImplicitParams, RecordWildCards, FlexibleContexts #-}
 module Data.TrieSet (
 	-- * Set type
 	TSet,
@@ -232,20 +232,32 @@ toList = toAscList
 toAscList :: TKey a => TSet a -> [a]
 toAscList s = build (\ c n -> foldr c n s)
 
+{-# INLINE fromFold #-}
+fromFold :: (Repr a, TrieKey (Rep a)) => FromList (Rep a) (Elem a) -> [a] -> TSet a
+fromFold Foldl{..} = fL where
+  fL [] = empty
+  fL (x:xs) = fL' (begin (toRep x) (Elem x)) xs
+  
+  fL' s xs = s `seq` case xs of
+    []	-> TSet (done s)
+    x:xs -> fL' (snoc s (toRep x) (Elem x)) xs
+
 {-# INLINE fromList #-}
 -- | Create a set from a list of elements.
 fromList :: TKey a => [a] -> TSet a
-fromList xs = TSet (fromListM const [(toRep x, Elem x) | x <- xs])
+fromList = fromFold $ fromListFold const
 
+{-# INLINE fromAscList #-}
 -- | Build a set from an ascending list in linear time.
 -- /The precondition (input list is ascending) is not checked./
 fromAscList :: TKey a => [a] -> TSet a
-fromAscList xs = TSet (fromAscListM const [(toRep x, Elem x) | x <- xs])
+fromAscList = fromFold $ fromAscListFold const
 
+{-# INLINE fromDistinctAscList #-}
 -- | /O(n)/. Build a set from an ascending list of distinct elements in linear time.
 -- /The precondition (input list is strictly ascending) is not checked./
 fromDistinctAscList :: TKey a => [a] -> TSet a
-fromDistinctAscList xs = TSet (fromDistAscListM [(toRep x, Elem x) | x <- xs])
+fromDistinctAscList = fromFold fromDistAscListFold
 
 -- | /O(1)/. Is this the empty set?
 null :: TKey a => TSet a -> Bool
