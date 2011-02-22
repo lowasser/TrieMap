@@ -52,8 +52,8 @@ instance TrieKey k => TrieKey (Vector k) where
 	{-# INLINE searchMC #-}
 	searchMC ks (Radix (Just e)) = mapSearch Hole (searchEdgeC ks e)
 	searchMC ks _ = \ f _ -> f (singleHoleM ks)
-	indexMC i (Radix (Just e)) = mapIndex Hole (indexEdge i e)
-	indexMC _ _ = indexFail
+	indexMC (Radix (Just e)) = mapIndex Hole <$> indexEdge e
+	indexMC _ = indexFail
 
 	clearM (Hole loc) = Radix (clearEdge loc)
 	{-# INLINE assignM #-}
@@ -119,8 +119,8 @@ instance TrieKey (P.Vector Word) where
 	  f' loc = f (WHole loc)
 	  g' a loc = g a (WHole loc)
 	searchMC ks _ f _ = f (singleHoleM ks)
-	indexMC i (WRadix (Just e)) = mapIndex WHole (indexEdge i e)
-	indexMC _ _ = indexFail
+	indexMC (WRadix (Just e)) = mapIndex WHole <$> indexEdge e
+	indexMC _ = indexFail
 	
 	clearM (WHole loc) = WRadix (clearEdge loc)
 	{-# INLINE assignM #-}

@@ -64,7 +64,7 @@ import Control.Monad.Lookup
 
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances ()
-import Data.TrieMap.TrieKey (TrieKey(..), nullM)
+import Data.TrieMap.TrieKey hiding (foldr, foldl, toList)
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Sized
 import Data.TrieMap.Utils
@@ -285,14 +285,14 @@ elemAt :: TKey a => Int -> TSet a -> a
 elemAt i s
 	| i < 0 || i >= size s
 		= error "TrieSet.elemAt: index out of range"
-elemAt i (TSet s) = indexMC (unbox i) s $ \ _ (Elem a) _ -> a
+elemAt i (TSet s) = indexMC' s i $ \ (Indexed _ (Elem a) _) -> a
 
 -- | Deletes the element at the specified index.  Throws an error if an invalid index is specified.
 deleteAt :: TKey a => Int -> TSet a -> TSet a
 deleteAt i s
 	| i < 0 || i >= size s
 		= error "TrieSet.deleteAt: index out of range"
-deleteAt i (TSet s) = indexMC (unbox i) s $ \ _ _ hole -> TSet (clearM hole)
+deleteAt i (TSet s) = indexMC' s i $ \ (Indexed _ _ hole) -> TSet (clearM hole)
 
 -- | If the specified element is in the set, returns 'Just' the index of the element, otherwise returns 'Nothing'.
 lookupIndex :: TKey a => a -> TSet a -> Maybe Int

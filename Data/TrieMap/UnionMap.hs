@@ -2,12 +2,13 @@
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.UnionMap () where
 
+import Control.Monad.Unpack
+
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 import Data.TrieMap.UnitMap ()
 
 import Prelude hiding (foldr, foldr1, foldl, foldl1, (^))
-import GHC.Exts
 
 {-# INLINE (^) #-}
 (^) :: (TrieKey k1, TrieKey k2, Sized a) => Maybe (TrieMap k1 a) -> Maybe (TrieMap k2 a) -> TrieMap (Either k1 k2) a
@@ -150,13 +151,14 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	searchMC (Left k) (UVIEW m1 m2) = mapSearch (`hole1` m2) (searchMC' k m1)
 	searchMC (Right k) (UVIEW m1 m2) = mapSearch (hole2 m1) (searchMC' k m2)
 	
-	indexMC i (K1 m1) result = mapIndex HoleX0 (indexMC i m1) result
-	indexMC i (K2 m2) result = mapIndex Hole0X (indexMC i m2) result
-	indexMC i# (Union _ m1 m2) result
-		| i# <# s1#	= mapIndex (`HoleX2` m2) (indexMC i# m1) result
-		| otherwise	= mapIndex (Hole1X m1) (indexMC (i# -# s1#) m2) result
-		where !s1# = sizeM# m1
-	indexMC _ _ _ = indexFail
+	indexMC m = unpack $ \ i result -> case m of
+	  K1 m1	-> mapIndex HoleX0 (indexMC m1 $~ i) result
+	  K2 m2	-> mapIndex Hole0X (indexMC m2 $~ i) result
+	  Union _ m1 m2
+	    | i < s1	-> mapIndex (`HoleX2` m2) (indexMC m1 $~ i) result
+	    | otherwise	-> mapIndex (m1 `Hole1X`) (indexMC m2 $~ (i - s1)) result
+	    where s1 = sizeM m1
+	  _		-> indexFail
 
 	extractHoleM (UVIEW !m1 !m2) = holes1 `mplus` holes2 where
 	  holes1 = holes extractHoleM (`hole1` m2) m1
