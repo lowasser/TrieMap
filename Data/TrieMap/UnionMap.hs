@@ -172,9 +172,14 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		Hole2 m1 h2	-> m1 ^ Just (assignM v h2)
 	
 	unifierM (Left k') (Left k) a = HoleX0 <$> unifierM k' k a
-	unifierM (Left k') (Right k) a = Just $ HoleX2 (singleHoleM k') (singletonM k a)
-	unifierM (Right k') (Left k) a = Just $ Hole1X (singletonM k a) (singleHoleM k')
+	unifierM (Left k') (Right k) a = return $ HoleX2 (singleHoleM k') (singletonM k a)
+	unifierM (Right k') (Left k) a = return $ Hole1X (singletonM k a) (singleHoleM k')
 	unifierM (Right k') (Right k) a = Hole0X <$> unifierM k' k a
+	
+	unifyM (Left k1) a1 (Left k2) a2 = K1 <$> unifyM k1 a1 k2 a2
+	unifyM (Left k1) a1 (Right k2) a2 = return $ singletonM k1 a1 `union` singletonM k2 a2
+	unifyM (Right k2) a2 (Left k1) a1 = return $ singletonM k1 a1 `union` singletonM k2 a2
+	unifyM (Right k1) a1 (Right k2) a2 = K2 <$> unifyM k1 a1 k2 a2
 
 {-# INLINE holes #-}
 holes :: (Functor m, Functor f, MonadPlus m) => (a -> m (f b)) -> (b -> c) -> Maybe a -> m (f c)

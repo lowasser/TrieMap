@@ -113,9 +113,12 @@ instance TrieKey Word where
 		extractHole path BIN(p m l r) =
 			extractHole (LeftBin p m path r) l `mplus`
 				extractHole (RightBin p m l path) r
-	clearM HOLE(_ path) = WordMap (clear path)
+	{-# INLINE clearM #-}
+	clearM HOLE(_ path) = case clear path of
+	  (# sz#, node #) -> WordMap SNode{sz = I# sz#, node}
 	{-# INLINE assignM #-}
-	assignM v HOLE(kx path) = WordMap (assign (singleton kx v) path)
+	assignM v HOLE(kx path) = case assign (singleton kx v) path of
+	  (# sz#, node #) -> WordMap SNode{sz = I# sz#, node}
 
 	{-# INLINE unifyM #-}
 	unifyM k1 a1 k2 a2 = WordMap <$> unify k1 a1 k2 a2
@@ -188,13 +191,13 @@ afterWith !t Root			= t
 afterWith !t (RightBin _ _ _ path)	= afterWith t path
 afterWith !t (LeftBin p m path r)	= afterWith (bin' p m t r) path
 
-clear :: Path a -> SNode a
-assign :: SNode a -> Path a -> SNode a
-clear Root = nil
+clear :: Path a -> (# Int#, Node a #)
+assign :: SNode a -> Path a -> (# Int#, Node a #)
+clear Root = (# 0#, Nil #)
 clear (LeftBin _ _ path r) = assign r path
 clear (RightBin _ _ l path) = assign l path
 
-assign !t Root = t
+assign SNode{sz = I# sz#, node} Root = (# sz#, node #)
 assign !t (LeftBin p m path r) = assign (bin' p m t r) path
 assign !t (RightBin p m l path) = assign (bin' p m l t) path
 
@@ -404,16 +407,14 @@ bin' p m l@SNode{sz=sl} r@SNode{sz=sr} = assert (nonempty l && nonempty r) $ SNo
   	nonempty _ = True
 
 {-# INLINE unify #-}
-unify :: Sized a => Key -> a -> Key -> a -> Maybe (SNode a)
-unify k1 a1 k2 a2
-  | k1 == k2	= Nothing
-  | otherwise	= Just (join k1 (singleton k1 a1) k2 (singleton k2 a2))
+unify :: Sized a => Key -> a -> Key -> a -> Lookup r (SNode a)
+unify k1 a1 k2 a2 = Lookup $ \ no yes ->
+  if k1 == k2 then no else yes (join k1 (singleton k1 a1) k2 (singleton k2 a2))
 
 {-# INLINE unifier #-}
-unifier :: Sized a => Key -> Key -> a -> Maybe (WHole a)
-unifier k' k a
-    | k' == k	= Nothing
-    | otherwise	= Just (WHole k' $ branchHole k' k Root (singleton k a))
+unifier :: Sized a => Key -> Key -> a -> Lookup r (WHole a)
+unifier k' k a = Lookup $ \ no yes ->
+  if k == k' then no else yes (WHole k' $ branchHole k' k Root (singleton k a))
 
 {-# INLINE fromAscList #-}
 fromAscList :: forall a . Sized a => (a -> a -> a) -> Foldl Key a (SNode a)

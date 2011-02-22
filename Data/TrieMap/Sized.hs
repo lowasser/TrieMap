@@ -7,7 +7,12 @@ import Data.Traversable
 import GHC.Exts
 
 class Sized a where
-	getSize# :: a -> Int#
+  getSize# :: a -> Int#
+
+data PreSized a = PS !Int a
+
+instance Sized (PreSized a) where
+  getSize# (PS sz _) = unbox sz
 
 class Subset f where
   (<=?) :: (?le :: a -> b -> Bool) => f a -> f b -> Bool

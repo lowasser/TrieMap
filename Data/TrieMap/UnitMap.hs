@@ -57,7 +57,8 @@ instance TrieKey () where
 	indexMC (Unit (Just v)) = unpack $ \ i result -> result $~ Indexed i v Hole
 	indexMC _ = indexFail
 	
-	unifierM _ _ _ = Nothing
+	unifierM _ _ _ = mzero
+	unifyM _ _ _ _ = mzero
 	
 	extractHoleM (Unit (Just v)) = return (v, Hole)
 	extractHoleM _ = mzero

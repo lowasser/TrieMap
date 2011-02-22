@@ -100,7 +100,7 @@ searchEdgeC ks0 e nomatch0 match0 = searchE ks0 e root where
   match a !ls !ts path = match0 a (loc ls ts path)
   searchE !ks e@EDGE(_ !ls !v ts) path = iMatchSlice matcher matches ks ls where
     matcher i k l z = 
-      maybe z (nomatch (dropSlice (i+1) ks) emptyM . deep path (takeSlice i ls) Nothing) (unifierM k l (dropEdge (i+1) e)) 
+      runLookup (unifierM k l (dropEdge (i+1) e)) z (nomatch (dropSlice (i+1) ks) emptyM . deep path (takeSlice i ls) Nothing)
     matches kLen lLen = case compare kLen lLen of
       LT -> let lPre = takeSlice kLen ls; l = ls !$ kLen; e' = dropEdge (kLen + 1) e in
 	      nomatch lPre (singletonM l e') path
@@ -157,9 +157,7 @@ unionEdge :: (Label v k, Sized a) =>
 	(a -> a -> Maybe a) -> Edge v k a -> Edge v k a -> MEdge v k a
 unionEdge f = unionE where
   unionE !eK@EDGE(_ ks0 !vK tsK) !eL@EDGE(_ ls0 !vL tsL) = iMatchSlice matcher matches ks0 ls0 where
-    matcher !i k l z = case unifyM k eK' l eL' of
-      Nothing	-> z
-      Just ts'	-> Just (edge (takeSlice i ks0) Nothing ts')
+    matcher !i k l z = runLookup (unifyM k eK' l eL') z $ Just . edge (takeSlice i ks0) Nothing
       where eK' = dropEdge (i+1) eK
 	    eL' = dropEdge (i+1) eL
     
@@ -281,9 +279,7 @@ insertEdge f ks0 a e = insertE ks0 id e where
   insertE !ks cont eL@EDGE(szL ls !v ts) = iMatchSlice matcher matches ks ls where
     !sza = getSize a
     !szV = szL - sizeM ts
-    matcher !i k l z = case unifyM k eK' l eL' of
-      Nothing	-> z
-      Just branch -> cont (edge (takeSlice i ls) Nothing branch)
+    matcher !i k l z = runLookup (unifyM k eK' l eL') z (cont . edge (takeSlice i ls) Nothing)
       where	eK' = edge' sza (dropSlice (i+1) ks) (Just a) emptyM
 		eL' = dropEdge (i+1) eL
     matches kLen lLen = case compare kLen lLen of

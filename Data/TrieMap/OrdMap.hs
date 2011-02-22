@@ -124,9 +124,13 @@ instance Ord k => TrieKey (Ordered k) where
 	assignM x (Full k path l r) = OrdMap $ rebuild (join k x l r) path
 	
 	unifierM (Ord k') (Ord k) a = case compare k' k of
-		EQ	-> Nothing
-		LT	-> Just $ Empty k' (LeftBin k a Root tip)
-		GT	-> Just $ Empty k' (RightBin k a tip Root)
+	  EQ	-> mzero
+	  LT	-> return $ Empty k' (LeftBin k a Root tip)
+	  GT	-> return $ Empty k' (RightBin k a tip Root)
+	unifyM (Ord k1) a1 (Ord k2) a2 = case compare k1 k2 of
+	  EQ	-> mzero
+	  LT	-> return $ OrdMap $ bin k1 a1 tip (singleton k2 a2)
+	  GT	-> return $ OrdMap $ bin k1 a1 (singleton k2 a2) tip
 
 rebuild :: Sized a => SNode k a -> Path k a -> SNode k a
 rebuild t Root = t

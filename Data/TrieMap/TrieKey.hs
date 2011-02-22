@@ -137,8 +137,8 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	
 	assignM :: Sized a => a -> Hole k a -> TrieMap k a
 	clearM :: Sized a => Hole k a -> TrieMap k a
-	unifierM :: Sized a => k -> k -> a -> Maybe (Hole k a)
-	unifyM :: Sized a => k -> a -> k -> a -> Maybe (TrieMap k a)
+	unifierM :: Sized a => k -> k -> a -> Lookup r (Hole k a)
+	unifyM :: Sized a => k -> a -> k -> a -> Lookup r (TrieMap k a)
 	
 	fromListM, fromAscListM :: Sized a => (a -> a -> a) -> [(k, a)] -> TrieMap k a
 	fromListM f xs = runFoldl (fromListFold f) xs
@@ -157,10 +157,8 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	{-# INLINE fromDistAscListFold #-}
 	fromDistAscListFold = fromAscListFold const
 	
-	unifierM k' k a = searchMC k' (singletonM k a) Just (\ _ _ -> Nothing)
-	unifyM k1 a1 k2 a2 = case unifierM k1 k2 a2 of
-	  Nothing	-> Nothing
-	  Just hole	-> Just $ inline assignM a1 hole
+	unifierM k' k a = Lookup $ \ no yes -> searchMC k' (singletonM k a) yes (\ _ _ -> no)
+	unifyM k1 a1 k2 a2 = assignM a1 <$> unifierM k1 k2 a2
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM#

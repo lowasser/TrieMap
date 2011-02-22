@@ -62,9 +62,13 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	clearM (PHole hole1 hole2) = PMap (fillHoleM (clearM' hole2) hole1)
 	assignM a (PHole hole1 hole2) = PMap (assignM (assignM a hole2) hole1)
 	
-	unifierM (k1', k2') (k1, k2) a = case unifierM k1' k1 (singletonM k2 a) of
-	  Just hole1	-> Just (PHole hole1 (singleHoleM k2'))
-	  Nothing	-> PHole (singleHoleM k1) <$> unifierM k2' k2 a
+	unifierM (k1', k2') (k1, k2) a = 
+	  (fmap (`PHole` singleHoleM k2') $ unifierM k1' k1 (singletonM k2 a))
+	  `mplus` (PHole (singleHoleM k1) <$> unifierM k2' k2 a)
+	unifyM (k11, k12) a1 (k21, k22) a2 =
+	  let unify1 = unifyM k11 (singletonM k12 a1) k21 (singletonM k22 a2)
+	      unify2 = singletonM k11 <$> unifyM k12 a1 k22 a2
+	      in PMap <$> (unify1 `mplus` unify2)
 
 gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
 gNull = (guardNullM .)
