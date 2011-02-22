@@ -1,6 +1,6 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances, RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables, ImplicitParams, TemplateHaskell, TypeOperators #-}
-{-# OPTIONS -funbox-strict-fields #-}
+{-# OPTIONS -funbox-strict-fields -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), getWordMap, getHole) where
 
 import Data.TrieMap.TrieKey
@@ -55,9 +55,7 @@ data WHole a = WHole !Key (Path a)
 {-# ANN type WHole ForceSpecConstr #-}
 
 $(noUnpackInstance ''Path)
-$(noUnpackInstance ''Node)
 $(unpackInstance ''WHole)
-$(unpackInstance ''SNode)
 
 {-# INLINE hole #-}
 hole :: Key -> Path a -> Hole Word a

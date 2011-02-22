@@ -157,9 +157,9 @@ unionEdge :: (Label v k, Sized a) =>
 	(a -> a -> Maybe a) -> Edge v k a -> Edge v k a -> MEdge v k a
 unionEdge f = unionE where
   unionE !eK@EDGE(_ ks0 !vK tsK) !eL@EDGE(_ ls0 !vL tsL) = iMatchSlice matcher matches ks0 ls0 where
-    matcher !i k l z
-      | k == l		= z
-      | otherwise	= Just (edge (takeSlice i ks0) Nothing $ insertWithM id k eK' $ singletonM l eL')
+    matcher !i k l z = case unifyM k eK' l eL' of
+      Nothing	-> z
+      Just ts'	-> Just (edge (takeSlice i ks0) Nothing ts')
       where eK' = dropEdge (i+1) eK
 	    eL' = dropEdge (i+1) eL
     
