@@ -2,6 +2,8 @@
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.RadixTrie.Label where
 
+import Control.Monad.Unpack
+
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 import Data.TrieMap.RadixTrie.Slice
@@ -17,7 +19,7 @@ import Prelude hiding (length)
 #define V(ty) (ty (V.Vector) (k))
 #define U(ty) (ty (P.Vector) Word)
 
-class (Vector v k, TrieKey k) => Label v k where
+class (Unpackable (v k), Vector v k, TrieKey k) => Label v k where
   data Edge v k :: * -> *
   data Path v k :: * -> *
   data EdgeLoc v k :: * -> *
@@ -48,7 +50,8 @@ instance Sized (EView v k a) where
   getSize# (Edge sz _ _ _) = unbox sz
 
 instance Label v k => Sized (Edge v k a) where
-  {-# SPECIALIZE instance TrieKey k => Sized (Edge V.Vector k a) #-}
+  {-# SPECIALIZE instance TrieKey k => Sized (V(Edge) a) #-}
+  {-# SPECIALIZE instance Sized (U(Edge) a) #-}
   getSize# e = getSize# (eView e)
 
 instance TrieKey k => Label V.Vector k where

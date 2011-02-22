@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleContexts, TupleSections, Rank2Types, ExistentialQuantification #-}
-{-# LANGUAGE NamedFieldPuns, RecordWildCards, ImplicitParams #-}
+{-# LANGUAGE NamedFieldPuns, RecordWildCards, ImplicitParams, DeriveFunctor, TypeOperators #-}
 
 module Data.TrieMap.TrieKey (
   module Data.TrieMap.TrieKey,
@@ -17,6 +17,8 @@ import Control.Applicative hiding (empty)
 import Control.Monad
 import Control.Monad.Lookup
 import Control.Monad.Ends
+import Control.Monad.Unpack
+import Control.Monad.Trans.Reader
 
 import Data.Monoid (Monoid(..))
 import Data.Foldable
@@ -28,7 +30,7 @@ import GHC.Exts
 
 type LEq a b = a -> b -> Bool
 type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
-type IndexCont h a r = (Int# -> a -> h -> r) -> r
+type IndexCont h a r = (Indexed a h :~> r) -> r
 
 data Foldl k a z = forall z0 . 
   Foldl {snoc :: z0 -> k -> a -> z0,
@@ -117,7 +119,7 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
 	beforeWithM, afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
 	searchMC :: k -> TrieMap k a -> SearchCont (Hole k a) a r
-	indexMC :: Sized a => Int# -> TrieMap k a -> IndexCont (Hole k a) a r
+	indexMC :: Sized a => TrieMap k a -> Int :~> IndexCont (Hole k a) a r
 
 	-- By combining rewrite rules and these NOINLINE pragmas, we automatically derive
 	-- specializations of functions for every instance of TrieKey.
@@ -163,6 +165,10 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM#
 
+{-# INLINE indexMC' #-}
+indexMC' :: (TrieKey k, Sized a) => TrieMap k a -> Int -> (Indexed a (Hole k a) -> r) -> r
+indexMC' m i result = (indexMC m $~ i) (unpack result)
+
 foldl1Empty :: a
 foldl1Empty = error "Error: cannot call foldl1 on an empty map"
 
@@ -179,9 +185,12 @@ mapSearch f run nomatch match = run nomatch' match' where
   nomatch' hole = nomatch (f hole)
   match' a hole = match a (f hole)
 
+{-# INLINE mapInput #-}
+mapInput :: (Unpackable a, Unpackable b) => (a -> b) -> (b :~> c) -> (a :~> c)
+mapInput f func = unpack $ \ a -> func $~ f a
+
 mapIndex :: (hole -> hole') -> IndexCont hole a r -> IndexCont hole' a r
-mapIndex f run res = run res' where
-  res' i# a hole = res i# a (f hole)
+mapIndex f run = run . mapInput (fmap f)
 
 {-# INLINE lookupM #-}
 lookupM :: TrieKey k => k -> TrieMap k a -> Maybe a
@@ -296,3 +305,13 @@ indexFail = error "Error: not a valid index"
   "getSimpleM/emptyM" getSimpleM emptyM = Null;
   "getSimpleM/singletonM" forall k a . getSimpleM (singletonM k a) = Singleton a;
   #-}
+
+data Indexed a h = Indexed !Int a h deriving (Functor)
+
+instance Unpackable (Indexed a h) where
+  newtype UnpackedReaderT (Indexed a h) m r =
+    IndexedReaderT {runIndexedReaderT :: UnpackedReaderT Int (ReaderT a (ReaderT h m)) r}
+  runUnpackedReaderT func (Indexed i a hole) =
+    runIndexedReaderT func `runUnpackedReaderT` i `runReaderT` a `runReaderT` hole
+  unpackedReaderT func = IndexedReaderT $ unpackedReaderT $ \ i ->
+    ReaderT $ \ a -> ReaderT $ \ h -> func (Indexed i a h)

@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash, BangPatterns, UnboxedTuples, PatternGuards, CPP, ViewPatterns, NamedFieldPuns, ScopedTypeVariables #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, TypeOperators #-}
 {-# OPTIONS -funbox-strict-fields -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
       afterEdge,
@@ -19,6 +19,7 @@ module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
 
 import Control.Monad.Lookup
 import Control.Monad.Ends
+import Control.Monad.Unpack
 
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
@@ -32,7 +33,6 @@ import Data.Vector.Generic (length)
 import qualified Data.Vector (Vector)
 import qualified Data.Vector.Primitive (Vector)
 import Prelude hiding (length, foldr, foldl, zip, take, map)
-import GHC.Exts
 
 #define V(f) f (Data.Vector.Vector) (k)
 #define U(f) f (Data.Vector.Primitive.Vector) (Word)
@@ -260,17 +260,18 @@ extractEdgeLoc EDGE(_ ks v ts) path = case v of
 			extractEdgeLoc e' (deep path ks v tHole)
 
 {-# SPECIALIZE indexEdge :: 
-      (TrieKey k, Sized a) => Int# -> V(Edge) a -> IndexCont (V(EdgeLoc) a) a r,
-      Sized a => Int# -> U(Edge) a -> IndexCont (U(EdgeLoc) a) a r #-}
-indexEdge :: (Label v k, Sized a) => Int# -> Edge v k a -> IndexCont (EdgeLoc v k a) a r
-indexEdge i# e result = indexE i# e root where
-  indexE i# !e path = case eView e of
+      (TrieKey k, Sized a) => V(Edge) a -> Int :~> IndexCont (V(EdgeLoc) a) a r,
+      Sized a => U(Edge) a -> Int :~> IndexCont (U(EdgeLoc) a) a r #-}
+indexEdge :: (Label v k, Sized a) => Edge v k a -> Int :~> IndexCont (EdgeLoc v k a) a r
+indexEdge e = unpack $ \ i result -> let
+  indexE i !e path = case eView e of
     Edge _ ks v@(Just a) ts
-      | i# <# sv#	-> result i# a (loc ks ts path)
-      | otherwise	-> indexMC (i# -# sv#) ts $ \ i' e' tHole -> indexE i' e' (deep path ks v tHole)
-	  where	!sv# = getSize# a
+      | i < sv		-> result $~ Indexed i a (loc ks ts path)
+      | otherwise	-> indexMC' ts (i - sv) $ \ (Indexed i' e' tHole) -> indexE i' e' (deep path ks v tHole)
+	  where	!sv = getSize a
     Edge _ ks Nothing ts
-		-> indexMC i# ts $ \ i' e' tHole -> indexE i' e' (deep path ks Nothing tHole)
+		-> indexMC' ts i $ \ (Indexed i' e' tHole) -> indexE i' e' (deep path ks Nothing tHole)
+  in indexE i e root
 
 {-# SPECIALIZE insertEdge ::
       (TrieKey k, Sized a) => (a -> a) -> V() -> a -> V(Edge) a -> V(Edge) a,

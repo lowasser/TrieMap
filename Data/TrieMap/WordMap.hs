@@ -1,6 +1,6 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances, RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables, ImplicitParams, TemplateHaskell, TypeOperators #-}
-{-# OPTIONS -funbox-strict-fields #-}
+{-# OPTIONS -funbox-strict-fields -fasm #-}
 module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), getWordMap, getHole) where
 
 import Data.TrieMap.TrieKey
@@ -108,7 +108,7 @@ instance TrieKey Word where
 	{-# INLINE searchMC #-}
 	searchMC !k (WordMap t) notfound found = searchC k t (unpack (notfound .  Hole)) (\ a -> unpack (found a . Hole))
 	{-# INLINE indexMC #-}
-	indexMC i (WordMap m) result = index i m (\ i# x -> unpack (result i# x . Hole))
+	indexMC (WordMap m) = unpack $ \ i result -> index i m (\ a -> unpack $ \ (i, hole) -> result $~ Indexed i a (Hole hole))
 	extractHoleM (WordMap m) = extractHole Root m where
 		extractHole _ (SNode _ Nil) = mzero
 		extractHole path TIP(kx x) = return (x, hole kx path)
@@ -149,13 +149,13 @@ insertWithC f !k a !t = ins t (#, #) where
       | otherwise	-> result ret (join k tip kx t)
     NIL			-> result ret tip
 
-index :: Int# -> SNode a -> (Int# -> a -> WHole a :~> r) -> r
+index :: Int -> SNode a -> (a -> (Int, WHole a) :~> r) -> r
 index i !t result = indexT i t Root where
-  indexT i# TIP(kx x) path = result i# x $~ WHole kx path
-  indexT i# BIN(p m l r) path
-	  | i# <# sl#	= indexT i# l (LeftBin p m path r)
-	  | otherwise	= indexT (i# -# sl#) r (RightBin p m l path)
-	  where !sl# = getSize# l
+  indexT i TIP(kx x) path = result x $~ (i, WHole kx path)
+  indexT i BIN(p m l r) path
+	  | i < sl	= indexT i l (LeftBin p m path r)
+	  | otherwise	= indexT (i - sl) r (RightBin p m l path)
+	  where !sl = getSize l
   indexT _ NIL _		= indexFail
 
 searchC :: Key -> SNode a -> (WHole a :~> r) -> (a -> WHole a :~> r) -> r

@@ -2,6 +2,8 @@
 
 module Data.TrieMap.UnitMap () where
 
+import Control.Monad.Unpack
+
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 
@@ -52,8 +54,8 @@ instance TrieKey () where
 	searchMC _ (Unit (Just v)) _ g = g v Hole
 	searchMC _ _ f _ = f Hole
 
-	indexMC i (Unit (Just v)) result = result i v Hole
-	indexMC _ _ _ = indexFail
+	indexMC (Unit (Just v)) = unpack $ \ i -> ($~ Indexed i v Hole)
+	indexMC _ = indexFail
 	
 	unifierM _ _ _ = Nothing
 	
