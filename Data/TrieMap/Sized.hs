@@ -2,7 +2,7 @@
 
 module Data.TrieMap.Sized where
 
-import Data.TrieMap.Subset
+import Data.TrieMap.TrieKey.Subset
 import Data.Foldable
 import Data.Traversable
 import GHC.Exts

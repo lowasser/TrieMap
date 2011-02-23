@@ -65,7 +65,7 @@ import Control.Monad.Lookup
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances ()
 import Data.TrieMap.TrieKey hiding (foldr, foldl, toList, union, diff, isect)
-import qualified Data.TrieMap.SetOp as Set
+import qualified Data.TrieMap.TrieKey.SetOp as Set
 import Data.TrieMap.Representation.Class
 
 import Data.Maybe(fromJust)

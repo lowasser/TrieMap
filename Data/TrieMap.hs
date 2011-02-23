@@ -132,8 +132,8 @@ import Control.Monad.Lookup
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances()
 import Data.TrieMap.TrieKey hiding (union, isect, diff, mapMaybe, mapEither)
-import qualified Data.TrieMap.Projection as Proj
-import qualified Data.TrieMap.SetOp as Set
+import qualified Data.TrieMap.TrieKey.Projection as Proj
+import qualified Data.TrieMap.TrieKey.SetOp as Set
 import Data.TrieMap.Representation
 import Data.TrieMap.Representation.Instances ()
 

@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeFamilies, NamedFieldPuns, RecordWildCards, FunctionalDependencies, BangPatterns, MultiParamTypeClasses, ViewPatterns #-}
-module Data.TrieMap.Buildable (
+module Data.TrieMap.TrieKey.Buildable (
   Buildable(..),
   Foldl(..),
   mapFoldlKeys,

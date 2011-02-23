@@ -1,6 +1,6 @@
 {-# LANGUAGE ImplicitParams #-}
 
-module Data.TrieMap.Subset where
+module Data.TrieMap.TrieKey.Subset where
 
 type LEq a b = a -> b -> Bool
 class Subset f where

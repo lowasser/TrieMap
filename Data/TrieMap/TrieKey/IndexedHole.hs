@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeOperators, TypeFamilies, DeriveFunctor #-}
-module Data.TrieMap.IndexedHole where
+module Data.TrieMap.TrieKey.IndexedHole where
 
 import Control.Monad.Trans.Reader
 import Control.Monad.Unpack

@@ -1,12 +1,12 @@
 {-# LANGUAGE LiberalTypeSynonyms, ImplicitParams, TypeOperators, CPP #-}
-module Data.TrieMap.SetOp (
+module Data.TrieMap.TrieKey.SetOp (
   IsectM, UnionM, DiffM,
   isectM, unionM, diffM,
   Isect, Union, Diff,
   SetOp(..)) where
 
 import Data.TrieMap.Sized
-import Data.TrieMap.Subset
+import Data.TrieMap.TrieKey.Subset
 
 type IsectM f a b c = f a -> f b -> Maybe (f c)
 type UnionM f a = f a -> f a -> Maybe (f a)

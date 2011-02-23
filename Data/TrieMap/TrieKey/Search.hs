@@ -1,4 +1,4 @@
-module Data.TrieMap.Search where
+module Data.TrieMap.TrieKey.Search where
 
 type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
 

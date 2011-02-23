@@ -1,8 +1,8 @@
 {-# LANGUAGE LiberalTypeSynonyms, UnboxedTuples, ScopedTypeVariables, Rank2Types #-}
-module Data.TrieMap.Projection (MapMaybe, MapEither, Project(..), mapMaybeM, mapEitherM, both, both') where
+module Data.TrieMap.TrieKey.Projection (MapMaybe, MapEither, Project(..), mapMaybeM, mapEitherM, both, both') where
 
 import Data.TrieMap.Sized
-import Data.TrieMap.Subset
+import Data.TrieMap.TrieKey.Subset
 
 type MapMaybe f a b = f a -> Maybe (f b)
 type MapEither f a b c = f a -> (# Maybe (f b), Maybe (f c) #)

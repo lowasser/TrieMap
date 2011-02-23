@@ -7,25 +7,25 @@ module Data.TrieMap.TrieKey (
   module Data.Traversable,
   module Control.Applicative,
   module Data.TrieMap.Sized,
-  module Data.TrieMap.Subset,
   module Data.TrieMap.Utils,
-  module Data.TrieMap.Buildable,
-  module Data.TrieMap.SetOp,
-  module Data.TrieMap.Projection,
-  module Data.TrieMap.IndexedHole,
-  module Data.TrieMap.Search,
+  module Data.TrieMap.TrieKey.Subset,
+  module Data.TrieMap.TrieKey.Buildable,
+  module Data.TrieMap.TrieKey.SetOp,
+  module Data.TrieMap.TrieKey.Projection,
+  module Data.TrieMap.TrieKey.IndexedHole,
+  module Data.TrieMap.TrieKey.Search,
   MonadPlus(..),
   Monoid(..),
   guard) where
 
 import Data.TrieMap.Sized
-import Data.TrieMap.Subset
 import Data.TrieMap.Utils
-import Data.TrieMap.Buildable
-import Data.TrieMap.SetOp
-import Data.TrieMap.Projection
-import Data.TrieMap.IndexedHole
-import Data.TrieMap.Search
+import Data.TrieMap.TrieKey.Subset
+import Data.TrieMap.TrieKey.Buildable
+import Data.TrieMap.TrieKey.SetOp
+import Data.TrieMap.TrieKey.Projection
+import Data.TrieMap.TrieKey.IndexedHole
+import Data.TrieMap.TrieKey.Search
 
 import Control.Applicative hiding (empty)
 import Control.Monad
