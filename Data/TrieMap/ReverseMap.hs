@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, GeneralizedNewtypeDeriving, FlexibleInstances, NamedFieldPuns, RecordWildCards, MagicHash #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, GeneralizedNewtypeDeriving, FlexibleInstances, NamedFieldPuns, RecordWildCards #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Data.TrieMap.ReverseMap () where
 
 import Control.Monad.Unpack
@@ -35,6 +36,14 @@ instance TrieKey k => Traversable (TrieMap (Rev k)) where
 
 instance TrieKey k => Subset (TrieMap (Rev k)) where
   RevMap m1 <=? RevMap m2 = m1 <=? m2
+
+instance TrieKey k => Buildable (TrieMap (Rev k)) (Rev k) where
+  type UStack (TrieMap (Rev k)) = UMStack k
+  uFold = fmap RevMap . mapFoldlKeys getRev . uFold
+  type AStack (TrieMap (Rev k)) = RevFold (AMStack k) k
+  aFold = fmap RevMap . mapFoldlKeys getRev . reverseFold . aFold
+  type DAStack (TrieMap (Rev k)) = RevFold (DAMStack k) k
+  daFold = RevMap <$> mapFoldlKeys getRev (reverseFold daFold)
 
 -- | @'TrieMap' ('Rev' k) a@ is a wrapper around a @'TrieMap' k a@ that reverses the order of the operations.
 instance TrieKey k => TrieKey (Rev k) where
@@ -73,13 +82,6 @@ instance TrieKey k => TrieKey (Rev k) where
 	clearM (RHole m) = RevMap (clearM m)
 	
 	insertWithM f (Rev k) a (RevMap m) = RevMap (insertWithM f k a m)
-	
-	type FLStack (Rev k) = FLStack k
-	fromListFold f = RevMap <$> mapFoldlKey getRev (fromListFold f)
-	type FLAStack (Rev k) = RevFold (FLAStack k) k
-	fromAscListFold f = RevMap <$> mapFoldlKey getRev (reverseFold (fromAscListFold f))
-	type FDLAStack (Rev k) = RevFold (FDLAStack k) k
-	fromDistAscListFold = RevMap <$> mapFoldlKey getRev (reverseFold fromDistAscListFold)
 	
 	unifierM (Rev k') (Rev k) a = RHole <$> unifierM k' k a
 

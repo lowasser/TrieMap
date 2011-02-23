@@ -294,11 +294,11 @@ insertEdge f ks0 a e = insertE ks0 e where
 	sz' = sizeM ts' + szV
 
 {-# SPECIALIZE fromAscListEdge ::
-      (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (V(Stack) a) (V()) a (V(MEdge) a),
-      Sized a => (a -> a -> a) -> Foldl (U(Stack) a) (U()) a (U(MEdge) a) #-}
+      (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (V(Stack)) (V()) a (V(MEdge) a),
+      Sized a => (a -> a -> a) -> Foldl (U(Stack)) (U()) a (U(MEdge) a) #-}
 fromAscListEdge :: forall v k a .(Label v k, Sized a) => (a -> a -> a) -> 
-  Foldl (Stack v k a) (v k) a (MEdge v k a)
-fromAscListEdge f = case inline fromDistAscListFold of
+  Foldl (Stack v k) (v k) a (MEdge v k a)
+fromAscListEdge f = case inline daFold of
   Foldl{snoc = snocB, begin = beginB, done = doneB} 
     -> Foldl{..} where
     begin ks a = stack ks (Just a) Nothing Nothing

@@ -69,6 +69,14 @@ instance Foldable (TrieMap (Ordered k)) where
 instance Traversable (TrieMap (Ordered k)) where
   traverse f (OrdMap m) = OrdMap <$> traverse f m
 
+instance Ord k => Buildable (TrieMap (Ordered k)) (Ordered k) where
+  type UStack (TrieMap (Ordered k)) = TrieMap (Ordered k)
+  uFold = defaultUFold emptyM singletonM insertWithM
+  type AStack (TrieMap (Ordered k)) = Distinct (Ordered k) (Stack k)
+  aFold = combineFold daFold
+  type DAStack (TrieMap (Ordered k)) = Stack k
+  daFold = OrdMap <$> mapFoldlKeys unOrd fromDistAscList
+
 -- | @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
 instance Ord k => TrieKey (Ordered k) where
 	newtype TrieMap (Ordered k) a = OrdMap (SNode k a)
@@ -87,12 +95,6 @@ instance Ord k => TrieKey (Ordered k) where
 	mapMaybeM f (OrdMap m) = OrdMap (mapMaybe f m)
 	mapEitherM f (OrdMap m) = both OrdMap OrdMap (mapEither f) m
 	
-	type FLStack (Ordered k) = TrieMap (Ordered k)
-	fromListFold = defaultFromListFold
-	type FLAStack (Ordered k) = Distinct (Ordered k) (Stack k)
-	fromAscListFold f = defaultFromAscListFold f
-	type FDLAStack (Ordered k) = Stack k
-	fromDistAscListFold = OrdMap <$> mapFoldlKey unOrd fromDistAscList
 	unionM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeUnion f (const LT) (const GT) m1 m2
 	isectM f (OrdMap m1) (OrdMap m2) = OrdMap $ isect f (immoralCast m1) m2
 	diffM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeDiff f (const LT) (const GT) m1 m2
@@ -136,6 +138,17 @@ instance Ord k => TrieKey (Ordered k) where
 	  EQ	-> mzero
 	  LT	-> return $ OrdMap $ bin k1 a1 tip (singleton k2 a2)
 	  GT	-> return $ OrdMap $ bin k1 a1 (singleton k2 a2) tip
+	
+	{-# INLINE insertWithM #-}
+	insertWithM f (Ord k) a (OrdMap m) = OrdMap (insertWith f k a m)
+
+insertWith :: (Ord k, Sized a) => (a -> a) -> k -> a -> SNode k a -> SNode k a
+insertWith f k a = k `seq` ins where
+  ins BIN(kx x l r) = case compare k kx of
+    EQ -> bin kx (f x) l r
+    LT -> balance kx x (ins l) r
+    GT -> balance kx x l (ins r)
+  ins TIP = singleton k a
 
 rebuild :: Sized a => SNode k a -> Path k a -> SNode k a
 rebuild t Root = t
@@ -197,7 +210,7 @@ instance Ord k => Subset (SNode k) where
       where result _ Nothing _	= False
 	    result tl (Just y) tr	= x <=? y && l `subMap` tl && r `subMap` tr
 
-fromDistAscList :: (Eq k, Sized a) => Foldl (Stack k a) k a (SNode k a)
+fromDistAscList :: (Eq k, Sized a) => Foldl (Stack k) k a (SNode k a)
 fromDistAscList = Foldl{zero = tip, ..} where
   incr !t (Yes t' stk) = No (incr (t' `glue` t) stk)
   incr !t (No stk) = Yes t stk

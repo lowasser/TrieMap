@@ -9,6 +9,7 @@ module Data.TrieMap.TrieKey (
   module Data.TrieMap.Sized,
   module Data.TrieMap.Subset,
   module Data.TrieMap.Utils,
+  module Data.TrieMap.Buildable,
   MonadPlus(..),
   Monoid(..),
   guard) where
@@ -16,6 +17,7 @@ module Data.TrieMap.TrieKey (
 import Data.TrieMap.Sized
 import Data.TrieMap.Subset
 import Data.TrieMap.Utils
+import Data.TrieMap.Buildable
 
 import Control.Applicative hiding (empty)
 import Control.Monad
@@ -35,51 +37,10 @@ import GHC.Exts
 type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
 type IndexCont h a r = (Indexed a h :~> r) -> r
 
-data Foldl z0 k a z =
-  Foldl {snoc :: z0 -> k -> a -> z0,
-	  begin :: k -> a -> z0,
-	  zero :: z,
-	  done :: z0 -> z}
-type FromList z k a = Foldl (z a) k a (TrieMap k a)
-
-instance Functor (Foldl z0 k a) where
-  fmap f Foldl{..} = Foldl{zero = f zero, done = f . done, ..}
-
-{-# INLINE runFoldl #-}
-runFoldl :: Foldl z0 k a z -> [(k, a)] -> z
-runFoldl Foldl{zero} [] = zero
-runFoldl Foldl{..} ((k,a):xs) = run (begin k a) xs where
-  run z [] = done z
-  run z ((k, a):xs) = let z' = snoc z k a in z' `seq` run z' xs 
-
-{-# INLINE mapFoldlKey #-}
-mapFoldlKey :: (k -> k') -> Foldl z0 k' a z -> Foldl z0 k a z
-mapFoldlKey f Foldl{..} = Foldl{snoc = \ z k a -> snoc z (f k) a, begin = begin . f, ..}
-
-{-# INLINE defaultFromListFold #-}
-defaultFromListFold :: (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (TrieMap k a) k a (TrieMap k a)
-defaultFromListFold f = Foldl{
-  zero = emptyM,
-  begin = singletonM,
-  snoc = \ m k a -> insertWithM (f a) k a m,
-  done = id}
-
-data Distinct k z a = Begin k a | Dist k a (z a)
-
-{-# INLINE defaultFromAscListFold #-}
-defaultFromAscListFold :: (TrieKey k, Sized a) => (a -> a -> a) -> FromList (Distinct k (FDLAStack k)) k a
-defaultFromAscListFold f = case fromDistAscListFold of
-  Foldl{..} -> Foldl{snoc = snoc', begin = Begin, zero, done = done'} where
-    snoc' (Begin k a) k' a'
-      | k == k'	= Begin k (f a' a)
-    snoc' (Dist k a stk) k' a'
-      | k == k'	= Dist k (f a' a) stk
-    snoc' stk k a = Dist k a (collapse stk)
-    
-    done' = done . collapse
-    
-    collapse (Begin k a) = begin k a
-    collapse (Dist k a stk) = snoc stk k a
+type FromList stack k a = Foldl stack k a (TrieMap k a)
+type UMStack k = UStack (TrieMap k)
+type AMStack k = AStack (TrieMap k)
+type DAMStack k = DAStack (TrieMap k)
 
 data Simple a = Null | Singleton a | NonSimple
 
@@ -107,7 +68,7 @@ onThird g f a = case f a of
 
 -- | A @TrieKey k@ instance implies that @k@ is a standardized representation for which a
 -- generalized trie structure can be derived.
-class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
+class (Ord k, Buildable (TrieMap k) k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	data TrieMap k :: * -> *
 	emptyM :: TrieMap k a
 	singletonM :: Sized a => k -> a -> TrieMap k a
@@ -122,12 +83,6 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 		(a -> b -> Maybe c) -> TrieMap k a -> TrieMap k b -> TrieMap k c
 	diffM :: Sized a => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> TrieMap k a
 	
-	type FLStack k :: * -> *
-	type FLAStack k :: * -> *
-	type FDLAStack k :: * -> *
-	fromListFold :: Sized a => (a -> a -> a) -> FromList (FLStack k) k a
-	fromAscListFold :: Sized a => (a -> a -> a) -> FromList (FLAStack k) k a
-	fromDistAscListFold :: Sized a => FromList (FDLAStack k) k a
 	insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
 	
 	data Hole k :: * -> *

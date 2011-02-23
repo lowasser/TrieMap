@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, MagicHash, FlexibleInstances #-}
+{-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances #-}
 module Data.TrieMap.RadixTrie () where
 
 import Data.TrieMap.TrieKey
@@ -26,6 +26,21 @@ instance TrieKey k => Traversable (TrieMap (Vector k)) where
 
 instance TrieKey k => Subset (TrieMap (Vector k)) where
   Radix m1 <=? Radix m2 = m1 <<=? m2
+
+instance TrieKey k => Buildable (TrieMap (Vector k)) (Vector k) where
+  type UStack (TrieMap (Vector k)) = Edge Vector k
+  {-# INLINE uFold #-}
+  uFold f = Foldl{
+    zero = emptyM,
+    begin = singletonEdge,
+    snoc = \ e ks a -> insertEdge (f a) ks a e,
+    done = Radix . Just}
+  type AStack (TrieMap (Vector k)) = Stack Vector k
+  {-# INLINE aFold #-}
+  aFold f = Radix <$> fromAscListEdge f
+  type DAStack (TrieMap (Vector k)) = Stack Vector k
+  {-# INLINE daFold #-}
+  daFold = aFold const
 
 -- | @'TrieMap' ('Vector' k) a@ is a traditional radix trie.
 instance TrieKey k => TrieKey (Vector k) where
@@ -67,17 +82,6 @@ instance TrieKey k => TrieKey (Vector k) where
 	afterWithM a (Hole loc) = Radix (afterEdge (Just a) loc)
 	
 	insertWithM f ks v (Radix e) = Radix (Just (maybe (singletonEdge ks v) (insertEdge f ks v) e))
-	type FLStack (Vector k) = Edge Vector k
-	{-# INLINE fromListFold #-}
-	fromListFold f = 
-	  Foldl {snoc = \ e ks a -> insertEdge (f a) ks a e, 
-		 zero = emptyM,
-		 begin = singletonEdge,
-		 done = Radix . Just}
-	type FLAStack (Vector k) = Stack Vector k
-	fromAscListFold f = Radix <$> fromAscListEdge f
-	type FDLAStack (Vector k) = Stack Vector k
-	fromDistAscListFold = fromAscListFold const
 
 type WordVec = P.Vector Word
 
@@ -95,6 +99,21 @@ instance Traversable (TrieMap (P.Vector Word)) where
 
 instance Subset (TrieMap WordVec) where
   WRadix m1 <=? WRadix m2 = m1 <<=? m2
+
+instance Buildable (TrieMap WordVec) WordVec where
+  type UStack (TrieMap WordVec) = Edge P.Vector Word
+  {-# INLINE uFold #-}
+  uFold f = Foldl{
+    zero = emptyM,
+    begin = singletonEdge,
+    snoc = \ e ks a -> insertEdge (f a) ks a e,
+    done = WRadix . Just}
+  type AStack (TrieMap WordVec) = Stack P.Vector Word
+  {-# INLINE aFold #-}
+  aFold f = WRadix <$> fromAscListEdge f
+  type DAStack (TrieMap WordVec) = Stack P.Vector Word
+  {-# INLINE daFold #-}
+  daFold = aFold const
 
 -- | @'TrieMap' ('P.Vector' Word) a@ is a traditional radix trie specialized for word arrays.
 instance TrieKey (P.Vector Word) where
@@ -140,17 +159,3 @@ instance TrieKey (P.Vector Word) where
 	afterWithM a (WHole loc) = WRadix (afterEdge (Just a) loc)
 	
 	insertWithM f ks v (WRadix e) = WRadix (Just (maybe (singletonEdge ks v) (insertEdge f ks v) e))
-	
-	type FLStack (P.Vector Word) = Edge P.Vector Word
-	{-# INLINE fromListFold #-}
-	fromListFold f = 
-	  Foldl {snoc = \ e ks a -> insertEdge (f a) ks a e, 
-		 zero = emptyM,
-		 begin = singletonEdge,
-		 done = WRadix . Just}
-	type FLAStack (P.Vector Word) = Stack P.Vector Word
-	{-# INLINE fromAscListFold #-}
-	fromAscListFold f = WRadix <$> fromAscListEdge f
-	type FDLAStack (P.Vector Word) = Stack P.Vector Word
-	{-# INLINE fromDistAscListFold #-}
-	fromDistAscListFold = fromAscListFold const

@@ -872,7 +872,7 @@ fromFold Foldl{..} = fL where
 -- > fromListWith (++) [] == empty
 {-# INLINEABLE fromListWithKey #-}
 fromListWithKey :: TKey k => (k -> a -> a -> a) -> [(k, a)] -> TMap k a
-fromListWithKey f = fromFold (fromListFold f')
+fromListWithKey f = fromFold (uFold f')
 	where f' (Assoc k a) (Assoc _ b) = Assoc k (f k a b)
 
 -- | Build a map from an ascending list in linear time.
@@ -882,7 +882,7 @@ fromListWithKey f = fromFold (fromListFold f')
 -- > fromAscList [(3,"b"), (5,"a"), (5,"b")] == fromList [(3, "b"), (5, "b")]
 {-# INLINEABLE fromAscListWithKey #-}
 fromAscListWithKey :: TKey k => (k -> a -> a -> a) -> [(k, a)] -> TMap k a
-fromAscListWithKey f = fromFold $ fromAscListFold f'
+fromAscListWithKey f = fromFold $ aFold f'
 	where f' (Assoc k a) (Assoc _ b) = Assoc k (f k a b)
 
 -- | Build a map from an ascending list of distinct elements in linear time.
@@ -891,7 +891,7 @@ fromAscListWithKey f = fromFold $ fromAscListFold f'
 -- > fromDistinctAscList [(3,"b"), (5,"a")] == fromList [(3, "b"), (5, "a")]
 {-# INLINEABLE fromDistinctAscList #-}
 fromDistinctAscList :: TKey k => [(k, a)] -> TMap k a
-fromDistinctAscList = fromFold fromDistAscListFold
+fromDistinctAscList = fromFold daFold
 
 -- | /O(1)/. The number of elements in the map.
 --

@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies, MagicHash, CPP, FlexibleInstances, FlexibleContexts, NamedFieldPuns, RecordWildCards, UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies, CPP, FlexibleInstances, FlexibleContexts, NamedFieldPuns, RecordWildCards, UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.Key () where
 
@@ -27,6 +28,14 @@ instance (Repr k, TrieKey (Rep k)) => Traversable (TrieMap (Key k)) where
 
 instance (Repr k, TrieKey (Rep k)) => Subset (TrieMap (Key k)) where
   KMAP(m1) <=? KMAP(m2) = m1 <=? m2
+
+instance TKey k => Buildable (TrieMap (Key k)) (Key k) where
+  type UStack (TrieMap (Key k)) = UMStack (Rep k)
+  uFold = fmap keyMap . mapFoldlKeys keyRep . uFold
+  type AStack (TrieMap (Key k)) = AMStack (Rep k)
+  aFold = fmap keyMap . mapFoldlKeys keyRep . aFold
+  type DAStack (TrieMap (Key k)) = DAMStack (Rep k)
+  daFold = keyMap <$> mapFoldlKeys keyRep daFold
 
 -- | @'TrieMap' ('Key' k) a@ is a wrapper around a @TrieMap (Rep k) a@.
 instance TKey k => TrieKey (Key k) where
@@ -57,12 +66,5 @@ instance TKey k => TrieKey (Key k) where
 	
 	insertWithM f (Key k) a KMAP(m) = keyMap (insertWithM f (toRep k) a m)
 	
-	type FLStack (Key k) = FLStack (Rep k)
-	type FLAStack (Key k) = FLAStack (Rep k)
-	type FDLAStack (Key k) = FDLAStack (Rep k)
-	fromListFold f = keyMap <$> mapFoldlKey keyRep (fromListFold f)
-	fromAscListFold f = keyMap <$> mapFoldlKey keyRep (fromAscListFold f)
-	fromDistAscListFold = keyMap <$> mapFoldlKey keyRep fromDistAscListFold
-
 keyRep :: (Repr k, TrieKey (Rep k)) => Key k -> Rep k
 keyRep (Key k) = toRep k

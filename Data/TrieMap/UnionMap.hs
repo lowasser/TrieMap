@@ -1,4 +1,5 @@
 {-# LANGUAGE UnboxedTuples, TypeFamilies, PatternGuards, ViewPatterns, MagicHash, CPP, BangPatterns, FlexibleInstances, RecordWildCards #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.UnionMap () where
 
@@ -72,6 +73,14 @@ instance (TrieKey k1, TrieKey k2) => Subset (TrieMap (Either k1 k2)) where
   (UVIEW m11 m12) <=? (UVIEW m21 m22)
     = m11 <<=? m21 && m12 <<=? m22
 
+instance (TrieKey k1, TrieKey k2) => Buildable (TrieMap (Either k1 k2)) (Either k1 k2) where
+  type UStack (TrieMap (Either k1 k2)) = TrieMap (Either k1 k2)
+  uFold = defaultUFold emptyM singletonM insertWithM
+  type AStack (TrieMap (Either k1 k2)) = Stack (AMStack k1) (AMStack k2)
+  aFold f = unionFold (aFold f) (aFold f)
+  type DAStack (TrieMap (Either k1 k2)) = Stack (DAMStack k1) (DAMStack k2)
+  daFold = unionFold daFold daFold
+
 -- | @'TrieMap' ('Either' k1 k2) a@ is essentially a @(TrieMap k1 a, TrieMap k2 a)@, but
 -- specialized for the cases where one or both maps are empty.
 instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
@@ -125,16 +134,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		= Just (insertWithM' f k a m1) ^ m2
 	insertWithM f (Right k) a (UVIEW m1 m2)
 		= m1 ^ Just (insertWithM' f k a m2)
-	
-	type FLStack (Either k1 k2) = TrieMap (Either k1 k2)
-	{-# INLINE fromListFold #-}
-	fromListFold = defaultFromListFold
-	type FLAStack (Either k1 k2) = Stack (FLAStack k1) (FLAStack k2)
-	{-# INLINE fromAscListFold #-}
-	fromAscListFold f = combineFold (fromAscListFold f) (fromAscListFold f)
-	type FDLAStack (Either k1 k2) = Stack (FDLAStack k1) (FDLAStack k2)
-	{-# INLINE fromDistAscListFold #-}
-	fromDistAscListFold = combineFold fromDistAscListFold fromDistAscListFold
 
 	singleHoleM = either (HoleX0 . singleHoleM) (Hole0X . singleHoleM)
 
@@ -190,10 +189,10 @@ holes :: (Functor m, Functor f, MonadPlus m) => (a -> m (f b)) -> (b -> c) -> Ma
 holes k f (Just a) = fmap f <$> k a
 holes _ _ Nothing = mzero
 
-{-# INLINE combineFold #-}
-combineFold :: (TrieKey k1, TrieKey k2, Sized a) =>
+{-# INLINE unionFold #-}
+unionFold :: (TrieKey k1, TrieKey k2, Sized a) =>
   FromList z1 k1 a -> FromList z2 k2 a -> FromList (Stack z1 z2) (Either k1 k2) a
-combineFold Foldl{snoc = snocL, begin = beginL, done = doneL}
+unionFold Foldl{snoc = snocL, begin = beginL, done = doneL}
 	    Foldl{snoc = snocR, begin = beginR, done = doneR}
   = Foldl{zero = Empty, ..}
   where	snoc (JustL s1)	(Left k) a = JustL (snocL s1 k a)

@@ -1,5 +1,5 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances, RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables, ImplicitParams, TemplateHaskell, TypeOperators #-}
+{-# LANGUAGE TemplateHaskell, TypeOperators, MultiParamTypeClasses #-}
 {-# OPTIONS -funbox-strict-fields -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), WordStack, getWordMap, getHole) where
 
@@ -78,6 +78,14 @@ instance Foldable (TrieMap Word) where
 instance Traversable (TrieMap Word) where
   traverse f (WordMap m) = WordMap <$> traverse f m
 
+instance Buildable (TrieMap Word) Word where
+  type UStack (TrieMap Word) = SNode
+  uFold = fmap WordMap . defaultUFold nil singleton (\ f k a -> insertWithC f k (getSize a) a)
+  type AStack (TrieMap Word) = WordStack
+  aFold = fmap WordMap . fromAscList
+  type DAStack (TrieMap Word) = WordStack
+  daFold = aFold const
+
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
 	newtype TrieMap Word a = WordMap {getWordMap :: SNode a}
@@ -125,15 +133,6 @@ instance TrieKey Word where
 	{-# INLINE unifierM #-}
 	unifierM k' k a = Hole <$> unifier k' k a
 
-	type FLStack Word = TrieMap Word
-	fromListFold = defaultFromListFold
-	type FLAStack Word = WordStack
-	{-# INLINE fromAscListFold #-}
-	fromAscListFold f = WordMap <$> fromAscList f
-	type FDLAStack Word = WordStack
-	{-# INLINE fromDistAscListFold #-}
-	fromDistAscListFold = fromAscListFold const
-	
 	{-# INLINE insertWithM #-}
 	insertWithM f k a (WordMap m) = WordMap (insertWithC f k (getSize a) a m)
 
@@ -350,7 +349,7 @@ instance Subset SNode where
 							  else t1 `subMap` r2)
       | otherwise	= (p1==p2) && l1 `subMap` l2 && r1 `subMap` r2
     BIN({}) `subMap` _		= False
-    TIP(k x) `subMap` t2	= runLookup (lookupC k t2) False (?le x)
+    TIP(k x) `subMap` t2	= runLookup (lookupC k t2) False (x <?=)
     NIL `subMap` _		= True
 
 mask0 :: Key -> Mask -> Bool
@@ -424,7 +423,7 @@ unifier k' k a = Lookup $ \ no yes ->
   if k == k' then no else yes (WHole k' $ branchHole k' k Root (singleton k a))
 
 {-# INLINE fromAscList #-}
-fromAscList :: forall a . Sized a => (a -> a -> a) -> Foldl (WordStack a) Key a (SNode a)
+fromAscList :: Sized a => (a -> a -> a) -> Foldl WordStack Key a (SNode a)
 fromAscList f = Foldl{zero = nil, ..} where
   begin kx vx = WordStack kx vx Nada
 
@@ -432,7 +431,7 @@ fromAscList f = Foldl{zero = nil, ..} where
     | kx == kz	= WordStack kx (f vz vx) stk
     | otherwise	= WordStack kz vz $ reduce (branchMask kx kz) kx (singleton kx vx) stk
   
-  reduce :: Mask -> Prefix -> SNode a -> Stack a -> Stack a
+--   reduce :: Mask -> Prefix -> SNode a -> Stack a -> Stack a
   reduce !m !px !tx (Push py ty stk')
     | shorter m mxy	= reduce m pxy (bin' pxy mxy ty tx) stk'
     where mxy = branchMask px py; pxy = mask px mxy

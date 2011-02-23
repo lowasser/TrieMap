@@ -1,5 +1,5 @@
 {-# LANGUAGE UnboxedTuples, TupleSections, PatternGuards, TypeFamilies, FlexibleInstances, RecordWildCards #-}
-
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Data.TrieMap.ProdMap () where
 
 import Control.Monad.Unpack
@@ -22,6 +22,14 @@ instance (TrieKey k1, TrieKey k2) => Traversable (TrieMap (k1, k2)) where
 instance (TrieKey k1, TrieKey k2) => Subset (TrieMap (k1, k2)) where
   PMap m1 <=? PMap m2 = m1 <<=? m2
 
+instance (TrieKey k1, TrieKey k2) => Buildable (TrieMap (k1, k2)) (k1, k2) where
+  type UStack (TrieMap (k1, k2)) = TrieMap (k1, k2)
+  uFold = defaultUFold emptyM singletonM insertWithM
+  type AStack (TrieMap (k1, k2)) = Stack k1 k2 (DAMStack k1) (AMStack k2)
+  aFold f = prodFold daFold (aFold f)
+  type DAStack (TrieMap (k1, k2)) = Stack k1 k2 (DAMStack k1) (DAMStack k2)
+  daFold = prodFold daFold daFold
+
 -- | @'TrieMap' (k1, k2) a@ is implemented as a @'TrieMap' k1 ('TrieMap' k2 a)@.
 instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	newtype TrieMap (k1, k2) a = PMap (TrieMap k1 (TrieMap k2 a))
@@ -40,13 +48,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	insertWithM f (k1, k2) a (PMap m) = PMap (insertWithM f' k1 (singletonM k2 a) m) where
 	  f' = insertWithM f k2 a
 	
-	type FLStack (k1, k2) = TrieMap (k1, k2)
-	fromListFold = defaultFromListFold
-	type FLAStack (k1, k2) = Stack k1 k2 (FDLAStack k1) (FLAStack k2)
-	fromAscListFold f = combineFold fromDistAscListFold (fromAscListFold f)
-	type FDLAStack (k1, k2) = Stack k1 k2 (FDLAStack k1) (FDLAStack k2)
-	fromDistAscListFold = combineFold fromDistAscListFold fromDistAscListFold
-
 	singleHoleM (k1, k2) = PHole (singleHoleM k1) (singleHoleM k2)
 	beforeM (PHole hole1 hole2) = PMap (beforeMM (gNull beforeM hole2) hole1)
 	beforeWithM a (PHole hole1 hole2) = PMap (beforeWithM (beforeWithM a hole2) hole1)
@@ -76,9 +77,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
 gNull = (guardNullM .)
 
-combineFold :: Eq k1 => FromList z1 k1 (TrieMap k2 a) -> FromList z2 k2 a -> 
+prodFold :: Eq k1 => FromList z1 k1 (TrieMap k2 a) -> FromList z2 k2 a -> 
   FromList (Stack k1 k2 z1 z2) (k1, k2) a
-combineFold Foldl{snoc = snoc1, begin = begin1, zero = zero1, done = done1}
+prodFold Foldl{snoc = snoc1, begin = begin1, zero = zero1, done = done1}
 	    Foldl{snoc = snoc2, begin = begin2, done = done2}
   = Foldl{zero = PMap zero1, ..}
   where	snoc (First k1 stk2) (k1', k2') a

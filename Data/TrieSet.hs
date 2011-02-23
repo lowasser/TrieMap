@@ -243,19 +243,19 @@ fromFold Foldl{..} = fL where
 {-# INLINE fromList #-}
 -- | Create a set from a list of elements.
 fromList :: TKey a => [a] -> TSet a
-fromList = fromFold $ fromListFold const
+fromList = fromFold $ uFold const
 
 {-# INLINE fromAscList #-}
 -- | Build a set from an ascending list in linear time.
 -- /The precondition (input list is ascending) is not checked./
 fromAscList :: TKey a => [a] -> TSet a
-fromAscList = fromFold $ fromAscListFold const
+fromAscList = fromFold $ aFold const
 
 {-# INLINE fromDistinctAscList #-}
 -- | /O(n)/. Build a set from an ascending list of distinct elements in linear time.
 -- /The precondition (input list is strictly ascending) is not checked./
 fromDistinctAscList :: TKey a => [a] -> TSet a
-fromDistinctAscList = fromFold fromDistAscListFold
+fromDistinctAscList = fromFold daFold
 
 -- | /O(1)/. Is this the empty set?
 null :: TKey a => TSet a -> Bool

@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, MagicHash, FlexibleInstances, GeneralizedNewtypeDeriving, StandaloneDeriving #-}
-
+{-# LANGUAGE TypeFamilies, UnboxedTuples, FlexibleInstances, GeneralizedNewtypeDeriving, StandaloneDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Data.TrieMap.UnitMap () where
 
 import Control.Monad.Unpack
@@ -24,6 +24,22 @@ instance Traversable (TrieMap ()) where
 
 instance Subset (TrieMap ()) where
   Unit m1 <=? Unit m2 = m1 <=? m2
+
+instance Buildable (TrieMap ()) () where
+  type UStack (TrieMap ()) = Elem
+  uFold f = Foldl{
+    zero = emptyM,
+    begin = const Elem,
+    snoc = \ (Elem a) _ a' -> Elem (f a' a),
+    done = \ (Elem a) -> single a}
+  type AStack (TrieMap ()) = Elem
+  aFold = uFold
+  type DAStack (TrieMap ()) = TrieMap ()
+  daFold =  Foldl{
+    zero = emptyM,
+    begin = const single,
+    snoc = error "Error: duplicate keys",
+    done = id}
 
 -- | @'TrieMap' () a@ is implemented as @'Maybe' a@.
 instance TrieKey () where
@@ -64,21 +80,6 @@ instance TrieKey () where
 	
 	clearM _ = emptyM
 	assignM v _ = single v
-	
-	type FLStack () = Elem
-	type FLAStack () = Elem
-	type FDLAStack () = TrieMap ()
-	fromListFold f = Foldl{
-	    zero = emptyM,
-	    begin = \ _ v -> Elem v,
-	    snoc = \ (Elem z) _ v -> Elem (f v z),
-	    done = \ (Elem a) -> single a}
-	fromAscListFold = fromListFold
-	fromDistAscListFold = Foldl{
-	    zero = emptyM,
-	    begin = \ _ v -> single v,
-	    snoc = error "Error: duplicate keys",
-	    done = id}
 
 single :: a -> TrieMap () a
 single = Unit . Just

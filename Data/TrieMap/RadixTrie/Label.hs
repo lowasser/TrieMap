@@ -28,7 +28,7 @@ class (Unpackable (v k), Vector v k, TrieKey k) => Label v k where
   root :: Path v k a
   deep :: Path v k a -> v k -> Maybe a -> BHole v k a -> Path v k a
   loc :: v k -> Branch v k a -> Path v k a -> EdgeLoc v k a
-  stack :: v k -> Maybe a -> Maybe (FDLAStack k (Edge v k a)) -> Maybe (k, Stack v k a) -> Stack v k a
+  stack :: v k -> Maybe a -> Maybe (DAMStack k (Edge v k a)) -> Maybe (k, Stack v k a) -> Stack v k a
   
   eView :: Edge v k a -> EView v k a
   pView :: Path v k a -> PView v k a
@@ -43,7 +43,7 @@ data EView v k a =
 data LocView v k a = Loc !( v k) (Branch v k a) (Path v k a)
 data PView v k a = Root
 	| Deep (Path v k a) (v k) (Maybe a) (BHole v k a)
-data StackView v k a = Stack (v k) (Maybe a) (Maybe (FDLAStack k (Edge v k a))) (Maybe (k, Stack v k a))
+data StackView v k a = Stack (v k) (Maybe a) (Maybe (DAMStack k (Edge v k a))) (Maybe (k, Stack v k a))
 type MEdge v k a = Maybe (Edge v k a)
 
 instance Sized (EView v k a) where
@@ -64,9 +64,9 @@ instance TrieKey k => Label V.Vector k where
     | VDeepX (V(Path) a) !(V()) a (V(BHole) a)
   data EdgeLoc V.Vector k a = VLoc !(V()) (V(Branch) a) (V(Path) a)
   data Stack V.Vector k a =
-    VStackAZ !(V()) a (FDLAStack k (V(Edge) a)) k (V(Stack) a)
+    VStackAZ !(V()) a (DAMStack k (V(Edge) a)) k (V(Stack) a)
     | VStackA !(V()) a k (V(Stack) a)
-    | VStackZ !(V()) (FDLAStack k (V(Edge) a)) k (V(Stack) a)
+    | VStackZ !(V()) (DAMStack k (V(Edge) a)) k (V(Stack) a)
     | VTip !(V()) a
   
   {-# INLINE edge #-}
