@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, MagicHash, CPP, FlexibleInstances, FlexibleContexts, NamedFieldPuns, RecordWildCards #-}
+{-# LANGUAGE TypeFamilies, MagicHash, CPP, FlexibleInstances, FlexibleContexts, NamedFieldPuns, RecordWildCards, UndecidableInstances #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.Key () where
 
@@ -57,6 +57,10 @@ instance TKey k => TrieKey (Key k) where
 	clearM (KeyHole hole) = keyMap (clearM hole)
 	
 	insertWithM f (Key k) a KMAP(m) = keyMap (insertWithM f (toRep k) a m)
+	
+	type FLStack (Key k) = FLStack (Rep k)
+	type FLAStack (Key k) = FLAStack (Rep k)
+	type FDLAStack (Key k) = FDLAStack (Rep k)
 	fromListFold f = keyMap <$> mapFoldlKey keyRep (fromListFold f)
 	fromAscListFold f = keyMap <$> mapFoldlKey keyRep (fromAscListFold f)
 	fromDistAscListFold = keyMap <$> mapFoldlKey keyRep fromDistAscListFold

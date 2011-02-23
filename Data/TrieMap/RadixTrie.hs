@@ -68,13 +68,17 @@ instance TrieKey k => TrieKey (Vector k) where
 	afterWithM a (Hole loc) = Radix (afterEdge (Just a) loc)
 	
 	insertWithM f ks v (Radix e) = Radix (Just (maybe (singletonEdge ks v) (insertEdge f ks v) e))
+	type FLStack (Vector k) = Edge Vector k
 	{-# INLINE fromListFold #-}
 	fromListFold f = 
 	  Foldl {snoc = \ e ks a -> insertEdge (f a) ks a e, 
 		 zero = emptyM,
 		 begin = singletonEdge,
 		 done = Radix . Just}
+	type FLAStack (Vector k) = Stack Vector k
 	fromAscListFold f = Radix <$> fromAscListEdge f
+	type FDLAStack (Vector k) = Stack Vector k
+	fromDistAscListFold = fromAscListFold const
 
 type WordVec = P.Vector Word
 
@@ -137,11 +141,17 @@ instance TrieKey (P.Vector Word) where
 	afterWithM a (WHole loc) = WRadix (afterEdge (Just a) loc)
 	
 	insertWithM f ks v (WRadix e) = WRadix (Just (maybe (singletonEdge ks v) (insertEdge f ks v) e))
+	
+	type FLStack (P.Vector Word) = Edge P.Vector Word
 	{-# INLINE fromListFold #-}
 	fromListFold f = 
 	  Foldl {snoc = \ e ks a -> insertEdge (f a) ks a e, 
 		 zero = emptyM,
 		 begin = singletonEdge,
 		 done = WRadix . Just}
+	type FLAStack (P.Vector Word) = Stack P.Vector Word
 	{-# INLINE fromAscListFold #-}
 	fromAscListFold f = WRadix <$> fromAscListEdge f
+	type FDLAStack (P.Vector Word) = Stack P.Vector Word
+	{-# INLINE fromDistAscListFold #-}
+	fromDistAscListFold = fromAscListFold const

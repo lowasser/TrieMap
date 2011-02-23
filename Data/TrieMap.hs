@@ -860,7 +860,7 @@ fromAscListWith :: TKey k => (a -> a -> a) -> [(k, a)] -> TMap k a
 fromAscListWith = fromAscListWithKey . const
 
 {-# INLINE fromFold #-}
-fromFold :: (Repr k, TrieKey (Rep k)) => FromList (Rep k) (Assoc k a) -> [(k, a)] -> TMap k a
+fromFold :: (Repr k, TrieKey (Rep k)) => FromList z (Rep k) (Assoc k a) -> [(k, a)] -> TMap k a
 fromFold Foldl{..} = fL where
   fL [] = empty
   fL ((k, a):xs) = fL' (begin (toRep k) (Assoc k a)) xs

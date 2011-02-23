@@ -127,8 +127,13 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	insertWithM f (Right k) a (UVIEW m1 m2)
 		= m1 ^ Just (insertWithM' f k a m2)
 	
+	type FLStack (Either k1 k2) = TrieMap (Either k1 k2)
+	{-# INLINE fromListFold #-}
+	fromListFold = defaultFromListFold
+	type FLAStack (Either k1 k2) = Stack (FLAStack k1) (FLAStack k2)
 	{-# INLINE fromAscListFold #-}
 	fromAscListFold f = combineFold (fromAscListFold f) (fromAscListFold f)
+	type FDLAStack (Either k1 k2) = Stack (FDLAStack k1) (FDLAStack k2)
 	{-# INLINE fromDistAscListFold #-}
 	fromDistAscListFold = combineFold fromDistAscListFold fromDistAscListFold
 
@@ -188,7 +193,7 @@ holes _ _ Nothing = mzero
 
 {-# INLINE combineFold #-}
 combineFold :: (TrieKey k1, TrieKey k2, Sized a) =>
-  FromList k1 a -> FromList k2 a -> FromList (Either k1 k2) a
+  FromList z1 k1 a -> FromList z2 k2 a -> FromList (Stack z1 z2) (Either k1 k2) a
 combineFold Foldl{snoc = snocL, begin = beginL, done = doneL}
 	    Foldl{snoc = snocR, begin = beginR, done = doneR}
   = Foldl{zero = Empty, ..}
@@ -206,7 +211,7 @@ combineFold Foldl{snoc = snocL, begin = beginL, done = doneL}
 	done (JustR sR) = K2 (doneR sR)
 	done (Both sL sR) = doneL sL `union` doneR sR
 
-data Stack s1 s2 =
-  JustL s1
-  | JustR s2
-  | Both s1 s2
+data Stack s1 s2 a =
+  JustL (s1 a)
+  | JustR (s2 a)
+  | Both (s1 a) (s2 a)

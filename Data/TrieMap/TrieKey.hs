@@ -32,42 +32,51 @@ type LEq a b = a -> b -> Bool
 type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
 type IndexCont h a r = (Indexed a h :~> r) -> r
 
-data Foldl k a z = forall z0 . 
+data Foldl z0 k a z =
   Foldl {snoc :: z0 -> k -> a -> z0,
 	  begin :: k -> a -> z0,
 	  zero :: z,
 	  done :: z0 -> z}
-type FromList k a = Foldl k a (TrieMap k a)
+type FromList z k a = Foldl (z a) k a (TrieMap k a)
 
-instance Functor (Foldl k a) where
+instance Functor (Foldl z0 k a) where
   fmap f Foldl{..} = Foldl{zero = f zero, done = f . done, ..}
 
 {-# INLINE runFoldl #-}
-runFoldl :: Foldl k a z -> [(k, a)] -> z
+runFoldl :: Foldl z0 k a z -> [(k, a)] -> z
 runFoldl Foldl{zero} [] = zero
 runFoldl Foldl{..} ((k,a):xs) = run (begin k a) xs where
   run z [] = done z
   run z ((k, a):xs) = let z' = snoc z k a in z' `seq` run z' xs 
 
 {-# INLINE mapFoldlKey #-}
-mapFoldlKey :: (k -> k') -> Foldl k' a z -> Foldl k a z
+mapFoldlKey :: (k -> k') -> Foldl z0 k' a z -> Foldl z0 k a z
 mapFoldlKey f Foldl{..} = Foldl{snoc = \ z k a -> snoc z (f k) a, begin = begin . f, ..}
 
-data Distinct k a z = Begin k a | Dist k a z
+{-# INLINE defaultFromListFold #-}
+defaultFromListFold :: (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (TrieMap k a) k a (TrieMap k a)
+defaultFromListFold f = Foldl{
+  zero = emptyM,
+  begin = singletonM,
+  snoc = \ m k a -> insertWithM (f a) k a m,
+  done = id}
 
-{-# INLINE combineKeys #-}
-combineKeys :: Eq k => (a -> a -> a) -> Foldl k a z -> Foldl k a z
-combineKeys f Foldl{..} = Foldl{snoc = snoc', begin = Begin, zero, done = done'} where
-  snoc' (Begin k a) k' a'
-    | k == k'	= Begin k (f a' a)
-  snoc' (Dist k a stk) k' a'
-    | k == k'	= Dist k (f a' a) stk
-  snoc' stk k a = Dist k a (collapse stk)
-  
-  done' = done . collapse
-  
-  collapse (Begin k a) = begin k a
-  collapse (Dist k a stk) = snoc stk k a
+data Distinct k z a = Begin k a | Dist k a (z a)
+
+{-# INLINE defaultFromAscListFold #-}
+defaultFromAscListFold :: (TrieKey k, Sized a) => (a -> a -> a) -> FromList (Distinct k (FDLAStack k)) k a
+defaultFromAscListFold f = case fromDistAscListFold of
+  Foldl{..} -> Foldl{snoc = snoc', begin = Begin, zero, done = done'} where
+    snoc' (Begin k a) k' a'
+      | k == k'	= Begin k (f a' a)
+    snoc' (Dist k a stk) k' a'
+      | k == k'	= Dist k (f a' a) stk
+    snoc' stk k a = Dist k a (collapse stk)
+    
+    done' = done . collapse
+    
+    collapse (Begin k a) = begin k a
+    collapse (Dist k a stk) = snoc stk k a
 
 data Simple a = Null | Singleton a | NonSimple
 
@@ -110,8 +119,12 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 		(a -> b -> Maybe c) -> TrieMap k a -> TrieMap k b -> TrieMap k c
 	diffM :: Sized a => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> TrieMap k a
 	
-	fromListFold, fromAscListFold :: Sized a => (a -> a -> a) -> FromList k a
-	fromDistAscListFold :: Sized a => FromList k a
+	type FLStack k :: * -> *
+	type FLAStack k :: * -> *
+	type FDLAStack k :: * -> *
+	fromListFold :: Sized a => (a -> a -> a) -> FromList (FLStack k) k a
+	fromAscListFold :: Sized a => (a -> a -> a) -> FromList (FLAStack k) k a
+	fromDistAscListFold :: Sized a => FromList (FDLAStack k) k a
 	insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
 	
 	data Hole k :: * -> *
@@ -139,17 +152,6 @@ class (Ord k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
 	clearM :: Sized a => Hole k a -> TrieMap k a
 	unifierM :: Sized a => k -> k -> a -> Lookup r (Hole k a)
 	unifyM :: Sized a => k -> a -> k -> a -> Lookup r (TrieMap k a)
-	
-	{-# INLINE fromListFold #-}
-	fromListFold f = Foldl 
-	  {snoc = \ m k a -> insertWithM (f a) k a m,
-	   begin = singletonM,
-	   zero = emptyM,
-	   done = id}
-	{-# INLINE fromAscListFold #-}
-	fromAscListFold = fromListFold
-	{-# INLINE fromDistAscListFold #-}
-	fromDistAscListFold = fromAscListFold const
 	
 	unifierM k' k a = Lookup $ \ no yes -> searchMC k' (singletonM k a) yes (\ _ _ -> no)
 	unifyM k1 a1 k2 a2 = assignM a1 <$> unifierM k1 k2 a2

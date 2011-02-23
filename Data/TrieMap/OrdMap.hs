@@ -86,7 +86,12 @@ instance Ord k => TrieKey (Ordered k) where
 	sizeM (OrdMap m) = sz m
 	mapMaybeM f (OrdMap m) = OrdMap (mapMaybe f m)
 	mapEitherM f (OrdMap m) = both OrdMap OrdMap (mapEither f) m
-	fromAscListFold f = combineKeys f fromDistAscListFold
+	
+	type FLStack (Ordered k) = TrieMap (Ordered k)
+	fromListFold = defaultFromListFold
+	type FLAStack (Ordered k) = Distinct (Ordered k) (Stack k)
+	fromAscListFold f = defaultFromAscListFold f
+	type FDLAStack (Ordered k) = Stack k
 	fromDistAscListFold = OrdMap <$> mapFoldlKey unOrd fromDistAscList
 	unionM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeUnion f (const LT) (const GT) m1 m2
 	isectM f (OrdMap m1) (OrdMap m2) = OrdMap $ isect f (immoralCast m1) m2
@@ -192,7 +197,7 @@ instance Ord k => Subset (SNode k) where
       where result _ Nothing _	= False
 	    result tl (Just y) tr	= x <=? y && l `subMap` tl && r `subMap` tr
 
-fromDistAscList :: (Eq k, Sized a) => Foldl k a (SNode k a)
+fromDistAscList :: (Eq k, Sized a) => Foldl (Stack k a) k a (SNode k a)
 fromDistAscList = Foldl{zero = tip, ..} where
   incr !t (Yes t' stk) = No (incr (t' `glue` t) stk)
   incr !t (No stk) = Yes t stk

@@ -23,18 +23,18 @@ class (Unpackable (v k), Vector v k, TrieKey k) => Label v k where
   data Edge v k :: * -> *
   data Path v k :: * -> *
   data EdgeLoc v k :: * -> *
-  data Stack v k :: * -> * -> *
+  data Stack v k :: * -> *
   edge :: Sized a => v k -> Maybe a -> Branch v k a -> Edge v k a
   edge' :: Int -> v k -> Maybe a -> Branch v k a -> Edge v k a
   root :: Path v k a
   deep :: Path v k a -> v k -> Maybe a -> BHole v k a -> Path v k a
   loc :: v k -> Branch v k a -> Path v k a -> EdgeLoc v k a
-  stack :: v k -> a -> TrieMap Word (Hang a z) -> Stack v k a z
+  stack :: v k -> Maybe a -> Maybe (FDLAStack k (Edge v k a)) -> Maybe (k, Stack v k a) -> Stack v k a
   
   eView :: Edge v k a -> EView v k a
   pView :: Path v k a -> PView v k a
   locView :: EdgeLoc v k a -> LocView v k a
-  sView :: Stack v k a z -> StackView v k a z
+  sView :: Stack v k a -> StackView v k a
 
 type BHole v k a = Hole k (Edge v k a)
 
@@ -44,6 +44,7 @@ data EView v k a =
 data LocView v k a = Loc !( v k) (Branch v k a) (Path v k a)
 data PView v k a = Root
 	| Deep (Path v k a) (v k) (Maybe a) (BHole v k a)
+data StackView v k a = Stack (v k) (Maybe a) (Maybe (FDLAStack k (Edge v k a))) (Maybe (k, Stack v k a))
 type MEdge v k a = Maybe (Edge v k a)
 
 instance Sized (EView v k a) where
@@ -63,7 +64,11 @@ instance TrieKey k => Label V.Vector k where
     | VDeep (V(Path) a) !(V()) (V(BHole) a)
     | VDeepX (V(Path) a) !(V()) a (V(BHole) a)
   data EdgeLoc V.Vector k a = VLoc !(V()) (V(Branch) a) (V(Path) a)
-  data Stack V.Vector k a z = VStack !(V()) a !(SNode (Hang a z))
+  data Stack V.Vector k a =
+    VStackAZ !(V()) a (FDLAStack k (V(Edge) a)) k (V(Stack) a)
+    | VStackA !(V()) a k (V(Stack) a)
+    | VStackZ !(V()) (FDLAStack k (V(Edge) a)) k (V(Stack) a)
+    | VTip !(V()) a
   
   {-# INLINE edge #-}
   edge !ks Nothing ts = VEdge (sizeM ts) ks ts
@@ -76,7 +81,6 @@ instance TrieKey k => Label V.Vector k where
   deep path !ks (Just a) tHole = VDeepX path ks a tHole
   
   loc = VLoc
-  stack ks v ts = VStack ks v (getWordMap ts)
   
   eView (VEdge s ks ts) = Edge s ks Nothing ts
   eView (VEdgeX s ks v ts) = Edge s ks (Just v) ts
@@ -84,7 +88,22 @@ instance TrieKey k => Label V.Vector k where
   pView (VDeep path ks tHole) = Deep path ks Nothing tHole
   pView (VDeepX path ks v tHole) = Deep path ks (Just v) tHole
   locView (VLoc ks ts path) = Loc ks ts path
-  sView (VStack ks v ts) = Stack ks v (WordMap ts)
+  
+  {-# INLINE stack #-}
+  stack !ks (Just a) (Just z) (Just (k, stack)) =
+    VStackAZ ks a z k stack
+  stack !ks (Just a) Nothing (Just (k, stack)) =
+    VStackA ks a k stack
+  stack !ks Nothing (Just z) (Just (k, stack)) =
+    VStackZ ks z k stack
+  stack !ks (Just a) Nothing Nothing = VTip ks a
+  stack _ _ _ _ = error "Error: bad stack"
+  {-# INLINE sView #-}
+  sView (VTip ks v) = Stack ks (Just v) Nothing Nothing
+  sView (VStackAZ ks a z k stack) = Stack ks (Just a) (Just z) (Just (k, stack))
+  sView (VStackA ks a k stack) = Stack ks (Just a) Nothing (Just (k, stack))
+  sView (VStackZ ks z k stack) = Stack ks Nothing (Just z) (Just (k, stack))
+--   sView (VStack ks v ts) = Stack ks v (WordMap ts)
 
 instance Label P.Vector Word where
   data Edge P.Vector Word a =
@@ -96,13 +115,29 @@ instance Label P.Vector Word where
     | SDeepX (U(Path) a) !(U()) a !(WHole (U(Edge) a))
   data EdgeLoc P.Vector Word a =
     SLoc !(U()) !(SNode (U(Edge) a)) (U(Path) a)
-  data Stack P.Vector Word a z = SStack !(U()) a !(SNode (Hang a z))
+  data Stack P.Vector Word a =
+    PStackAZ !(U()) a !(WordStack (U(Edge) a)) !Word (U(Stack) a)
+    | PStackA !(U()) a !Word (U(Stack) a)
+    | PStackZ !(U()) !(WordStack (U(Edge) a)) !Word (U(Stack) a)
+    | PTip !(U()) a
+  
+  {-# INLINE stack #-}
+  stack !ks a z stack = case (a, z, stack) of
+    (Just a, Just z, Just (k, stack))	-> PStackAZ ks a z k stack
+    (Just a, Nothing, Just (k, stack))	-> PStackA ks a k stack
+    (Nothing, Just z, Just (k, stack))	-> PStackZ ks z k stack
+    (Just a, Nothing, Nothing)		-> PTip ks a
+    _			-> error "Error: bad stack"
+  {-# INLINE sView #-}
+  sView (PStackAZ ks a z k stack) = Stack ks (Just a) (Just z) (Just (k, stack))
+  sView (PStackA ks a k stack) = Stack ks (Just a) Nothing (Just (k, stack))
+  sView (PStackZ ks z k stack) = Stack ks Nothing (Just z) (Just (k, stack))
+  sView (PTip ks a) = Stack ks (Just a) Nothing Nothing
   
   edge !ks Nothing ts = SEdge (sizeM ts) ks (getWordMap ts)
   edge !ks (Just v) ts = SEdgeX (getSize v + sizeM ts) ks v (getWordMap ts)
   edge' sz !ks Nothing ts = SEdge sz ks (getWordMap ts)
   edge' sz !ks (Just v) ts = SEdgeX sz ks v (getWordMap ts)
-  stack ks v ts = SStack ks v (getWordMap ts)
   
   root = SRoot
   deep path !ks Nothing tHole = SDeep path ks (getHole tHole)
@@ -116,7 +151,7 @@ instance Label P.Vector Word where
   pView (SDeep path ks tHole) = Deep path ks Nothing (Hole tHole)
   pView (SDeepX path ks v tHole) = Deep path ks (Just v) (Hole tHole)
   locView (SLoc ks ts path) = Loc ks (WordMap ts) path
-  sView (SStack ks v ts) = Stack ks v (WordMap ts)
+--   sView (SStack ks v ts) = Stack ks v (WordMap ts)
 
 {-# SPECIALIZE singletonEdge ::
     (TrieKey k, Sized a) => V() -> a -> V(Edge) a,
@@ -159,7 +194,7 @@ cEdge !ks v ts = case v of
     NonSimple	-> Just (edge ks Nothing ts)
   _		-> Just (edge ks v ts)
 
-data StackView v k a z = Stack (v k) a (TrieMap Word (Hang a z))
+-- data StackView v k a z = Stack (v k) a (TrieMap Word (Hang a z))
 
 data HangView a z = 
   Branch !Int (Maybe a) (Maybe z)
@@ -180,5 +215,5 @@ instance Sized (Hang a z) where
   getSize# _ = 1#
 
 {-# RULES
-    "sView/stack" forall ks v ts . sView (stack ks v ts) = Stack ks v ts
+    "sView/stack" forall ks a z branch . sView (stack ks a z branch) = Stack ks a z branch
     #-}

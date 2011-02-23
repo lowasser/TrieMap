@@ -41,7 +41,11 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	insertWithM f (k1, k2) a (PMap m) = PMap (insertWithM f' k1 (singletonM k2 a) m) where
 	  f' = insertWithM f k2 a
 	
+	type FLStack (k1, k2) = TrieMap (k1, k2)
+	fromListFold = defaultFromListFold
+	type FLAStack (k1, k2) = Stack k1 k2 (FDLAStack k1) (FLAStack k2)
 	fromAscListFold f = combineFold fromDistAscListFold (fromAscListFold f)
+	type FDLAStack (k1, k2) = Stack k1 k2 (FDLAStack k1) (FDLAStack k2)
 	fromDistAscListFold = combineFold fromDistAscListFold fromDistAscListFold
 
 	singleHoleM (k1, k2) = PHole (singleHoleM k1) (singleHoleM k2)
@@ -73,7 +77,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
 gNull = (guardNullM .)
 
-combineFold :: Eq k1 => FromList k1 (TrieMap k2 a) -> FromList k2 a -> FromList (k1, k2) a
+combineFold :: Eq k1 => FromList z1 k1 (TrieMap k2 a) -> FromList z2 k2 a -> 
+  FromList (Stack k1 k2 z1 z2) (k1, k2) a
 combineFold Foldl{snoc = snoc1, begin = begin1, zero = zero1, done = done1}
 	    Foldl{snoc = snoc2, begin = begin2, done = done2}
   = Foldl{zero = PMap zero1, ..}
@@ -90,4 +95,4 @@ combineFold Foldl{snoc = snoc1, begin = begin1, zero = zero1, done = done1}
 	
 	done = PMap . done1 . collapse
 
-data Stack k1 z1 z2 = First k1 z2 | Stack k1 z1 z2
+data Stack k1 k2 z1 z2 a = First k1 (z2 a) | Stack k1 (z1 (TrieMap k2 a)) (z2 a)

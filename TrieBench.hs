@@ -62,17 +62,17 @@ nf' f a = f a `deepseq` nf f a
 tBenches strings revs = bgroup ""
   [bench "Lookup" (nf' tLookupBench (strSet, someStr1, someStr2)),
     revSet `seq` bench "Intersect" (nf' tIntersectBench (strSet, revSet)),
-    bench "Sort" (nf' tSortBench strings),
-    bench "Union" (nf' tUnionBench (strSet, revSet)),
-    bench "Difference" (nf' tDiffBench (strSet, revSet)),
-    bench "Filter" (nf' tFilterBench strSet),
-    bench "Split" (nf' tSplitBench strSet),
-    bench "Neighborhood" (nf' tNeighborhood (strSet, someStr2)),
-    bench "Index" (nf' tIndex strSet),
-    bench "Min/Max" (nf' tEnds strSet),
-    bench "ToList" (nf' tToList strSet),
-    bench "Insert" (nf' tInsert strSet),
-    bench "FromList" (nf' tFromList strings),
+--     bench "Sort" (nf' tSortBench strings),
+--     bench "Union" (nf' tUnionBench (strSet, revSet)),
+--     bench "Difference" (nf' tDiffBench (strSet, revSet)),
+--     bench "Filter" (nf' tFilterBench strSet),
+--     bench "Split" (nf' tSplitBench strSet),
+--     bench "Neighborhood" (nf' tNeighborhood (strSet, someStr2)),
+--     bench "Index" (nf' tIndex strSet),
+--     bench "Min/Max" (nf' tEnds strSet),
+--     bench "ToList" (nf' tToList strSet),
+--     bench "Insert" (nf' tInsert strSet),
+--     bench "FromList" (nf' tFromList strings),
     bench "FromDistinctAscList" (nf' tFDAL strSort)]
   where !strSet = fromList strings; !revSet = fromList revs; !strSort = sort strings
 	someStr1 = strings !! (314159 `rem` n); someStr2 = revs !! (314159 `rem` n)

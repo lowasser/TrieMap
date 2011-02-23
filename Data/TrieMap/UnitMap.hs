@@ -66,7 +66,20 @@ instance TrieKey () where
 	clearM _ = emptyM
 	assignM v _ = single v
 	
-	fromListFold f = Foldl{zero = emptyM, begin = \ _ v -> v, snoc = \ z _ v -> f v z, done = single}
+	type FLStack () = Elem
+	type FLAStack () = Elem
+	type FDLAStack () = TrieMap ()
+	fromListFold f = Foldl{
+	    zero = emptyM,
+	    begin = \ _ v -> Elem v,
+	    snoc = \ (Elem z) _ v -> Elem (f v z),
+	    done = \ (Elem a) -> single a}
+	fromAscListFold = fromListFold
+	fromDistAscListFold = Foldl{
+	    zero = emptyM,
+	    begin = \ _ v -> single v,
+	    snoc = error "Error: duplicate keys",
+	    done = id}
 
 single :: a -> TrieMap () a
 single = Unit . Just

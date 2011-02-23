@@ -75,19 +75,25 @@ instance TrieKey k => TrieKey (Rev k) where
 	
 	insertWithM f (Rev k) a (RevMap m) = RevMap (insertWithM f k a m)
 	
+	type FLStack (Rev k) = FLStack k
 	fromListFold f = RevMap <$> mapFoldlKey getRev (fromListFold f)
+	type FLAStack (Rev k) = RevFold (FLAStack k) k
 	fromAscListFold f = RevMap <$> mapFoldlKey getRev (reverseFold (fromAscListFold f))
+	type FDLAStack (Rev k) = RevFold (FDLAStack k) k
 	fromDistAscListFold = RevMap <$> mapFoldlKey getRev (reverseFold fromDistAscListFold)
 	
 	unifierM (Rev k') (Rev k) a = RHole <$> unifierM k' k a
 
 {-# INLINE reverseFold #-}
-reverseFold :: Foldl k a z -> Foldl k a z
+reverseFold :: FromList z k a -> FromList (RevFold z k) k a
 reverseFold Foldl{snoc = snoc0, begin = begin0, zero, done = done0}
   = Foldl {..} where
-  snoc g k a Nothing = g (Just $ begin0 k a)
-  snoc g k a (Just m) = g (Just $ snoc0 m k a)
+  snoc g k a = RevFold $ \ m -> case m of
+    Nothing -> runRevFold g (Just $ begin0 k a)
+    Just m -> runRevFold g (Just $ snoc0 m k a)
   
-  begin = snoc (maybe zero done0)
+  begin = snoc (RevFold $ maybe zero done0)
   
-  done g = g Nothing
+  done g = runRevFold g Nothing
+
+newtype RevFold z k a = RevFold {runRevFold :: Maybe (z a) -> TrieMap k a}

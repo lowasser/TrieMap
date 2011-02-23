@@ -1,7 +1,7 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances, RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables, ImplicitParams, TemplateHaskell, TypeOperators #-}
 {-# OPTIONS -funbox-strict-fields -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
-module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), getWordMap, getHole) where
+module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), WordStack, getWordMap, getHole) where
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
@@ -125,9 +125,15 @@ instance TrieKey Word where
 
 	{-# INLINE unifierM #-}
 	unifierM k' k a = Hole <$> unifier k' k a
-	
+
+	type FLStack Word = TrieMap Word
+	fromListFold = defaultFromListFold
+	type FLAStack Word = WordStack
 	{-# INLINE fromAscListFold #-}
 	fromAscListFold f = WordMap <$> fromAscList f
+	type FDLAStack Word = WordStack
+	{-# INLINE fromDistAscListFold #-}
+	fromDistAscListFold = fromAscListFold const
 	
 	{-# INLINE insertWithM #-}
 	insertWithM f k a (WordMap m) = case insertWithC f k a m of
@@ -417,13 +423,13 @@ unifier k' k a = Lookup $ \ no yes ->
   if k == k' then no else yes (WHole k' $ branchHole k' k Root (singleton k a))
 
 {-# INLINE fromAscList #-}
-fromAscList :: forall a . Sized a => (a -> a -> a) -> Foldl Key a (SNode a)
+fromAscList :: forall a . Sized a => (a -> a -> a) -> Foldl (WordStack a) Key a (SNode a)
 fromAscList f = Foldl{zero = nil, ..} where
-  begin kx vx = Stack' kx vx Nada
+  begin kx vx = WordStack kx vx Nada
 
-  snoc (Stack' kx vx stk) kz vz
-    | kx == kz	= Stack' kx (f vz vx) stk
-    | otherwise	= Stack' kz vz $ reduce (branchMask kx kz) kx (singleton kx vx) stk
+  snoc (WordStack kx vx stk) kz vz
+    | kx == kz	= WordStack kx (f vz vx) stk
+    | otherwise	= WordStack kz vz $ reduce (branchMask kx kz) kx (singleton kx vx) stk
   
   reduce :: Mask -> Prefix -> SNode a -> Stack a -> Stack a
   reduce !m !px !tx (Push py ty stk')
@@ -431,11 +437,18 @@ fromAscList f = Foldl{zero = nil, ..} where
     where mxy = branchMask px py; pxy = mask px mxy
   reduce _ px tx stk	= Push px tx stk
 
-  done (Stack' kx vx stk) = finish kx (singleton kx vx) stk
+  done (WordStack kx vx stk) = case finish kx (singleton kx vx) stk of
+    (# sz#, node #) -> SNode {sz = I# sz#, node}
   
-  finish !px !tx (Push py ty stk) = finish p (join py ty px tx) stk
+  finish !px !tx (Push py ty stk) = finish p (join' py ty px tx) stk
     where m = branchMask px py; p = mask px m
-  finish _ t Nada = t
+  finish _ SNode{sz, node} Nada = (# unbox sz, node #)
+  
+  join' p1 t1 p2 t2
+  	= SNode{sz = sz t1 + sz t2, node = Bin p m t1 t2}
+    where
+      m = branchMask p1 p2
+      p = mask p1 m
 
-data Stack' a = Stack' !Key a (Stack a)
+data WordStack a = WordStack !Key a (Stack a)
 data Stack a = Push !Prefix !(SNode a) !(Stack a) | Nada

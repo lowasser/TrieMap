@@ -233,7 +233,7 @@ toAscList :: TKey a => TSet a -> [a]
 toAscList s = build (\ c n -> foldr c n s)
 
 {-# INLINE fromFold #-}
-fromFold :: (Repr a, TrieKey (Rep a)) => FromList (Rep a) (Elem a) -> [a] -> TSet a
+fromFold :: (Repr a, TrieKey (Rep a)) => FromList z (Rep a) (Elem a) -> [a] -> TSet a
 fromFold Foldl{..} = fL where
   fL [] = empty
   fL (x:xs) = fL' (begin (toRep x) (Elem x)) xs

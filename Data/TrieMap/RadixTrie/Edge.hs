@@ -34,6 +34,8 @@ import qualified Data.Vector (Vector)
 import qualified Data.Vector.Primitive (Vector)
 import Prelude hiding (length, foldr, foldl, zip, take, map)
 
+import GHC.Exts
+
 #define V(f) f (Data.Vector.Vector) (k)
 #define U(f) f (Data.Vector.Primitive.Vector) (Word)
 #define EDGE(args) (!(eView -> Edge args))
@@ -294,38 +296,50 @@ insertEdge f ks0 a e = insertE ks0 id e where
 	  let ts' = assignM e'' tHole; sz' = szV + sizeM ts' in cont (edge' sz' ls v ts')) e'
 
 {-# SPECIALIZE fromAscListEdge ::
-      (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (V()) a (V(MEdge) a),
-      Sized a => (a -> a -> a) -> Foldl (U()) a (U(MEdge) a) #-}
-fromAscListEdge :: forall v k a .(Label v k, Sized a) => (a -> a -> a) -> Foldl (v k) a (MEdge v k a)
-fromAscListEdge f = case fromDistAscListFold of
-  Foldl{snoc = snocB, begin = beginB :: k -> Edge v k a -> z0, done = doneB} 
+      (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (V(Stack) a) (V()) a (V(MEdge) a),
+      Sized a => (a -> a -> a) -> Foldl (U(Stack) a) (U()) a (U(MEdge) a) #-}
+fromAscListEdge :: forall v k a .(Label v k, Sized a) => (a -> a -> a) -> 
+  Foldl (Stack v k a) (v k) a (MEdge v k a)
+fromAscListEdge f = case inline fromDistAscListFold of
+  Foldl{snoc = snocB, begin = beginB, done = doneB} 
     -> Foldl{..} where
-	begin ks vk = stack ks vk emptyM
-	
-	snocBranch !(bView -> Branch i a !z) k e = branch i a (Just $ maybe beginB snocB z k e)
-	
-	beginBranch i k e = branch i Nothing $ Just $ beginB k e
-	
-	roll !(sView -> Stack ks a branches) = foldr roller (singletonEdge ks a) branches
-	roller :: Hang a z0 -> Edge v k a -> Edge v k a
-	roller br EDGE(!sz ks v ts) = case bView br of
-	  Branch i a z0	-> let k = ks !$ i; ks' = takeSlice i ks in
-	      edge ks' a $ doneB $ maybe beginB snocB z0 k $ edge' sz (dropSlice (i+1) ks) v ts
-
-	snoc !(sView -> Stack ks vk branches) ls vl = iMatchSlice matcher matches ks ls where
-	  matcher !i k l z
+    begin ks a = stack ks (Just a) Nothing Nothing
+    zero = Nothing
+    
+    snoc stk ks vK = snoc' ks stk where
+      snoc' !ks !stk = case sView stk of
+	Stack ls !vL !brL !lStack -> iMatchSlice matcher matches ks ls where
+	  matcher i k l z
 	    | k == l	= z
-	    | otherwise	= brancher i k
-	  
+	    | otherwise	= let
+		ksPre = takeSlice i ks
+		ksSuf = dropSlice (i+1) ks
+		ls' = dropSlice (i+1) ls
+		eL = roll (stack ls' vL brL lStack)
+		in stack ksPre Nothing (Just (beginB l eL)) (Just (k, begin ksSuf vK))
 	  matches kLen lLen
-	    | kLen < lLen	= stack ls vl $ insertWithM undefined (fromIntegral kLen) (branch kLen (Just vk) Nothing) branches
-	    | otherwise		= stack ls (f vl vk) branches
-	  
-	  brancher !i k = searchMC (fromIntegral i) branches nomatch match where
-	    doneBranch hole = dropEdge (i+1) $ roll $ stack ks vk $ afterM hole
-	    branchWith b hole = stack ls vl $ beforeWithM (b k $ doneBranch hole) hole
-	    match br hole = branchWith (snocBranch br) hole
-	    nomatch hole = branchWith (beginBranch i) hole
-	  
-	done = Just . roll
-	zero = Nothing
+	    | kLen > lLen	= let
+		ksPre = takeSlice lLen ks
+		k = ks !$ lLen
+		ksSuf = dropSlice (lLen + 1) ks
+		in case lStack of
+		  Just (lChar, lStack)
+		    | k == lChar	-> stack ksPre vL brL (Just (lChar, snoc' ksSuf lStack))
+		    | otherwise	-> stack ksPre vL (Just $ snocBranch brL lChar lStack)
+					(Just (k, begin ksSuf vK))
+		  Nothing	-> stack ksPre vL brL (Just (k, begin ksSuf vK))
+	    | otherwise	= stack ks (Just (maybe vK (f vK) vL)) brL lStack
+		
+    
+--     snocBranch ::  Maybe z0 -> k -> Stack v k a z0 -> z0
+    snocBranch Nothing k stack = beginB k (roll stack)
+    snocBranch (Just s) k stack = snocB s k (roll stack)
+    
+--     roll :: Stack v k a z0 -> Edge v k a
+    roll stack = case sView stack of
+      Stack ks (Just vK) _ Nothing	-> singletonEdge ks vK
+      Stack ks vK brK (Just (kChar, stack')) ->
+	edge ks vK $ inline doneB $ snocBranch brK kChar stack'
+      _ -> error "Error: bad stack"
+    
+    done = Just . roll
