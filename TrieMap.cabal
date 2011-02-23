@@ -58,6 +58,7 @@ other-modules:
   Data.TrieMap.Buildable,
   Data.TrieMap.SetOp,
   Data.TrieMap.Projection,
+  Data.TrieMap.IndexedHole,
   Data.TrieMap.Representation.Class,
   Data.TrieMap.Representation.TH,
   Data.TrieMap.Representation.TH.Utils,

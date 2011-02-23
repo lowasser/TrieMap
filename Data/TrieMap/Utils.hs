@@ -1,4 +1,4 @@
-{-# LANGUAGE Rank2Types, BangPatterns, MagicHash #-}
+{-# LANGUAGE Rank2Types, BangPatterns, MagicHash, TypeOperators #-}
 module Data.TrieMap.Utils where
 
 import Control.Monad.Unpack
