@@ -13,6 +13,7 @@ module Data.TrieMap.TrieKey (
   module Data.TrieMap.SetOp,
   module Data.TrieMap.Projection,
   module Data.TrieMap.IndexedHole,
+  module Data.TrieMap.Search,
   MonadPlus(..),
   Monoid(..),
   guard) where
@@ -24,6 +25,7 @@ import Data.TrieMap.Buildable
 import Data.TrieMap.SetOp
 import Data.TrieMap.Projection
 import Data.TrieMap.IndexedHole
+import Data.TrieMap.Search
 
 import Control.Applicative hiding (empty)
 import Control.Monad
@@ -38,8 +40,6 @@ import Data.Traversable
 import Prelude hiding (foldr, foldl)
 
 import GHC.Exts
-
-type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
 
 type FromList stack k a = Foldl stack k a (TrieMap k a)
 type UMStack k = UStack (TrieMap k)
@@ -138,12 +138,6 @@ foldr1Empty = error "Error: cannot call foldr1 on an empty map"
 {-# INLINE fillHoleM #-}
 fillHoleM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
 fillHoleM = maybe clearM assignM
-
-{-# INLINE mapSearch #-}
-mapSearch :: (hole -> hole') -> SearchCont hole a r -> SearchCont hole' a r
-mapSearch f run nomatch match = run nomatch' match' where
-  nomatch' hole = nomatch (f hole)
-  match' a hole = match a (f hole)
 
 {-# INLINE lookupM #-}
 lookupM :: TrieKey k => k -> TrieMap k a -> Maybe a
