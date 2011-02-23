@@ -2,28 +2,13 @@
 
 module Data.TrieMap.Sized where
 
+import Data.TrieMap.Subset
 import Data.Foldable
 import Data.Traversable
 import GHC.Exts
 
 class Sized a where
   getSize# :: a -> Int#
-
-data PreSized a = PS !Int a
-
-instance Sized (PreSized a) where
-  getSize# (PS sz _) = unbox sz
-
-class Subset f where
-  (<=?) :: (?le :: a -> b -> Bool) => f a -> f b -> Bool
-
-(<<=?) :: (Subset f, Subset g, ?le :: a -> b -> Bool) => f (g a) -> f (g b) -> Bool
-f <<=? g = let ?le = (<=?) in f <=? g
-
-instance Subset Maybe where
-  Nothing <=? _ = True
-  Just a <=? Just b = ?le a b
-  Just{} <=? Nothing = False
 
 data Assoc k a = Assoc {getK :: k, getValue :: a} deriving (Functor, Foldable, Traversable)
 

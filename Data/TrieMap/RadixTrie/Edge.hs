@@ -21,7 +21,6 @@ import Control.Monad.Lookup
 import Control.Monad.Ends
 import Control.Monad.Unpack
 
-import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
 import Data.TrieMap.WordMap ()
 import Data.TrieMap.RadixTrie.Label

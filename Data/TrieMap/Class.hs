@@ -4,11 +4,6 @@ module Data.TrieMap.Class (TMap(..), TSet(..), TKey, Rep, TrieMap, TrieKey) wher
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Representation.Class
-import Data.TrieMap.Sized
-
-import Data.Functor
-import Data.Foldable
-import Data.Traversable
 
 import Prelude hiding (foldr, foldl, foldl1, foldr1)
 

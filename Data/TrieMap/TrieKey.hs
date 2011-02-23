@@ -6,11 +6,15 @@ module Data.TrieMap.TrieKey (
   module Data.Foldable,
   module Data.Traversable,
   module Control.Applicative,
+  module Data.TrieMap.Sized,
+  module Data.TrieMap.Subset,
+  module Data.TrieMap.Utils,
   MonadPlus(..),
   Monoid(..),
   guard) where
 
 import Data.TrieMap.Sized
+import Data.TrieMap.Subset
 import Data.TrieMap.Utils
 
 import Control.Applicative hiding (empty)
@@ -28,7 +32,6 @@ import Prelude hiding (foldr, foldl)
 
 import GHC.Exts
 
-type LEq a b = a -> b -> Bool
 type SearchCont h a r = (h -> r) -> (a -> h -> r) -> r
 type IndexCont h a r = (Indexed a h :~> r) -> r
 

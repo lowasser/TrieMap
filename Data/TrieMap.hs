@@ -125,6 +125,7 @@ module Data.TrieMap (
 	maxViewWithKey
 	) where
 
+import Control.Monad
 import Control.Monad.Ends
 import Control.Monad.Lookup
 
@@ -133,10 +134,6 @@ import Data.TrieMap.Class.Instances()
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Representation
 import Data.TrieMap.Representation.Instances ()
-import Data.TrieMap.Sized
-import Data.TrieMap.Utils
-
-import Control.Monad
 
 import qualified Data.Foldable as F
 import Data.Maybe hiding (mapMaybe)

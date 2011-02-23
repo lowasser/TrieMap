@@ -4,7 +4,6 @@ module Data.TrieMap.Key () where
 
 import Data.TrieMap.Class
 import Data.TrieMap.TrieKey
-import Data.TrieMap.Sized
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Modifiers
 

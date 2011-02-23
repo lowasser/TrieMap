@@ -8,7 +8,6 @@ import qualified Data.Monoid as M
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Modifiers
-import Data.TrieMap.Sized
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1)
 

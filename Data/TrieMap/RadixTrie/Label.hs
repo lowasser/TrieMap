@@ -5,7 +5,6 @@ module Data.TrieMap.RadixTrie.Label where
 import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
-import Data.TrieMap.Sized
 import Data.TrieMap.RadixTrie.Slice
 import Data.TrieMap.WordMap
 

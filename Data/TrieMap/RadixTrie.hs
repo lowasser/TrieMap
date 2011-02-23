@@ -2,7 +2,6 @@
 module Data.TrieMap.RadixTrie () where
 
 import Data.TrieMap.TrieKey
-import Data.TrieMap.Sized
 
 import Data.Vector (Vector)
 import qualified Data.Vector.Primitive as P

@@ -5,7 +5,6 @@ module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), WordSta
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
-import Data.TrieMap.Utils
 
 import Control.Exception (assert)
 import Control.Monad.Lookup

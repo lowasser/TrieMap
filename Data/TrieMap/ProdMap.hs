@@ -5,7 +5,6 @@ module Data.TrieMap.ProdMap () where
 import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
-import Data.TrieMap.Sized
 
 import Prelude hiding (foldl, foldl1, foldr, foldr1)
 

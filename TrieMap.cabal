@@ -54,6 +54,7 @@ other-modules:
   Data.TrieMap.TrieKey,
   Data.TrieMap.Utils,
   Data.TrieMap.Sized,
+  Data.TrieMap.Subset,
   Data.TrieMap.Representation.Class,
   Data.TrieMap.Representation.TH,
   Data.TrieMap.Representation.TH.Utils,

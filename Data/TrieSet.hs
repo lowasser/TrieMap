@@ -66,8 +66,6 @@ import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances ()
 import Data.TrieMap.TrieKey hiding (foldr, foldl, toList)
 import Data.TrieMap.Representation.Class
-import Data.TrieMap.Sized
-import Data.TrieMap.Utils
 
 import Data.Maybe
 import qualified Data.Foldable as F

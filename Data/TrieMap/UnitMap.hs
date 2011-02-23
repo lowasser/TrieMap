@@ -5,7 +5,6 @@ module Data.TrieMap.UnitMap () where
 import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
-import Data.TrieMap.Sized
 
 import Data.Maybe
 

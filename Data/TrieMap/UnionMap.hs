@@ -5,7 +5,6 @@ module Data.TrieMap.UnionMap () where
 import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
-import Data.TrieMap.Sized
 import Data.TrieMap.UnitMap ()
 
 import Prelude hiding (foldr, foldr1, foldl, foldl1, (^))
