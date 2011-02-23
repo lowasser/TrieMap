@@ -1,5 +1,9 @@
 {-# LANGUAGE LiberalTypeSynonyms, ImplicitParams, TypeOperators, CPP #-}
-module Data.TrieMap.SetOp where
+module Data.TrieMap.SetOp (
+  IsectM, UnionM, DiffM,
+  isectM, unionM, diffM,
+  Isect, Union, Diff,
+  SetOp(..)) where
 
 import Data.TrieMap.Sized
 import Data.TrieMap.Subset
@@ -13,7 +17,6 @@ type Union f a = f a -> f a -> f a
 type Diff f a b = f a -> f b -> f a
 
 type Id a = a
-type (f `O` g) a = f (g a)
 
 class SetOp f where
   isect :: Sized c => IsectM Id a b c -> Isect f a b c
