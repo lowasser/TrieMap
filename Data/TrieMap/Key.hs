@@ -37,6 +37,12 @@ instance TKey k => Buildable (TrieMap (Key k)) (Key k) where
   type DAStack (TrieMap (Key k)) = DAMStack (Rep k)
   daFold = keyMap <$> mapFoldlKeys keyRep daFold
 
+#define SETOP(op) op f KMAP(m1) KMAP(m2) = keyMap (op f m1 m2)
+instance TKey k => SetOp (TrieMap (Key k)) where
+  SETOP(union)
+  SETOP(isect)
+  SETOP(diff)
+
 -- | @'TrieMap' ('Key' k) a@ is a wrapper around a @TrieMap (Rep k) a@.
 instance TKey k => TrieKey (Key k) where
 	data TrieMap (Key k) a = KeyMap {sz :: !Int, tMap :: !(TrieMap (Rep k) a)}
@@ -49,9 +55,6 @@ instance TKey k => TrieKey (Key k) where
 	lookupMC (Key k) KMAP(m) = lookupMC (toRep k) m
 	mapMaybeM f KMAP(m) = keyMap (mapMaybeM f m)
 	mapEitherM f KMAP(m) = both keyMap keyMap (mapEitherM f) m
-	unionM f KMAP(m1) KMAP(m2) = keyMap (unionM f m1 m2)
-	isectM f KMAP(m1) KMAP(m2) = keyMap (isectM f m1 m2)
-	diffM f KMAP(m1) KMAP(m2) = keyMap (diffM f m1 m2)
 
 	singleHoleM (Key k) = KeyHole (singleHoleM (toRep k))
 	beforeM (KeyHole hole) = keyMap (beforeM hole)

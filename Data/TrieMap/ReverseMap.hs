@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeFamilies, UnboxedTuples, GeneralizedNewtypeDeriving, FlexibleInstances, NamedFieldPuns, RecordWildCards #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, CPP #-}
 module Data.TrieMap.ReverseMap () where
 
 import Control.Monad.Unpack
@@ -45,6 +45,13 @@ instance TrieKey k => Buildable (TrieMap (Rev k)) (Rev k) where
   type DAStack (TrieMap (Rev k)) = RevFold (DAMStack k) k
   daFold = RevMap <$> mapFoldlKeys getRev (reverseFold daFold)
 
+#define SETOP(op) op f (RevMap m1) (RevMap m2) = RevMap (op f m1 m2)
+
+instance TrieKey k => SetOp (TrieMap (Rev k)) where
+  SETOP(union)
+  SETOP(diff)
+  SETOP(isect)
+
 -- | @'TrieMap' ('Rev' k) a@ is a wrapper around a @'TrieMap' k a@ that reverses the order of the operations.
 instance TrieKey k => TrieKey (Rev k) where
 	newtype TrieMap (Rev k) a = RevMap (TrieMap k a)
@@ -58,9 +65,6 @@ instance TrieKey k => TrieKey (Rev k) where
 		
 	mapMaybeM f (RevMap m) = RevMap (mapMaybeM f m)
 	mapEitherM f (RevMap m) = both RevMap RevMap (mapEitherM f) m
-	unionM f (RevMap m1) (RevMap m2) = RevMap (unionM f m1 m2)
-	isectM f (RevMap m1) (RevMap m2) = RevMap (isectM f m1 m2)
-	diffM f (RevMap m1) (RevMap m2) = RevMap (diffM f m1 m2)
 	
 	singleHoleM (Rev k) = RHole (singleHoleM k)
 	beforeM (RHole hole) = RevMap (afterM hole)

@@ -163,7 +163,7 @@ unionEdge f = unionE where
 	    eL' = dropEdge (i+1) eL
     
     matches kLen lLen = case compare kLen lLen of
-      EQ -> cEdge ks0 (unionMaybe f vK vL) $ unionM unionE tsK tsL
+      EQ -> cEdge ks0 (union f vK vL) $ union unionE tsK tsL
       LT -> searchMC l tsK nomatch match where
 	eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen
 	nomatch holeKT = cEdge ks0 vK $ assignM eL' holeKT
@@ -182,7 +182,7 @@ isectEdge f = isectE where
   isectE !eK@EDGE(_ ks0 vK tsK) !eL@EDGE(_ ls0 vL tsL) = matchSlice matcher matches ks0 ls0 where
     matcher k l z = guard (k == l) >> z
     matches kLen lLen = case compare kLen lLen of
-      EQ -> cEdge ks0 (isectMaybe f vK vL) $ isectM isectE tsK tsL
+      EQ -> cEdge ks0 (isect f vK vL) $ isect isectE tsK tsL
       LT -> let l = ls0 !$ kLen in runLookup (lookupMC l tsK) Nothing $ \ eK' ->
 	      let eL' = dropEdge (kLen + 1) eL in unDropEdge (kLen + 1) <$> eK' `isectE` eL'
       GT -> let k = ks0 !$ lLen in runLookup (lookupMC k tsL) Nothing $ \ eL' -> 
@@ -199,7 +199,7 @@ diffEdge f = diffE where
       | k == l		= z
       | otherwise	= Just eK
     matches kLen lLen = case compare kLen lLen of
-      EQ -> cEdge ks0 (diffMaybe f vK vL) $ diffM diffE tsK tsL
+      EQ -> cEdge ks0 (diff f vK vL) $ diff diffE tsK tsL
       LT -> searchMC l tsK nomatch match where
 	l = ls0 !$ kLen; eL' = dropEdge (kLen + 1) eL 
 	nomatch _ = Just eK

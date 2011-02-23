@@ -10,6 +10,7 @@ module Data.TrieMap.TrieKey (
   module Data.TrieMap.Subset,
   module Data.TrieMap.Utils,
   module Data.TrieMap.Buildable,
+  module Data.TrieMap.SetOp,
   MonadPlus(..),
   Monoid(..),
   guard) where
@@ -18,6 +19,7 @@ import Data.TrieMap.Sized
 import Data.TrieMap.Subset
 import Data.TrieMap.Utils
 import Data.TrieMap.Buildable
+import Data.TrieMap.SetOp
 
 import Control.Applicative hiding (empty)
 import Control.Monad
@@ -68,7 +70,7 @@ onThird g f a = case f a of
 
 -- | A @TrieKey k@ instance implies that @k@ is a standardized representation for which a
 -- generalized trie structure can be derived.
-class (Ord k, Buildable (TrieMap k) k, Subset (TrieMap k), Traversable (TrieMap k)) => TrieKey k where
+class (Ord k, Buildable (TrieMap k) k, Subset (TrieMap k), Traversable (TrieMap k), SetOp (TrieMap k)) => TrieKey k where
 	data TrieMap k :: * -> *
 	emptyM :: TrieMap k a
 	singletonM :: Sized a => k -> a -> TrieMap k a
@@ -78,10 +80,6 @@ class (Ord k, Buildable (TrieMap k) k, Subset (TrieMap k), Traversable (TrieMap 
 	lookupMC :: k -> TrieMap k a -> Lookup r a
 	mapMaybeM :: Sized b => (a -> Maybe b) -> TrieMap k a -> TrieMap k b
 	mapEitherM :: (Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> TrieMap k a -> (# TrieMap k b, TrieMap k c #)
-	unionM :: Sized a => (a -> a -> Maybe a) -> TrieMap k a -> TrieMap k a -> TrieMap k a
-	isectM :: Sized c =>
-		(a -> b -> Maybe c) -> TrieMap k a -> TrieMap k b -> TrieMap k c
-	diffM :: Sized a => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> TrieMap k a
 	
 	insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
 	
@@ -116,6 +114,11 @@ class (Ord k, Buildable (TrieMap k) k, Subset (TrieMap k), Traversable (TrieMap 
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM#
+
+instance TrieKey k => Nullable (TrieMap k) where
+  isNull m = case getSimpleM m of
+    Null -> True
+    _ -> False
 
 {-# INLINE indexMC' #-}
 indexMC' :: (TrieKey k, Sized a) => TrieMap k a -> Int -> (Indexed a (Hole k a) -> r) -> r
@@ -159,24 +162,24 @@ insertWithM' :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> Maybe (TrieMap k a
 insertWithM' f k a = maybe (singletonM k a) (insertWithM f k a)
 
 mapMaybeM' :: (TrieKey k, Sized b) => (a -> Maybe b) -> TrieMap k a -> Maybe (TrieMap k b)
-mapMaybeM' = guardNullM .: mapMaybeM
+mapMaybeM' = guardNull .: mapMaybeM
 
 mapEitherM' :: (TrieKey k, Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> TrieMap k a ->
 	(# Maybe (TrieMap k b), Maybe (TrieMap k c) #)
-mapEitherM' = both guardNullM guardNullM . mapEitherM
+mapEitherM' = both guardNull guardNull . mapEitherM
 
 mapEitherM'' :: (TrieKey k, Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> Maybe (TrieMap k a) ->
 	(# Maybe (TrieMap k b), Maybe (TrieMap k c) #)
 mapEitherM'' = mapEitherMaybe . mapEitherM'
 
 unionM' :: (TrieKey k, Sized a) => (a -> a -> Maybe a) -> TrieMap k a -> TrieMap k a -> Maybe (TrieMap k a)
-unionM' f m1 m2 = guardNullM (unionM f m1 m2)
+unionM' f m1 m2 = guardNull (union f m1 m2)
 
 isectM' :: (TrieKey k, Sized c) => (a -> b -> Maybe c) -> TrieMap k a -> TrieMap k b -> Maybe (TrieMap k c)
-isectM' f m1 m2 = guardNullM (isectM f m1 m2)
+isectM' f m1 m2 = guardNull (isect f m1 m2)
 
 diffM' :: (TrieKey k, Sized a) => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> Maybe (TrieMap k a)
-diffM' f m1 m2 = guardNullM (diffM f m1 m2)
+diffM' f m1 m2 = guardNull (diff f m1 m2)
 
 {-# INLINE beforeMM #-}
 beforeMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
@@ -187,7 +190,7 @@ afterMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
 afterMM = maybe afterM afterWithM
 
 clearM' :: (TrieKey k, Sized a) => Hole k a -> Maybe (TrieMap k a)
-clearM' hole = guardNullM (clearM hole)
+clearM' hole = guardNull (clearM hole)
 
 {-# INLINE alterM #-}
 alterM :: (TrieKey k, Sized a) => (Maybe a -> Maybe a) -> k -> TrieMap k a -> TrieMap k a
@@ -201,16 +204,6 @@ alterM f k m = searchMC k m g h where
 searchMC' :: TrieKey k => k -> Maybe (TrieMap k a) -> (Hole k a -> r) -> (a -> Hole k a -> r) -> r
 searchMC' k Nothing f _ = f (singleHoleM k)
 searchMC' k (Just m) f g = searchMC k m f g
-
-nullM :: TrieKey k => TrieMap k a -> Bool
-nullM m = case getSimpleM m of
-	Null	-> True
-	_	-> False
-
-guardNullM :: TrieKey k => TrieMap k a -> Maybe (TrieMap k a)
-guardNullM m
-	| nullM m	= Nothing
-	| otherwise	= Just m
 
 sides :: (b -> d) -> (a -> (# b, c, b #)) -> a -> (# d, c, d #)
 sides g f a = case f a of
@@ -226,26 +219,6 @@ elemsM m = build (\ f z -> foldr f z m)
 mapEitherMaybe :: (a -> (# Maybe b, Maybe c #)) -> Maybe a -> (# Maybe b, Maybe c #)
 mapEitherMaybe f (Just a) = f a
 mapEitherMaybe _ _ = (# Nothing, Nothing #)
-
-{-# INLINE unionMaybe #-}
-unionMaybe :: (a -> a -> Maybe a) -> Maybe a -> Maybe a -> Maybe a
-unionMaybe f (Just x) (Just y) = f x y
-unionMaybe _ Nothing y = y
-unionMaybe _ x Nothing = x
-
-isectMaybe :: (a -> b -> Maybe c) -> Maybe a -> Maybe b -> Maybe c
-isectMaybe f (Just x) (Just y) = f x y
-isectMaybe _ _ _ = Nothing
-
-diffMaybe :: (a -> b -> Maybe a) -> Maybe a -> Maybe b -> Maybe a
-diffMaybe _ Nothing _ = Nothing
-diffMaybe _ (Just x) Nothing = Just x
-diffMaybe f (Just x) (Just y) = f x y
-
-subMaybe :: (a -> b -> Bool) -> Maybe a -> Maybe b -> Bool
-subMaybe _ Nothing _ = True
-subMaybe (<=) (Just a) (Just b) = a <= b
-subMaybe _ _ _ = False
 
 indexFail :: a
 indexFail = error "Error: not a valid index"

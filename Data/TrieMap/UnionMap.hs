@@ -8,54 +8,57 @@ import Control.Monad.Unpack
 import Data.TrieMap.TrieKey
 import Data.TrieMap.UnitMap ()
 
+import GHC.Exts
+
 import Prelude hiding (foldr, foldr1, foldl, foldl1, (^))
 
 {-# INLINE (^) #-}
 (^) :: (TrieKey k1, TrieKey k2, Sized a) => Maybe (TrieMap k1 a) -> Maybe (TrieMap k2 a) -> TrieMap (Either k1 k2) a
 Nothing ^ Nothing	= Empty
-Just m1 ^ Nothing	= K1 m1
-Nothing ^ Just m2	= K2 m2
+Just m1 ^ Nothing	= MapL m1
+Nothing ^ Just m2	= MapR m2
 Just m1 ^ Just m2	= Union (sizeM m1 + sizeM m2) m1 m2
 
-union :: (TrieKey k1, TrieKey k2, Sized a) => TrieMap k1 a -> TrieMap k2 a -> TrieMap (Either k1 k2) a
-union m1 m2 = Union (sizeM m1 + getSize m2) m1 m2
+mapLR :: (TrieKey k1, TrieKey k2, Sized a) => TrieMap k1 a -> TrieMap k2 a -> TrieMap (Either k1 k2) a
+mapLR m1 m2 = Union (sizeM m1 + getSize m2) m1 m2
 
 singletonL :: (TrieKey k1, TrieKey k2, Sized a) => k1 -> a -> TrieMap (Either k1 k2) a
-singletonL k a = K1 (singletonM k a)
+singletonL k a = MapL (singletonM k a)
 
 singletonR :: (TrieKey k1, TrieKey k2, Sized a) => k2 -> a -> TrieMap (Either k1 k2) a
-singletonR k a = K2 (singletonM k a)
+singletonR k a = MapR (singletonM k a)
 
 data UView k1 k2 a = UView (Maybe (TrieMap k1 a)) (Maybe (TrieMap k2 a))
 data HView k1 k2 a = Hole1 (Hole k1 a) (Maybe (TrieMap k2 a))
 		    | Hole2 (Maybe (TrieMap k1 a)) (Hole k2 a)		    
 
+{-# INLINE uView #-}
 uView :: TrieMap (Either k1 k2) a -> UView k1 k2 a
 uView Empty = UView Nothing Nothing
-uView (K1 m1) = UView (Just m1) Nothing
-uView (K2 m2) = UView Nothing (Just m2)
+uView (MapL m1) = UView (Just m1) Nothing
+uView (MapR m2) = UView Nothing (Just m2)
 uView (Union _ m1 m2) = UView (Just m1) (Just m2)
 
 hView :: Hole (Either k1 k2) a -> HView k1 k2 a
 hView (HoleX0 hole1) = Hole1 hole1 Nothing
-hView (HoleX2 hole1 m2) = Hole1 hole1 (Just m2)
+hView (HoleXR hole1 m2) = Hole1 hole1 (Just m2)
 hView (Hole0X hole2) = Hole2 Nothing hole2
-hView (Hole1X m1 hole2) = Hole2 (Just m1) hole2
+hView (HoleLX m1 hole2) = Hole2 (Just m1) hole2
 
 hole1 :: Hole k1 a -> Maybe (TrieMap k2 a) -> Hole (Either k1 k2) a
 hole1 hole1 Nothing = HoleX0 hole1
-hole1 hole1 (Just m2) = HoleX2 hole1 m2
+hole1 hole1 (Just m2) = HoleXR hole1 m2
 
 hole2 :: Maybe (TrieMap k1 a) -> Hole k2 a -> Hole (Either k1 k2) a
 hole2 Nothing hole2 = Hole0X hole2
-hole2 (Just m1) hole2 = Hole1X m1 hole2
+hole2 (Just m1) hole2 = HoleLX m1 hole2
 
 #define UVIEW uView -> UView
 
 instance (TrieKey k1, TrieKey k2) => Functor (TrieMap (Either k1 k2)) where
   fmap _ Empty = Empty
-  fmap f (K1 m1) = K1 (f <$> m1)
-  fmap f (K2 m2) = K2 (f <$> m2)
+  fmap f (MapL m1) = MapL (f <$> m1)
+  fmap f (MapR m2) = MapR (f <$> m2)
   fmap f (Union s m1 m2) = Union s (f <$> m1) (f <$> m2)
 
 instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (Either k1 k2)) where
@@ -65,8 +68,8 @@ instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (Either k1 k2)) where
 
 instance (TrieKey k1, TrieKey k2) => Traversable (TrieMap (Either k1 k2)) where
   traverse _ Empty = pure Empty
-  traverse f (K1 m1) = K1 <$> traverse f m1
-  traverse f (K2 m2) = K2 <$> traverse f m2
+  traverse f (MapL m1) = MapL <$> traverse f m1
+  traverse f (MapR m2) = MapR <$> traverse f m2
   traverse f (Union s m1 m2) = Union s <$> traverse f m1 <*> traverse f m2
 
 instance (TrieKey k1, TrieKey k2) => Subset (TrieMap (Either k1 k2)) where
@@ -81,20 +84,48 @@ instance (TrieKey k1, TrieKey k2) => Buildable (TrieMap (Either k1 k2)) (Either 
   type DAStack (TrieMap (Either k1 k2)) = Stack (DAMStack k1) (DAMStack k2)
   daFold = unionFold daFold daFold
 
+{-# INLINE runUView #-}
+runUView :: TrieMap (Either k1 k2) a -> (Maybe (TrieMap k1 a) -> Maybe (TrieMap k2 a) -> r) -> r
+runUView Empty f = inline f Nothing Nothing
+runUView (MapL mL) f = inline f (Just mL) Nothing
+runUView (MapR mR) f = inline f Nothing (Just mR)
+runUView (Union _ mL mR) f = inline f (Just mL) (Just mR)
+
+instance (TrieKey k1, TrieKey k2) => SetOp (TrieMap (Either k1 k2)) where
+  union f m1 m2 
+    | Empty <- m1	= m2
+    | otherwise		= runUView m1 (runUView m2 .: run)
+    where {-# INLINE run #-}
+	  run m1L m1R m2L m2R 
+	    | Empty <- m2	= m1
+	    | otherwise		= union (unionM f) m1L m2L ^ union (unionM f) m1R m2R
+  isect f m1 m2 = runUView m1 (runUView m2 .: run) where
+    run m1L m1R m2L m2R = isect (isectM f) m1L m2L ^ isect (isectM f) m1R m2R
+  diff _ m1 Empty	= m1
+  diff f m1 m2 = runUView m2 (runUView m1 .: run) where
+    run m2L m2R m1L m1R = diff (diffM f) m1L m2L ^ diff (diffM f) m1R m2R
+--   FORCE(union)
+--   SETOP(union,unionM)
+--   SETOP(isect,isectM)
+--   FORCE(diff)
+--   diff _ !m1 Empty = m1
+--   diff _ Empty _ = Empty
+--   SETOP(diff,diffM)
+
 -- | @'TrieMap' ('Either' k1 k2) a@ is essentially a @(TrieMap k1 a, TrieMap k2 a)@, but
 -- specialized for the cases where one or both maps are empty.
 instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	{-# SPECIALIZE instance TrieKey (Either () ()) #-}  
 	data TrieMap (Either k1 k2) a = 
 		Empty
-		| K1 (TrieMap k1 a)
-		| K2 (TrieMap k2 a)
+		| MapL (TrieMap k1 a)
+		| MapR (TrieMap k2 a)
 		| Union !Int (TrieMap k1 a) (TrieMap k2 a)
 	data Hole (Either k1 k2) a =
 		HoleX0 (Hole k1 a)
-		| HoleX2 (Hole k1 a) (TrieMap k2 a)
+		| HoleXR (Hole k1 a) (TrieMap k2 a)
 		| Hole0X (Hole k2 a)
-		| Hole1X (TrieMap k1 a) (Hole k2 a)
+		| HoleLX (TrieMap k1 a) (Hole k2 a)
 	emptyM = Empty
 	
 	singletonM = either singletonL singletonR
@@ -104,8 +135,8 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		mSimple = maybe mzero getSimpleM
 	
 	sizeM Empty = 0
-	sizeM (K1 m1) = sizeM m1
-	sizeM (K2 m2) = sizeM m2
+	sizeM (MapL m1) = sizeM m1
+	sizeM (MapR m2) = sizeM m2
 	sizeM (Union s _ _) = s
 	
 	lookupMC (Left k) (UVIEW (Just m1) _) = lookupMC k m1
@@ -118,18 +149,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	  !(# m1L, m1R #) = mapEitherM'' f m1
 	  !(# m2L, m2R #) = mapEitherM'' f m2
 
-	unionM _ Empty m2	= m2
-	unionM f m1@(UVIEW m11 m12) m2@(UVIEW m21 m22)
-		| Empty <- m2	= m1
-		| otherwise	= unionMaybe (unionM' f) m11 m21 ^ unionMaybe (unionM' f) m12 m22
-
-	isectM f (UVIEW m11 m12) (UVIEW m21 m22) =
-		isectMaybe (isectM' f) m11 m21 ^ isectMaybe (isectM' f) m12 m22
-
-	diffM f m1@(UVIEW m11 m12) m2@(UVIEW m21 m22)
-		| Empty <- m2	= m1
-		| otherwise	= diffMaybe (diffM' f) m11 m21 ^ diffMaybe (diffM' f) m12 m22
-
 	insertWithM f (Left k) a (UVIEW m1 m2)
 		= Just (insertWithM' f k a m1) ^ m2
 	insertWithM f (Right k) a (UVIEW m1 m2)
@@ -138,28 +157,28 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	singleHoleM = either (HoleX0 . singleHoleM) (Hole0X . singleHoleM)
 
 	beforeM hole = case hView hole of
-		Hole1 h1 __	-> guardNullM (beforeM h1) ^ Nothing
-		Hole2 m1 h2	-> m1 ^ guardNullM (beforeM h2)
+		Hole1 h1 __	-> guardNull (beforeM h1) ^ Nothing
+		Hole2 m1 h2	-> m1 ^ guardNull (beforeM h2)
 	beforeWithM a hole = case hView hole of
-		Hole1 h1 __	-> K1 (beforeWithM a h1)
+		Hole1 h1 __	-> MapL (beforeWithM a h1)
 		Hole2 m1 h2	-> m1 ^ Just (beforeWithM a h2)
 	
 	afterM hole = case hView hole of
-		Hole1 h1 m2	-> guardNullM (afterM h1) ^ m2
-		Hole2 __ h2	-> Nothing ^ guardNullM (afterM h2)
+		Hole1 h1 m2	-> guardNull (afterM h1) ^ m2
+		Hole2 __ h2	-> Nothing ^ guardNull (afterM h2)
 	afterWithM a hole = case hView hole of
 		Hole1 h1 m2	-> Just (afterWithM a h1) ^ m2
-		Hole2 __ h2	-> K2 (afterWithM a h2)
+		Hole2 __ h2	-> MapR (afterWithM a h2)
 	
 	searchMC (Left k) (UVIEW m1 m2) = mapSearch (`hole1` m2) (searchMC' k m1)
 	searchMC (Right k) (UVIEW m1 m2) = mapSearch (hole2 m1) (searchMC' k m2)
 	
 	indexMC m = unpack $ \ i result -> case m of
-	  K1 m1	-> mapIndex HoleX0 (indexMC m1 $~ i) result
-	  K2 m2	-> mapIndex Hole0X (indexMC m2 $~ i) result
+	  MapL m1	-> mapIndex HoleX0 (indexMC m1 $~ i) result
+	  MapR m2	-> mapIndex Hole0X (indexMC m2 $~ i) result
 	  Union _ m1 m2
-	    | i < s1	-> mapIndex (`HoleX2` m2) (indexMC m1 $~ i) result
-	    | otherwise	-> mapIndex (m1 `Hole1X`) (indexMC m2 $~ (i - s1)) result
+	    | i < s1	-> mapIndex (`HoleXR` m2) (indexMC m1 $~ i) result
+	    | otherwise	-> mapIndex (m1 `HoleLX`) (indexMC m2 $~ (i - s1)) result
 	    where s1 = sizeM m1
 	  _		-> indexFail
 
@@ -175,14 +194,14 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		Hole2 m1 h2	-> m1 ^ Just (assignM v h2)
 	
 	unifierM (Left k') (Left k) a = HoleX0 <$> unifierM k' k a
-	unifierM (Left k') (Right k) a = return $ HoleX2 (singleHoleM k') (singletonM k a)
-	unifierM (Right k') (Left k) a = return $ Hole1X (singletonM k a) (singleHoleM k')
+	unifierM (Left k') (Right k) a = return $ HoleXR (singleHoleM k') (singletonM k a)
+	unifierM (Right k') (Left k) a = return $ HoleLX (singletonM k a) (singleHoleM k')
 	unifierM (Right k') (Right k) a = Hole0X <$> unifierM k' k a
 	
-	unifyM (Left k1) a1 (Left k2) a2 = K1 <$> unifyM k1 a1 k2 a2
-	unifyM (Left k1) a1 (Right k2) a2 = return $ singletonM k1 a1 `union` singletonM k2 a2
-	unifyM (Right k2) a2 (Left k1) a1 = return $ singletonM k1 a1 `union` singletonM k2 a2
-	unifyM (Right k1) a1 (Right k2) a2 = K2 <$> unifyM k1 a1 k2 a2
+	unifyM (Left k1) a1 (Left k2) a2 = MapL <$> unifyM k1 a1 k2 a2
+	unifyM (Left k1) a1 (Right k2) a2 = return $ singletonM k1 a1 `mapLR` singletonM k2 a2
+	unifyM (Right k2) a2 (Left k1) a1 = return $ singletonM k1 a1 `mapLR` singletonM k2 a2
+	unifyM (Right k1) a1 (Right k2) a2 = MapR <$> unifyM k1 a1 k2 a2
 
 {-# INLINE holes #-}
 holes :: (Functor m, Functor f, MonadPlus m) => (a -> m (f b)) -> (b -> c) -> Maybe a -> m (f c)
@@ -205,9 +224,9 @@ unionFold Foldl{snoc = snocL, begin = beginL, done = doneL}
 	begin (Left k) a = JustL (beginL k a)
 	begin (Right k) a = JustR (beginR k a)
 	
-	done (JustL sL) = K1 (doneL sL)
-	done (JustR sR) = K2 (doneR sR)
-	done (Both sL sR) = doneL sL `union` doneR sR
+	done (JustL sL) = MapL (doneL sL)
+	done (JustR sR) = MapR (doneR sR)
+	done (Both sL sR) = doneL sL `mapLR` doneR sR
 
 data Stack s1 s2 a =
   JustL (s1 a)

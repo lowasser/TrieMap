@@ -1,5 +1,4 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, FlexibleInstances, GeneralizedNewtypeDeriving, StandaloneDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies, UnboxedTuples, FlexibleInstances, CPP, MultiParamTypeClasses #-}
 module Data.TrieMap.UnitMap () where
 
 import Control.Monad.Unpack
@@ -41,6 +40,12 @@ instance Buildable (TrieMap ()) () where
     snoc = error "Error: duplicate keys",
     done = id}
 
+#define SETOP(op) op f (Unit m1) (Unit m2) = Unit (op f m1 m2)
+instance SetOp (TrieMap ()) where
+  SETOP(union)
+  SETOP(isect)
+  SETOP(diff)
+
 -- | @'TrieMap' () a@ is implemented as @'Maybe' a@.
 instance TrieKey () where
 	newtype TrieMap () a = Unit (Maybe a)
@@ -54,9 +59,6 @@ instance TrieKey () where
 	lookupMC _ _ = mzero
 	mapMaybeM f (Unit m) = Unit (m >>= f)
 	mapEitherM f (Unit a) = both Unit Unit (mapEitherMaybe f) a
-	unionM f (Unit m1) (Unit m2) = Unit (unionMaybe f m1 m2)
-	isectM f (Unit m1) (Unit m2) = Unit (isectMaybe f m1 m2)
-	diffM f (Unit m1) (Unit m2) = Unit (diffMaybe f m1 m2)
 	
 	insertWithM f _ a (Unit m) = Unit (Just (maybe a f m))
 	

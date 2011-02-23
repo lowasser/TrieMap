@@ -64,7 +64,8 @@ import Control.Monad.Lookup
 
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances ()
-import Data.TrieMap.TrieKey hiding (foldr, foldl, toList)
+import Data.TrieMap.TrieKey hiding (foldr, foldl, toList, union, diff, isect)
+import qualified Data.TrieMap.SetOp as Set
 import Data.TrieMap.Representation.Class
 
 import Data.Maybe
@@ -106,19 +107,19 @@ singleton a = TSet (singletonM (toRep a) (Elem a))
 -- | The union of two 'TSet's, preferring the first set when
 -- equal elements are encountered.
 union :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `union` TSet s2 = TSet (unionM (const . Just) s1 s2)
+TSet s1 `union` TSet s2 = TSet (Set.union (const . Just) s1 s2)
 
 -- | The symmetric difference of two 'TSet's.
 symmetricDifference :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `symmetricDifference` TSet s2 = TSet (unionM (\ _ _ -> Nothing) s1 s2)
+TSet s1 `symmetricDifference` TSet s2 = TSet (Set.union (\ _ _ -> Nothing) s1 s2)
 
 -- | Difference of two 'TSet's.
 difference :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `difference` TSet s2 = TSet (diffM (\ _ _ -> Nothing) s1 s2)
+TSet s1 `difference` TSet s2 = TSet (Set.diff (\ _ _ -> Nothing) s1 s2)
 
 -- | Intersection of two 'TSet's.  Elements of the result come from the first set.
 intersection :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `intersection` TSet s2 = TSet (isectM (const . Just) s1 s2)
+TSet s1 `intersection` TSet s2 = TSet (Set.isect (const . Just) s1 s2)
 
 -- | Filter all elements that satisfy the predicate.
 filter :: TKey a => (a -> Bool) -> TSet a -> TSet a
@@ -259,7 +260,7 @@ fromDistinctAscList = fromFold daFold
 
 -- | /O(1)/. Is this the empty set?
 null :: TKey a => TSet a -> Bool
-null (TSet s) = nullM s
+null (TSet s) = isNull s
 
 -- | /O(1)/. The number of elements in the set.
 size :: TKey a => TSet a -> Int

@@ -131,7 +131,8 @@ import Control.Monad.Lookup
 
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances()
-import Data.TrieMap.TrieKey
+import Data.TrieMap.TrieKey hiding (union, isect, diff)
+import qualified Data.TrieMap.SetOp as Set
 import Data.TrieMap.Representation
 import Data.TrieMap.Representation.Instances ()
 
@@ -176,7 +177,7 @@ singleton k a = TMap (singletonM (toRep k) (Assoc k a))
 -- | /O(1)/. Is the map empty?
 {-# INLINE null #-}
 null :: TKey k => TMap k a -> Bool
-null (TMap m) = nullM m
+null (TMap m) = isNull m
 
 -- | Lookup the value at a key in the map.
 -- 
@@ -442,7 +443,7 @@ unionMaybeWith = unionMaybeWithKey . const
 -- > unionWithKey f (fromList [(5, "a"), (3, "b")]) (fromList [(5, "A"), (7, "C")]) == fromList [(3, "b"), (5, "5:a|A"), (7, "C")]
 {-# INLINEABLE unionMaybeWithKey #-}
 unionMaybeWithKey :: TKey k => (k -> a -> a -> Maybe a) -> TMap k a -> TMap k a -> TMap k a
-unionMaybeWithKey f (TMap m1) (TMap m2) = TMap (unionM f' m1 m2) where
+unionMaybeWithKey f (TMap m1) (TMap m2) = TMap (Set.union f' m1 m2) where
 	f' (Assoc k a) (Assoc _ b) = Assoc k <$> f k a b
 
 -- | 'symmetricDifference' is equivalent to @'unionMaybeWith' (\ _ _ -> Nothing)@.
@@ -485,7 +486,7 @@ intersectionMaybeWith = intersectionMaybeWithKey . const
 -- @'mapMaybe' 'id' ('intersectionWithKey' f m1 m2)@.
 {-# INLINEABLE intersectionMaybeWithKey #-}
 intersectionMaybeWithKey :: TKey k => (k -> a -> b -> Maybe c) -> TMap k a -> TMap k b -> TMap k c
-intersectionMaybeWithKey f (TMap m1) (TMap m2) = TMap (isectM f' m1 m2) where
+intersectionMaybeWithKey f (TMap m1) (TMap m2) = TMap (Set.isect f' m1 m2) where
 	f' (Assoc k a) (Assoc _ b) = Assoc k <$> f k a b
 
 -- | Difference of two maps. 
@@ -526,7 +527,7 @@ differenceWith = differenceWithKey . const
 -- >     == singleton 3 "3:b|B"
 {-# INLINEABLE differenceWithKey #-}
 differenceWithKey :: TKey k => (k -> a -> b -> Maybe a) -> TMap k a -> TMap k b -> TMap k a
-differenceWithKey f (TMap m1) (TMap m2) = TMap (diffM f' m1 m2) where
+differenceWithKey f (TMap m1) (TMap m2) = TMap (Set.diff f' m1 m2) where
 	f' (Assoc k a) (Assoc _ b) = Assoc k <$> f k a b
 
 -- | Retrieves the value associated with minimal key of the

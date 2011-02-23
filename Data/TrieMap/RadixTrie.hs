@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances #-}
+{-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances, CPP #-}
 module Data.TrieMap.RadixTrie () where
 
 import Data.TrieMap.TrieKey
@@ -42,6 +42,18 @@ instance TrieKey k => Buildable (TrieMap (Vector k)) (Vector k) where
   {-# INLINE daFold #-}
   daFold = aFold const
 
+#define SETOP(rad,op,opE) op f (rad m1) (rad m2) = rad (op (opE f) m1 m2)
+
+instance TrieKey k => SetOp (TrieMap (Vector k)) where
+  SETOP(Radix,union,unionEdge)
+  SETOP(Radix,isect,isectEdge)
+  SETOP(Radix,diff,diffEdge)
+
+instance SetOp (TrieMap (P.Vector Word)) where
+  SETOP(WRadix,union,unionEdge)
+  SETOP(WRadix,isect,isectEdge)
+  SETOP(WRadix,diff,diffEdge)
+
 -- | @'TrieMap' ('Vector' k) a@ is a traditional radix trie.
 instance TrieKey k => TrieKey (Vector k) where
 	newtype TrieMap (Vector k) a = Radix (MEdge Vector k a)
@@ -57,10 +69,6 @@ instance TrieKey k => TrieKey (Vector k) where
 
 	mapMaybeM f (Radix m) = Radix (m >>= mapMaybeEdge f)
 	mapEitherM f (Radix e) = both Radix Radix (mapEitherMaybe (mapEitherEdge f)) e
-
-	unionM f (Radix m1) (Radix m2) = Radix (unionMaybe (unionEdge f) m1 m2)
-	isectM f (Radix m1) (Radix m2) = Radix (isectMaybe (isectEdge f) m1 m2)
-	diffM f (Radix m1) (Radix m2) = Radix (diffMaybe (diffEdge f) m1 m2)
 
 	singleHoleM ks = Hole (singleLoc ks)
 	{-# INLINE searchMC #-}
@@ -130,10 +138,6 @@ instance TrieKey (P.Vector Word) where
 
 	mapMaybeM f (WRadix m) = WRadix (m >>= mapMaybeEdge f)
 	mapEitherM f (WRadix e) = both WRadix WRadix (mapEitherMaybe (mapEitherEdge f)) e
-
-	unionM f (WRadix m1) (WRadix m2) = WRadix (unionMaybe (unionEdge f) m1 m2)
-	isectM f (WRadix m1) (WRadix m2) = WRadix (isectMaybe (isectEdge f) m1 m2)
-	diffM f (WRadix m1) (WRadix m2) = WRadix (diffMaybe (diffEdge f) m1 m2)
 
 	singleHoleM ks = WHole (singleLoc ks)
 	{-# INLINE searchMC #-}

@@ -77,6 +77,12 @@ instance Ord k => Buildable (TrieMap (Ordered k)) (Ordered k) where
   type DAStack (TrieMap (Ordered k)) = Stack k
   daFold = OrdMap <$> mapFoldlKeys unOrd fromDistAscList
 
+#define SETOP(op) op f (OrdMap m1) (OrdMap m2) = OrdMap (op f m1 m2)
+instance Ord k => SetOp (TrieMap (Ordered k)) where
+  SETOP(union)
+  SETOP(isect)
+  SETOP(diff)
+
 -- | @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
 instance Ord k => TrieKey (Ordered k) where
 	newtype TrieMap (Ordered k) a = OrdMap (SNode k a)
@@ -94,10 +100,6 @@ instance Ord k => TrieKey (Ordered k) where
 	sizeM (OrdMap m) = sz m
 	mapMaybeM f (OrdMap m) = OrdMap (mapMaybe f m)
 	mapEitherM f (OrdMap m) = both OrdMap OrdMap (mapEither f) m
-	
-	unionM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeUnion f (const LT) (const GT) m1 m2
-	isectM f (OrdMap m1) (OrdMap m2) = OrdMap $ isect f (immoralCast m1) m2
-	diffM f (OrdMap m1) (OrdMap m2) = OrdMap $ hedgeDiff f (const LT) (const GT) m1 m2
 	
 	singleHoleM (Ord k) = Empty k Root
 	beforeM (Empty _ path) = OrdMap $ before tip path
@@ -228,6 +230,14 @@ fromDistAscList = Foldl{zero = tip, ..} where
 
 data Stack k a = No (Stack k a) | Yes !(SNode k a) (Stack k a) | End
 
+instance Ord k => SetOp (SNode k) where
+  union f = hedgeUnion f (const LT) (const GT)
+  diff f = hedgeDiff f (const LT) (const GT)
+  isect f m1 m2 = immoralCast m1 `intersection` m2 where
+    t1@BIN(_ _ _ _) `intersection` BIN(k2 x2 l2 r2) = splitLookup k2 t1 result where
+      result tl found tr = joinMaybe k2 (found >>= \ (Elem x1') -> f x1' x2) (tl `intersection` l2) (tr `intersection` r2)
+    _ `intersection` _ = tip
+
 hedgeUnion :: (Ord k, Sized a)
                   => (a -> a -> Maybe a)
                   -> (k -> Ordering) -> (k -> Ordering)
@@ -280,11 +290,6 @@ trimLookupLo lo cmphi t@BIN(kx x l r)
               _  -> trimLookupLo lo cmphi l
       GT -> trimLookupLo lo cmphi r
       EQ -> (Just (kx,x),trim (compare lo) cmphi r)
-
-isect :: (Ord k, Sized c) => (a -> b -> Maybe c) -> SNode k (Elem a) -> SNode k b -> SNode k c
-isect f t1@BIN(_ _ _ _) BIN(k2 x2 l2 r2) = splitLookup k2 t1 result where
-  result tl found tr = joinMaybe k2 (found >>= \ (Elem x1') -> f x1' x2) (isect f tl l2) (isect f tr r2)
-isect _ _ _ = tip
 
 hedgeDiff :: (Ord k, Sized a)
                  => (a -> b -> Maybe a)

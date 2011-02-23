@@ -169,7 +169,7 @@ singleLoc ks = loc ks emptyM root
     U(Edge) a -> Simple a #-}
 getSimpleEdge :: Label v k => Edge v k a -> Simple a
 getSimpleEdge !(eView -> Edge _ _ v ts)
-  | nullM ts	= maybe Null Singleton v
+  | isNull ts	= maybe Null Singleton v
   | otherwise	= NonSimple
 
 {-# SPECIALIZE dropEdge ::

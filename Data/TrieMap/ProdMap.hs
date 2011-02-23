@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, TupleSections, PatternGuards, TypeFamilies, FlexibleInstances, RecordWildCards #-}
+{-# LANGUAGE UnboxedTuples, TupleSections, PatternGuards, TypeFamilies, FlexibleInstances, RecordWildCards, CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Data.TrieMap.ProdMap () where
 
@@ -30,6 +30,12 @@ instance (TrieKey k1, TrieKey k2) => Buildable (TrieMap (k1, k2)) (k1, k2) where
   type DAStack (TrieMap (k1, k2)) = Stack k1 k2 (DAMStack k1) (DAMStack k2)
   daFold = prodFold daFold daFold
 
+#define SETOP(op,opM) op f (PMap m1) (PMap m2) = PMap ((op) ((opM) f) m1 m2)
+instance (TrieKey k1, TrieKey k2) => SetOp (TrieMap (k1, k2)) where
+  SETOP(union,unionM)
+  SETOP(isect,isectM)
+  SETOP(diff,diffM)
+
 -- | @'TrieMap' (k1, k2) a@ is implemented as a @'TrieMap' k1 ('TrieMap' k2 a)@.
 instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	newtype TrieMap (k1, k2) a = PMap (TrieMap k1 (TrieMap k2 a))
@@ -42,9 +48,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	lookupMC (k1, k2) (PMap m) = lookupMC k1 m >>= lookupMC k2
 	mapMaybeM f (PMap m) = PMap (mapMaybeM (mapMaybeM' f) m)
 	mapEitherM f (PMap m) = both PMap PMap (mapEitherM (mapEitherM' f)) m
-	unionM f (PMap m1) (PMap m2) = PMap (unionM (unionM' f) m1 m2)
-	isectM f (PMap m1) (PMap m2) = PMap (isectM (isectM' f) m1 m2)
-	diffM f (PMap m1) (PMap m2) = PMap (diffM (diffM' f) m1 m2)
 	insertWithM f (k1, k2) a (PMap m) = PMap (insertWithM f' k1 (singletonM k2 a) m) where
 	  f' = insertWithM f k2 a
 	
@@ -75,7 +78,7 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	      in PMap <$> (unify1 `mplus` unify2)
 
 gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
-gNull = (guardNullM .)
+gNull = (guardNull .)
 
 prodFold :: Eq k1 => FromList z1 k1 (TrieMap k2 a) -> FromList z2 k2 a -> 
   FromList (Stack k1 k2 z1 z2) (k1, k2) a
