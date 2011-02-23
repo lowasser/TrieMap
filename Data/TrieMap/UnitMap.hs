@@ -1,11 +1,9 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, FlexibleInstances, CPP, MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, MultiParamTypeClasses #-}
 module Data.TrieMap.UnitMap () where
 
 import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
-
-import Data.Maybe
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1)
 
@@ -46,6 +44,10 @@ instance SetOp (TrieMap ()) where
   SETOP(isect)
   SETOP(diff)
 
+instance Project (TrieMap ()) where
+  mapMaybe f (Unit m) = Unit (mapMaybe f m)
+  mapEither f (Unit m) = both Unit (mapEither f) m
+
 -- | @'TrieMap' () a@ is implemented as @'Maybe' a@.
 instance TrieKey () where
 	newtype TrieMap () a = Unit (Maybe a)
@@ -57,8 +59,6 @@ instance TrieKey () where
 	sizeM (Unit m) = getSize m
 	lookupMC _ (Unit (Just a)) = return a
 	lookupMC _ _ = mzero
-	mapMaybeM f (Unit m) = Unit (m >>= f)
-	mapEitherM f (Unit a) = both Unit Unit (mapEitherMaybe f) a
 	
 	insertWithM f _ a (Unit m) = Unit (Just (maybe a f m))
 	

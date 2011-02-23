@@ -1,5 +1,5 @@
-{-# LANGUAGE UnboxedTuples, TypeFamilies, PatternGuards, ViewPatterns, MagicHash, CPP, BangPatterns, FlexibleInstances, RecordWildCards #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UnboxedTuples, TypeFamilies, PatternGuards, ViewPatterns, CPP, BangPatterns, FlexibleInstances, RecordWildCards #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.UnionMap () where
 
@@ -54,25 +54,26 @@ hole2 Nothing hole2 = Hole0X hole2
 hole2 (Just m1) hole2 = HoleLX m1 hole2
 
 #define UVIEW uView -> UView
+#define CONTEXT(cl) (TrieKey k1, TrieKey k2, cl (TrieMap k1), cl (TrieMap k2))
 
-instance (TrieKey k1, TrieKey k2) => Functor (TrieMap (Either k1 k2)) where
+instance CONTEXT(Functor) => Functor (TrieMap (Either k1 k2)) where
   fmap _ Empty = Empty
   fmap f (MapL m1) = MapL (f <$> m1)
   fmap f (MapR m2) = MapR (f <$> m2)
   fmap f (Union s m1 m2) = Union s (f <$> m1) (f <$> m2)
 
-instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (Either k1 k2)) where
+instance CONTEXT(Foldable) => Foldable (TrieMap (Either k1 k2)) where
   foldMap f (UVIEW m1 m2) = fmap (foldMap f) m1 `mappendM` fmap (foldMap f) m2
   foldr f z (UVIEW m1 m2) = foldl (foldr f) (foldl (foldr f) z m2) m1
   foldl f z (UVIEW m1 m2) = foldl (foldl f) (foldl (foldl f) z m1) m2
 
-instance (TrieKey k1, TrieKey k2) => Traversable (TrieMap (Either k1 k2)) where
+instance CONTEXT(Traversable) => Traversable (TrieMap (Either k1 k2)) where
   traverse _ Empty = pure Empty
   traverse f (MapL m1) = MapL <$> traverse f m1
   traverse f (MapR m2) = MapR <$> traverse f m2
   traverse f (Union s m1 m2) = Union s <$> traverse f m1 <*> traverse f m2
 
-instance (TrieKey k1, TrieKey k2) => Subset (TrieMap (Either k1 k2)) where
+instance CONTEXT(Subset) => Subset (TrieMap (Either k1 k2)) where
   (UVIEW m11 m12) <=? (UVIEW m21 m22)
     = m11 <<=? m21 && m12 <<=? m22
 
@@ -91,7 +92,7 @@ runUView (MapL mL) f = inline f (Just mL) Nothing
 runUView (MapR mR) f = inline f Nothing (Just mR)
 runUView (Union _ mL mR) f = inline f (Just mL) (Just mR)
 
-instance (TrieKey k1, TrieKey k2) => SetOp (TrieMap (Either k1 k2)) where
+instance CONTEXT(SetOp) => SetOp (TrieMap (Either k1 k2)) where
   union f m1 m2 
     | Empty <- m1	= m2
     | otherwise		= runUView m1 (runUView m2 .: run)
@@ -104,13 +105,12 @@ instance (TrieKey k1, TrieKey k2) => SetOp (TrieMap (Either k1 k2)) where
   diff _ m1 Empty	= m1
   diff f m1 m2 = runUView m2 (runUView m1 .: run) where
     run m2L m2R m1L m1R = diff (diffM f) m1L m2L ^ diff (diffM f) m1R m2R
---   FORCE(union)
---   SETOP(union,unionM)
---   SETOP(isect,isectM)
---   FORCE(diff)
---   diff _ !m1 Empty = m1
---   diff _ Empty _ = Empty
---   SETOP(diff,diffM)
+
+instance CONTEXT(Project) => Project (TrieMap (Either k1 k2)) where
+  mapMaybe f (UVIEW m1 m2) = mapMaybe (mapMaybeM f) m1 ^ mapMaybe (mapMaybeM f) m2
+  mapEither f (UVIEW m1 m2) = (# m11 ^ m21, m12 ^ m22 #)
+    where !(# m11, m12 #) = mapEither (mapEitherM f) m1
+	  !(# m21, m22 #) = mapEither (mapEitherM f) m2
 
 -- | @'TrieMap' ('Either' k1 k2) a@ is essentially a @(TrieMap k1 a, TrieMap k2 a)@, but
 -- specialized for the cases where one or both maps are empty.
@@ -142,12 +142,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	lookupMC (Left k) (UVIEW (Just m1) _) = lookupMC k m1
 	lookupMC (Right k) (UVIEW _ (Just m2)) = lookupMC k m2
 	lookupMC _ _ = mzero
-
-	mapMaybeM f (UVIEW m1 m2) = (m1 >>= mapMaybeM' f) ^ (m2 >>= mapMaybeM' f)
-
-	mapEitherM f (UVIEW m1 m2) = (# m1L ^ m2L, m1R ^ m2R #) where
-	  !(# m1L, m1R #) = mapEitherM'' f m1
-	  !(# m2L, m2R #) = mapEitherM'' f m2
 
 	insertWithM f (Left k) a (UVIEW m1 m2)
 		= Just (insertWithM' f k a m1) ^ m2

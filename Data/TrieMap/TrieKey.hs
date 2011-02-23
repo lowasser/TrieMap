@@ -11,6 +11,7 @@ module Data.TrieMap.TrieKey (
   module Data.TrieMap.Utils,
   module Data.TrieMap.Buildable,
   module Data.TrieMap.SetOp,
+  module Data.TrieMap.Projection,
   MonadPlus(..),
   Monoid(..),
   guard) where
@@ -20,6 +21,7 @@ import Data.TrieMap.Subset
 import Data.TrieMap.Utils
 import Data.TrieMap.Buildable
 import Data.TrieMap.SetOp
+import Data.TrieMap.Projection
 
 import Control.Applicative hiding (empty)
 import Control.Monad
@@ -70,47 +72,50 @@ onThird g f a = case f a of
 
 -- | A @TrieKey k@ instance implies that @k@ is a standardized representation for which a
 -- generalized trie structure can be derived.
-class (Ord k, Buildable (TrieMap k) k, Subset (TrieMap k), Traversable (TrieMap k), SetOp (TrieMap k)) => TrieKey k where
-	data TrieMap k :: * -> *
-	emptyM :: TrieMap k a
-	singletonM :: Sized a => k -> a -> TrieMap k a
-	getSimpleM :: TrieMap k a -> Simple a
-	sizeM# :: Sized a => TrieMap k a -> Int#
-	sizeM :: Sized a => TrieMap k a -> Int
-	lookupMC :: k -> TrieMap k a -> Lookup r a
-	mapMaybeM :: Sized b => (a -> Maybe b) -> TrieMap k a -> TrieMap k b
-	mapEitherM :: (Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> TrieMap k a -> (# TrieMap k b, TrieMap k c #)
-	
-	insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
-	
-	data Hole k :: * -> *
-	singleHoleM :: k -> Hole k a
-	beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
-	beforeWithM, afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
-	searchMC :: k -> TrieMap k a -> SearchCont (Hole k a) a r
-	indexMC :: Sized a => TrieMap k a -> Int :~> IndexCont (Hole k a) a r
+class (Ord k,
+	Buildable (TrieMap k) k,
+	Subset (TrieMap k),
+	Traversable (TrieMap k),
+	SetOp (TrieMap k),
+	Project (TrieMap k)) => TrieKey k where
+  data TrieMap k :: * -> *
+  emptyM :: TrieMap k a
+  singletonM :: Sized a => k -> a -> TrieMap k a
+  getSimpleM :: TrieMap k a -> Simple a
+  sizeM# :: Sized a => TrieMap k a -> Int#
+  sizeM :: Sized a => TrieMap k a -> Int
+  lookupMC :: k -> TrieMap k a -> Lookup r a
+  
+  insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
+  
+  data Hole k :: * -> *
+  singleHoleM :: k -> Hole k a
+  beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
+  beforeWithM, afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
+  searchMC :: k -> TrieMap k a -> SearchCont (Hole k a) a r
+  indexMC :: Sized a => TrieMap k a -> Int :~> IndexCont (Hole k a) a r
 
-	-- By combining rewrite rules and these NOINLINE pragmas, we automatically derive
-	-- specializations of functions for every instance of TrieKey.
-	extractHoleM :: (Functor m, MonadPlus m) => Sized a => TrieMap k a -> m (a, Hole k a)
-	{-# NOINLINE firstHoleM #-}
-	{-# NOINLINE lastHoleM #-}
-	{-# NOINLINE sizeM# #-}
-	sizeM# m = unbox (inline sizeM m)
-	firstHoleM :: Sized a => TrieMap k a -> First (a, Hole k a)
-	firstHoleM m = inline extractHoleM m
-	lastHoleM :: Sized a => TrieMap k a -> Last (a, Hole k a)
-	lastHoleM m = inline extractHoleM m
-	
-	insertWithM f k a m = inline searchMC k m (assignM a) (assignM . f)
-	
-	assignM :: Sized a => a -> Hole k a -> TrieMap k a
-	clearM :: Sized a => Hole k a -> TrieMap k a
-	unifierM :: Sized a => k -> k -> a -> Lookup r (Hole k a)
-	unifyM :: Sized a => k -> a -> k -> a -> Lookup r (TrieMap k a)
-	
-	unifierM k' k a = Lookup $ \ no yes -> searchMC k' (singletonM k a) yes (\ _ _ -> no)
-	unifyM k1 a1 k2 a2 = assignM a1 <$> unifierM k1 k2 a2
+  -- By combining rewrite rules and these NOINLINE pragmas, we automatically derive
+  -- specializations of functions for every instance of TrieKey.
+  extractHoleM :: (Functor m, MonadPlus m) => Sized a => TrieMap k a -> m (a, Hole k a)
+  {-# NOINLINE firstHoleM #-}
+  {-# NOINLINE lastHoleM #-}
+  {-# NOINLINE sizeM# #-}
+  sizeM# m = unbox (inline sizeM m)
+  firstHoleM :: Sized a => TrieMap k a -> First (a, Hole k a)
+  firstHoleM m = inline extractHoleM m
+  lastHoleM :: Sized a => TrieMap k a -> Last (a, Hole k a)
+  lastHoleM m = inline extractHoleM m
+  
+  insertWithM f k a m = inline searchMC k m (assignM a) (assignM . f)
+  
+  assignM :: Sized a => a -> Hole k a -> TrieMap k a
+  clearM :: Sized a => Hole k a -> TrieMap k a
+  unifierM :: Sized a => k -> k -> a -> Lookup r (Hole k a)
+  unifyM :: Sized a => k -> a -> k -> a -> Lookup r (TrieMap k a)
+  
+  unifierM k' k a = Lookup $ \ no yes -> searchMC k' (singletonM k a) yes (\ _ _ -> no)
+  unifyM k1 a1 k2 a2 = assignM a1 <$> unifierM k1 k2 a2
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM#
@@ -161,26 +166,6 @@ Just m1 `mappendM` Just m2 = m1 `mappend` m2
 insertWithM' :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> Maybe (TrieMap k a) -> TrieMap k a
 insertWithM' f k a = maybe (singletonM k a) (insertWithM f k a)
 
-mapMaybeM' :: (TrieKey k, Sized b) => (a -> Maybe b) -> TrieMap k a -> Maybe (TrieMap k b)
-mapMaybeM' = guardNull .: mapMaybeM
-
-mapEitherM' :: (TrieKey k, Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> TrieMap k a ->
-	(# Maybe (TrieMap k b), Maybe (TrieMap k c) #)
-mapEitherM' = both guardNull guardNull . mapEitherM
-
-mapEitherM'' :: (TrieKey k, Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> Maybe (TrieMap k a) ->
-	(# Maybe (TrieMap k b), Maybe (TrieMap k c) #)
-mapEitherM'' = mapEitherMaybe . mapEitherM'
-
-unionM' :: (TrieKey k, Sized a) => (a -> a -> Maybe a) -> TrieMap k a -> TrieMap k a -> Maybe (TrieMap k a)
-unionM' f m1 m2 = guardNull (union f m1 m2)
-
-isectM' :: (TrieKey k, Sized c) => (a -> b -> Maybe c) -> TrieMap k a -> TrieMap k b -> Maybe (TrieMap k c)
-isectM' f m1 m2 = guardNull (isect f m1 m2)
-
-diffM' :: (TrieKey k, Sized a) => (a -> b -> Maybe a) -> TrieMap k a -> TrieMap k b -> Maybe (TrieMap k a)
-diffM' f m1 m2 = guardNull (diff f m1 m2)
-
 {-# INLINE beforeMM #-}
 beforeMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
 beforeMM = maybe beforeM beforeWithM
@@ -205,20 +190,8 @@ searchMC' :: TrieKey k => k -> Maybe (TrieMap k a) -> (Hole k a -> r) -> (a -> H
 searchMC' k Nothing f _ = f (singleHoleM k)
 searchMC' k (Just m) f g = searchMC k m f g
 
-sides :: (b -> d) -> (a -> (# b, c, b #)) -> a -> (# d, c, d #)
-sides g f a = case f a of
-	(# x, y, z #) -> (# g x, y, g z #)
-
-both :: (b -> b') -> (c -> c') -> (a -> (# b, c #)) -> a -> (# b', c' #)
-both g1 g2 f a = case f a of
-	(# x, y #) -> (# g1 x, g2 y #)
-
 elemsM :: TrieKey k => TrieMap k a -> [a]
 elemsM m = build (\ f z -> foldr f z m)
-
-mapEitherMaybe :: (a -> (# Maybe b, Maybe c #)) -> Maybe a -> (# Maybe b, Maybe c #)
-mapEitherMaybe f (Just a) = f a
-mapEitherMaybe _ _ = (# Nothing, Nothing #)
 
 indexFail :: a
 indexFail = error "Error: not a valid index"

@@ -83,6 +83,10 @@ instance Ord k => SetOp (TrieMap (Ordered k)) where
   SETOP(isect)
   SETOP(diff)
 
+instance Ord k => Project (TrieMap (Ordered k)) where
+  mapMaybe f (OrdMap m) = OrdMap $ mapMaybe f m
+  mapEither f (OrdMap m) = both OrdMap (mapEither f) m
+
 -- | @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
 instance Ord k => TrieKey (Ordered k) where
 	newtype TrieMap (Ordered k) a = OrdMap (SNode k a)
@@ -98,8 +102,6 @@ instance Ord k => TrieKey (Ordered k) where
 			-> Singleton a
 		_	-> NonSimple
 	sizeM (OrdMap m) = sz m
-	mapMaybeM f (OrdMap m) = OrdMap (mapMaybe f m)
-	mapEitherM f (OrdMap m) = both OrdMap OrdMap (mapEither f) m
 	
 	singleHoleM (Ord k) = Empty k Root
 	beforeM (Empty _ path) = OrdMap $ before tip path
@@ -189,15 +191,16 @@ instance Functor (SNode k) where
     map SNode{node = Bin k a l r, ..} = SNode {node = Bin k (f a) (map l) (map r), ..}
     map _ = tip
 
-mapMaybe :: (Ord k, Sized b) => (a -> Maybe b) -> SNode k a -> SNode k b
-mapMaybe f BIN(k a l r) = joinMaybe  k (f a) (mapMaybe f l) (mapMaybe f r)
-mapMaybe _ _ = tip
-
-mapEither :: (Ord k, Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) ->
-	SNode k a -> (# SNode k b, SNode k c #)
-mapEither f BIN(k a l r) = (# joinMaybe k aL lL rL, joinMaybe k aR lR rR #)
-  where !(# aL, aR #) = f a; !(# lL, lR #) = mapEither f l; !(# rL, rR #) = mapEither f r
-mapEither _ _ = (# tip, tip #)
+instance Ord k => Project (SNode k) where
+  mapMaybe f = mMaybe where
+    mMaybe BIN(k a l r) = joinMaybe k (f a) (mMaybe l) (mMaybe r)
+    mMaybe _ = tip
+  mapEither f = mEither where
+    mEither BIN(k a l r) = (# joinMaybe k aL lL rL, joinMaybe k aR lR rR #)
+      where !(# aL, aR #) = f a
+	    !(# lL, lR #) = mEither l
+	    !(# rL, rR #) = mEither r
+    mEither _ = (# tip, tip #)
 
 splitLookup :: Ord k => k -> SNode k (Elem a) -> (SNode k (Elem a) -> Maybe (Elem a) -> SNode k (Elem a) -> r) -> r
 splitLookup k t cont = search k t (split Nothing) (split . Just) where

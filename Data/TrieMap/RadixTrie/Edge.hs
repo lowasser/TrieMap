@@ -119,7 +119,7 @@ searchEdgeC ks0 e nomatch0 match0 = searchE ks0 e root where
       Sized b => (a -> Maybe b) -> U(Edge) a -> U(MEdge) b #-}
 mapMaybeEdge :: (Label v k, Sized b) => (a -> Maybe b) -> Edge v k a -> MEdge v k b
 mapMaybeEdge f = mapMaybeE where
-  mapMaybeE !EDGE(_ ks !v ts) = let !v' = v >>= f in cEdge ks v' (mapMaybeM mapMaybeE ts)
+  mapMaybeE !EDGE(_ ks !v ts) = let !v' = v >>= f in cEdge ks v' (mapMaybe mapMaybeE ts)
 
 {-# SPECIALIZE mapEitherEdge ::
       (TrieKey k, Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> V(Edge) a -> (# V(MEdge) b, V(MEdge) c #),
@@ -128,8 +128,8 @@ mapEitherEdge :: (Label v k, Sized b, Sized c) =>
 	(a -> (# Maybe b, Maybe c #)) -> Edge v k a -> (# MEdge v k b, MEdge v k c #)
 mapEitherEdge f = mapEitherE where
 	mapEitherE EDGE(_ ks v ts) = (# cEdge ks vL tsL, cEdge ks vR tsR #)
-	  where	!(# vL, vR #) = mapEitherMaybe f v
-		!(# tsL, tsR #) = mapEitherM mapEitherE ts
+	  where	!(# vL, vR #) = mapEither f v
+		!(# tsL, tsR #) = mapEither mapEitherE ts
 
 {-# INLINE assignEdge #-}
 assignEdge :: (Label v k, Sized a) => a -> EdgeLoc v k a -> Edge v k a

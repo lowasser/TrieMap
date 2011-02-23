@@ -68,7 +68,8 @@ import Data.TrieMap.TrieKey hiding (foldr, foldl, toList, union, diff, isect)
 import qualified Data.TrieMap.SetOp as Set
 import Data.TrieMap.Representation.Class
 
-import Data.Maybe
+import Data.Maybe(fromJust)
+
 import qualified Data.Foldable as F
 import Data.Monoid (Monoid (..))
 
@@ -123,13 +124,13 @@ TSet s1 `intersection` TSet s2 = TSet (Set.isect (const . Just) s1 s2)
 
 -- | Filter all elements that satisfy the predicate.
 filter :: TKey a => (a -> Bool) -> TSet a -> TSet a
-filter p (TSet s) = TSet (mapMaybeM (mfilter (p . getElem) . Just) s)
+filter p (TSet s) = TSet (mapMaybe (\ (Elem a) -> if p a then return (Elem a) else mzero) s)
 
 -- | Partition the set into two sets, one with all elements that satisfy
 -- the predicate and one with all elements that don't satisfy the predicate.
 -- See also 'split'.
 partition :: TKey a => (a -> Bool) -> TSet a -> (TSet a, TSet a)
-partition p (TSet s) = case mapEitherM f s of
+partition p (TSet s) = case mapEither f s of
 	  (# s1, s2 #) -> (TSet s1, TSet s2)
   where f e@(Elem a)
 	  | p a		= (# Just e, Nothing #)

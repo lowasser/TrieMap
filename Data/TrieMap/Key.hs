@@ -10,26 +10,29 @@ import Data.TrieMap.Modifiers
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1)
 
+type RepMap k = TrieMap (Rep k)
+
 keyMap :: (Repr k, TrieKey (Rep k), Sized a) => TrieMap (Rep k) a -> TrieMap (Key k) a
 keyMap m = KeyMap (sizeM m) m
 
 #define KMAP(m) KeyMap{tMap = m}
+#define CONTEXT(cl) (Repr k, TrieKey (Rep k), cl (RepMap k))
 
-instance (Repr k, TrieKey (Rep k)) => Foldable (TrieMap (Key k)) where
+instance CONTEXT(Foldable) => Foldable (TrieMap (Key k)) where
   foldMap f KMAP(m) = foldMap f m
   foldr f z KMAP(m) = foldr f z m
   foldl f z KMAP(m) = foldl f z m
 
-instance (Repr k, TrieKey (Rep k)) => Functor (TrieMap (Key k)) where
+instance CONTEXT(Functor) => Functor (TrieMap (Key k)) where
   fmap f KeyMap{..} = KeyMap{sz, tMap = f <$> tMap}
 
-instance (Repr k, TrieKey (Rep k)) => Traversable (TrieMap (Key k)) where
+instance CONTEXT(Traversable) => Traversable (TrieMap (Key k)) where
   traverse f KeyMap{..} = KeyMap sz <$> traverse f tMap
 
-instance (Repr k, TrieKey (Rep k)) => Subset (TrieMap (Key k)) where
+instance CONTEXT(Subset) => Subset (TrieMap (Key k)) where
   KMAP(m1) <=? KMAP(m2) = m1 <=? m2
 
-instance TKey k => Buildable (TrieMap (Key k)) (Key k) where
+instance (Repr k, TrieKey (Rep k), Buildable (RepMap k) (Rep k)) => Buildable (TrieMap (Key k)) (Key k) where
   type UStack (TrieMap (Key k)) = UMStack (Rep k)
   uFold = fmap keyMap . mapFoldlKeys keyRep . uFold
   type AStack (TrieMap (Key k)) = AMStack (Rep k)
@@ -38,10 +41,14 @@ instance TKey k => Buildable (TrieMap (Key k)) (Key k) where
   daFold = keyMap <$> mapFoldlKeys keyRep daFold
 
 #define SETOP(op) op f KMAP(m1) KMAP(m2) = keyMap (op f m1 m2)
-instance TKey k => SetOp (TrieMap (Key k)) where
+instance CONTEXT(SetOp) => SetOp (TrieMap (Key k)) where
   SETOP(union)
   SETOP(isect)
   SETOP(diff)
+
+instance CONTEXT(Project) => Project (TrieMap (Key k)) where
+  mapMaybe f KMAP(m) = keyMap $ mapMaybe f m
+  mapEither f KMAP(m) = both keyMap (mapEither f) m
 
 -- | @'TrieMap' ('Key' k) a@ is a wrapper around a @TrieMap (Rep k) a@.
 instance TKey k => TrieKey (Key k) where
@@ -53,8 +60,6 @@ instance TKey k => TrieKey (Key k) where
 	getSimpleM KMAP(m) = getSimpleM m
 	sizeM = sz
 	lookupMC (Key k) KMAP(m) = lookupMC (toRep k) m
-	mapMaybeM f KMAP(m) = keyMap (mapMaybeM f m)
-	mapEitherM f KMAP(m) = both keyMap keyMap (mapEitherM f) m
 
 	singleHoleM (Key k) = KeyHole (singleHoleM (toRep k))
 	beforeM (KeyHole hole) = keyMap (beforeM hole)

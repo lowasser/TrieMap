@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, UnboxedTuples, TypeFamilies, FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances, CPP #-}
+{-# LANGUAGE BangPatterns, FlexibleContexts, TypeFamilies, FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances, CPP #-}
 module Data.TrieMap.RadixTrie () where
 
 import Data.TrieMap.TrieKey
@@ -12,19 +12,21 @@ import Data.TrieMap.RadixTrie.Label
 
 import Prelude hiding (length, and, zip, zipWith, foldr, foldl)
 
-instance TrieKey k => Functor (TrieMap (Vector k)) where
+#define VINSTANCE(cl) (TrieKey k, cl (TrieMap k)) => cl (TrieMap (Vector k))
+
+instance VINSTANCE(Functor) where
   fmap f (Radix m) = Radix (fmap f <$> m)
 
-instance TrieKey k => Foldable (TrieMap (Vector k)) where
+instance VINSTANCE(Foldable) where
   foldMap f (Radix m) = foldMap (foldMap f) m
   foldr f z (Radix m) = foldl (foldr f) z m
   foldl f z (Radix m) = foldl (foldl f) z m
 
-instance TrieKey k => Traversable (TrieMap (Vector k)) where
+instance VINSTANCE(Traversable) where
   traverse _ (Radix Nothing) = pure emptyM
   traverse f (Radix (Just m)) = Radix . Just <$> traverse f m
 
-instance TrieKey k => Subset (TrieMap (Vector k)) where
+instance VINSTANCE(Subset) where
   Radix m1 <=? Radix m2 = m1 <<=? m2
 
 instance TrieKey k => Buildable (TrieMap (Vector k)) (Vector k) where
@@ -44,15 +46,14 @@ instance TrieKey k => Buildable (TrieMap (Vector k)) (Vector k) where
 
 #define SETOP(rad,op,opE) op f (rad m1) (rad m2) = rad (op (opE f) m1 m2)
 
-instance TrieKey k => SetOp (TrieMap (Vector k)) where
+instance VINSTANCE(SetOp) where
   SETOP(Radix,union,unionEdge)
   SETOP(Radix,isect,isectEdge)
   SETOP(Radix,diff,diffEdge)
 
-instance SetOp (TrieMap (P.Vector Word)) where
-  SETOP(WRadix,union,unionEdge)
-  SETOP(WRadix,isect,isectEdge)
-  SETOP(WRadix,diff,diffEdge)
+instance VINSTANCE(Project) where
+  mapMaybe f (Radix m) = Radix (mapMaybe (mapMaybeEdge f) m)
+  mapEither f (Radix m) = both' Radix Radix (mapEither (mapEitherEdge f)) m
 
 -- | @'TrieMap' ('Vector' k) a@ is a traditional radix trie.
 instance TrieKey k => TrieKey (Vector k) where
@@ -66,9 +67,6 @@ instance TrieKey k => TrieKey (Vector k) where
 	sizeM (Radix m) = getSize m
 	lookupMC ks (Radix (Just e)) = lookupEdge ks e
 	lookupMC _ _ = mzero
-
-	mapMaybeM f (Radix m) = Radix (m >>= mapMaybeEdge f)
-	mapEitherM f (Radix e) = both Radix Radix (mapEitherMaybe (mapEitherEdge f)) e
 
 	singleHoleM ks = Hole (singleLoc ks)
 	{-# INLINE searchMC #-}
@@ -93,20 +91,27 @@ instance TrieKey k => TrieKey (Vector k) where
 
 type WordVec = P.Vector Word
 
-instance Functor (TrieMap (P.Vector Word)) where
+#define PINSTANCE(cl) cl (TrieMap (P.Vector Word))
+
+instance PINSTANCE(Functor) where
   fmap f (WRadix m) = WRadix (fmap f <$> m)
 
-instance Foldable (TrieMap (P.Vector Word)) where
+instance PINSTANCE(Foldable) where
   foldMap f (WRadix m) = foldMap (foldMap f) m
   foldr f z (WRadix m) = foldl (foldr f) z m
   foldl f z (WRadix m) = foldl (foldl f) z m
 
-instance Traversable (TrieMap (P.Vector Word)) where
+instance PINSTANCE(Traversable) where
   traverse _ (WRadix Nothing) = pure emptyM
   traverse f (WRadix (Just m)) = WRadix . Just <$> traverse f m
 
-instance Subset (TrieMap WordVec) where
+instance PINSTANCE(Subset) where
   WRadix m1 <=? WRadix m2 = m1 <<=? m2
+
+instance PINSTANCE(SetOp) where
+  SETOP(WRadix,union,unionEdge)
+  SETOP(WRadix,isect,isectEdge)
+  SETOP(WRadix,diff,diffEdge)
 
 instance Buildable (TrieMap WordVec) WordVec where
   type UStack (TrieMap WordVec) = Edge P.Vector Word
@@ -123,6 +128,10 @@ instance Buildable (TrieMap WordVec) WordVec where
   {-# INLINE daFold #-}
   daFold = aFold const
 
+instance PINSTANCE(Project) where
+  mapMaybe f (WRadix m) = WRadix (mapMaybe (mapMaybeEdge f) m)
+  mapEither f (WRadix m) = both' WRadix WRadix (mapEither (mapEitherEdge f)) m
+
 -- | @'TrieMap' ('P.Vector' Word) a@ is a traditional radix trie specialized for word arrays.
 instance TrieKey (P.Vector Word) where
 	newtype TrieMap WordVec a = WRadix (MEdge P.Vector Word a)
@@ -135,9 +144,6 @@ instance TrieKey (P.Vector Word) where
 	sizeM (WRadix m) = getSize m
 	lookupMC ks (WRadix (Just e)) = lookupEdge ks e
 	lookupMC _ _ = mzero
-
-	mapMaybeM f (WRadix m) = WRadix (m >>= mapMaybeEdge f)
-	mapEitherM f (WRadix e) = both WRadix WRadix (mapEitherMaybe (mapEitherEdge f)) e
 
 	singleHoleM ks = WHole (singleLoc ks)
 	{-# INLINE searchMC #-}

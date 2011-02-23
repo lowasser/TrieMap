@@ -131,7 +131,8 @@ import Control.Monad.Lookup
 
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances()
-import Data.TrieMap.TrieKey hiding (union, isect, diff)
+import Data.TrieMap.TrieKey hiding (union, isect, diff, mapMaybe, mapEither)
+import qualified Data.TrieMap.Projection as Proj
 import qualified Data.TrieMap.SetOp as Set
 import Data.TrieMap.Representation
 import Data.TrieMap.Representation.Instances ()
@@ -707,7 +708,7 @@ mapEither = mapEitherWithKey . const
 -- >     == (empty, fromList [(1,"x"), (3,"b"), (5,"a"), (7,"z")])
 {-# INLINEABLE mapEitherWithKey #-}
 mapEitherWithKey :: TKey k => (k -> a -> Either b c) -> TMap k a -> (TMap k b, TMap k c)
-mapEitherWithKey f (TMap m) = case mapEitherM f' m of
+mapEitherWithKey f (TMap m) = case Proj.mapEither f' m of
 	(# mL, mR #) -> (TMap mL, TMap mR) 
 	where	f' (Assoc k a) = case f k a of
 			Left b	-> (# Just (Assoc k b), Nothing #)
@@ -727,7 +728,7 @@ mapMaybe = mapMaybeWithKey . const
 -- > mapMaybeWithKey f (fromList [(5,"a"), (3,"b")]) == singleton 3 "key : 3"
 {-# INLINEABLE mapMaybeWithKey #-}
 mapMaybeWithKey :: TKey k => (k -> a -> Maybe b) -> TMap k a -> TMap k b
-mapMaybeWithKey f (TMap m) = TMap (mapMaybeM (\ (Assoc k a) -> Assoc k <$> f k a) m)
+mapMaybeWithKey f (TMap m) = TMap (Proj.mapMaybe (\ (Assoc k a) -> Assoc k <$> f k a) m)
 
 -- | Partition the map according to a predicate. The first
 -- map contains all elements that satisfy the predicate, the second all

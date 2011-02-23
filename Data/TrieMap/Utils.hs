@@ -1,6 +1,8 @@
 {-# LANGUAGE Rank2Types, BangPatterns, MagicHash #-}
 module Data.TrieMap.Utils where
 
+import Control.Monad.Unpack
+
 import Data.Bits
 import qualified Data.Foldable
 
@@ -8,6 +10,10 @@ import Data.Vector.Generic
 import Data.Vector.Generic.Mutable
 
 import GHC.Exts
+
+{-# INLINE mapInput #-}
+mapInput :: (Unpackable a, Unpackable b) => (a -> b) -> (b :~> c) -> (a :~> c)
+mapInput f func = unpack $ \ a -> func $~ f a
 
 {-# INLINE toVectorN #-}
 toVectorN :: Vector v a => (forall b . (a -> b -> b) -> b -> f -> b) -> (f -> Int) -> f -> v a

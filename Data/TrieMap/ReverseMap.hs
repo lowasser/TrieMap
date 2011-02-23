@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, UnboxedTuples, GeneralizedNewtypeDeriving, FlexibleInstances, NamedFieldPuns, RecordWildCards #-}
+{-# LANGUAGE TypeFamilies, FlexibleContexts, GeneralizedNewtypeDeriving, FlexibleInstances, NamedFieldPuns, RecordWildCards #-}
 {-# LANGUAGE MultiParamTypeClasses, CPP #-}
 module Data.TrieMap.ReverseMap () where
 
@@ -23,18 +23,20 @@ instance MonadPlus m => MonadPlus (DualPlus m) where
   mzero = DualPlus mzero
   DualPlus m `mplus` DualPlus k = DualPlus (k `mplus` m)
 
-instance TrieKey k => Functor (TrieMap (Rev k)) where
+#define INSTANCE(cl) (TrieKey k, cl (TrieMap k)) => cl (TrieMap (Rev k))
+
+instance INSTANCE(Functor) where
   fmap f (RevMap m) = RevMap (f <$> m)
 
-instance TrieKey k => Foldable (TrieMap (Rev k)) where
+instance INSTANCE(Foldable) where
   foldMap f (RevMap m) = M.getDual (foldMap (M.Dual . f) m)
   foldr f z (RevMap m) = foldl (flip f) z m
   foldl f z (RevMap m) = foldr (flip f) z m
 
-instance TrieKey k => Traversable (TrieMap (Rev k)) where
+instance INSTANCE(Traversable) where
   traverse f (RevMap m) = RevMap <$> runDual (traverse (Dual . f) m)
 
-instance TrieKey k => Subset (TrieMap (Rev k)) where
+instance INSTANCE(Subset) where
   RevMap m1 <=? RevMap m2 = m1 <=? m2
 
 instance TrieKey k => Buildable (TrieMap (Rev k)) (Rev k) where
@@ -47,10 +49,14 @@ instance TrieKey k => Buildable (TrieMap (Rev k)) (Rev k) where
 
 #define SETOP(op) op f (RevMap m1) (RevMap m2) = RevMap (op f m1 m2)
 
-instance TrieKey k => SetOp (TrieMap (Rev k)) where
+instance INSTANCE(SetOp) where
   SETOP(union)
   SETOP(diff)
   SETOP(isect)
+
+instance INSTANCE(Project) where
+  mapMaybe f (RevMap m) = RevMap $ mapMaybe f m
+  mapEither f (RevMap m) = both RevMap (mapEither f) m
 
 -- | @'TrieMap' ('Rev' k) a@ is a wrapper around a @'TrieMap' k a@ that reverses the order of the operations.
 instance TrieKey k => TrieKey (Rev k) where
@@ -62,9 +68,6 @@ instance TrieKey k => TrieKey (Rev k) where
 	lookupMC (Rev k) (RevMap m) = lookupMC k m
 	sizeM (RevMap m) = sizeM m
 	getSimpleM (RevMap m) = getSimpleM m
-		
-	mapMaybeM f (RevMap m) = RevMap (mapMaybeM f m)
-	mapEitherM f (RevMap m) = both RevMap RevMap (mapEitherM f) m
 	
 	singleHoleM (Rev k) = RHole (singleHoleM k)
 	beforeM (RHole hole) = RevMap (afterM hole)

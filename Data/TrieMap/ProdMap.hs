@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, TupleSections, PatternGuards, TypeFamilies, FlexibleInstances, RecordWildCards, CPP #-}
+{-# LANGUAGE TupleSections, PatternGuards, TypeFamilies, FlexibleInstances, RecordWildCards, CPP, FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Data.TrieMap.ProdMap () where
 
@@ -8,18 +8,20 @@ import Data.TrieMap.TrieKey
 
 import Prelude hiding (foldl, foldl1, foldr, foldr1)
 
-instance (TrieKey k1, TrieKey k2) => Functor (TrieMap (k1, k2)) where
+#define CONTEXT(cl) (TrieKey k1, TrieKey k2, cl (TrieMap k1), cl (TrieMap k2))
+
+instance CONTEXT(Functor) => Functor (TrieMap (k1, k2)) where
   fmap f (PMap m) = PMap (fmap (fmap f) m)
 
-instance (TrieKey k1, TrieKey k2) => Foldable (TrieMap (k1, k2)) where
+instance CONTEXT(Foldable) => Foldable (TrieMap (k1, k2)) where
   foldMap f (PMap m) = foldMap (foldMap f) m
   foldr f z (PMap m) = foldr (flip $ foldr f) z m
   foldl f z (PMap m) = foldl (foldl f) z m
 
-instance (TrieKey k1, TrieKey k2) => Traversable (TrieMap (k1, k2)) where
+instance CONTEXT(Traversable) => Traversable (TrieMap (k1, k2)) where
   traverse f (PMap m) = PMap <$> traverse (traverse f) m
 
-instance (TrieKey k1, TrieKey k2) => Subset (TrieMap (k1, k2)) where
+instance CONTEXT(Subset) => Subset (TrieMap (k1, k2)) where
   PMap m1 <=? PMap m2 = m1 <<=? m2
 
 instance (TrieKey k1, TrieKey k2) => Buildable (TrieMap (k1, k2)) (k1, k2) where
@@ -31,10 +33,14 @@ instance (TrieKey k1, TrieKey k2) => Buildable (TrieMap (k1, k2)) (k1, k2) where
   daFold = prodFold daFold daFold
 
 #define SETOP(op,opM) op f (PMap m1) (PMap m2) = PMap ((op) ((opM) f) m1 m2)
-instance (TrieKey k1, TrieKey k2) => SetOp (TrieMap (k1, k2)) where
+instance CONTEXT(SetOp) => SetOp (TrieMap (k1, k2)) where
   SETOP(union,unionM)
   SETOP(isect,isectM)
   SETOP(diff,diffM)
+
+instance CONTEXT(Project) => Project (TrieMap (k1, k2)) where
+  mapMaybe f (PMap m) = PMap $ mapMaybe (mapMaybeM f) m
+  mapEither f (PMap m) = both' PMap PMap (mapEither (mapEitherM f)) m
 
 -- | @'TrieMap' (k1, k2) a@ is implemented as a @'TrieMap' k1 ('TrieMap' k2 a)@.
 instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
@@ -46,8 +52,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	getSimpleM (PMap m) = getSimpleM m >>= getSimpleM
 	sizeM (PMap m) = sizeM m
 	lookupMC (k1, k2) (PMap m) = lookupMC k1 m >>= lookupMC k2
-	mapMaybeM f (PMap m) = PMap (mapMaybeM (mapMaybeM' f) m)
-	mapEitherM f (PMap m) = both PMap PMap (mapEitherM (mapEitherM' f)) m
 	insertWithM f (k1, k2) a (PMap m) = PMap (insertWithM f' k1 (singletonM k2 a) m) where
 	  f' = insertWithM f k2 a
 	

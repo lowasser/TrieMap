@@ -93,6 +93,10 @@ instance SetOp (TrieMap Word) where
   SETOP(isect)
   SETOP(diff)
 
+instance Project (TrieMap Word) where
+  mapMaybe f (WordMap m) = WordMap $ mapMaybe f m
+  mapEither f (WordMap m) = both WordMap (mapEither f) m
+
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
 	newtype TrieMap Word a = WordMap {getWordMap :: SNode a}
@@ -105,8 +109,6 @@ instance TrieKey Word where
 	  _		-> NonSimple
 	sizeM (WordMap t) = getSize t
 	lookupMC k (WordMap m) = lookupC k m
-	mapMaybeM f (WordMap m) = WordMap (mapMaybe f m)
-	mapEitherM f (WordMap m) = both WordMap WordMap (mapEither f) m
 	
 	singleHoleM k = hole k Root
 	beforeM HOLE(_ path) = WordMap (before path)
@@ -264,18 +266,16 @@ instance Traversable SNode where
     trav SNode{sz, node = Bin p m l r}
 		= SNode sz .: Bin p m <$> trav l <*> trav r
 
-mapMaybe :: Sized b => (a -> Maybe b) -> SNode a -> SNode b
-mapMaybe f !t = mMaybe t where
-  mMaybe BIN(p m l r)	= bin p m (mMaybe l) (mMaybe r)
-  mMaybe TIP(kx x)	= singletonMaybe kx (f x)
-  mMaybe _		= nil
-
-mapEither :: (Sized b, Sized c) => (a -> (# Maybe b, Maybe c #)) -> 
-	SNode a -> (# SNode b, SNode c #)
-mapEither f BIN(p m l r) = both (bin p m lL) (bin p m lR) (mapEither f) r
-	where !(# lL, lR #) = mapEither f l
-mapEither f TIP(kx x)	= both (singletonMaybe kx) (singletonMaybe kx) f x
-mapEither _ _		= (# nil, nil #)
+instance Subset SNode where
+  (<=?) = subMap where
+    t1@BIN(p1 m1 l1 r1) `subMap` BIN(p2 m2 l2 r2)
+      | shorter m1 m2 	= False
+      | shorter m2 m1	= match p1 p2 m2 && (if mask0 p1 m2 then t1 `subMap` l2
+							  else t1 `subMap` r2)
+      | otherwise	= (p1==p2) && l1 `subMap` l2 && r1 `subMap` r2
+    BIN({}) `subMap` _		= False
+    TIP(k x) `subMap` t2	= runLookup (lookupC k t2) False (x <?=)
+    NIL `subMap` _		= True
 
 instance SetOp SNode where
   union f = (\/) where
@@ -337,20 +337,21 @@ instance SetOp SNode where
 		      | mask0 p1 m2       = n1 \\ l2
 		      | otherwise         = n1 \\ r2
 
+instance Project SNode where
+  mapMaybe f = mMaybe where
+    mMaybe BIN(p m l r) = bin p m (mMaybe l) (mMaybe r)
+    mMaybe TIP(kx x) = singletonMaybe kx (f x)
+    mMaybe NIL = nil
+  mapEither f = mEither where
+    mEither BIN(p m l r) = (# bin p m l1 r1, bin p m l2 r2 #)
+      where !(# l1, l2 #) = mEither l
+	    !(# r1, r2 #) = mEither r
+    mEither TIP(kx x) = both (singletonMaybe kx) f x
+    mEither NIL = (# nil, nil #)
+
 {-# INLINE alter #-}
 alter :: Sized a => (Maybe a -> Maybe a) -> Key -> SNode a -> SNode a
 alter f k t = getWordMap $ alterM f k (WordMap t)
-
-instance Subset SNode where
-  (<=?) = subMap where
-    t1@BIN(p1 m1 l1 r1) `subMap` BIN(p2 m2 l2 r2)
-      | shorter m1 m2 	= False
-      | shorter m2 m1	= match p1 p2 m2 && (if mask0 p1 m2 then t1 `subMap` l2
-							  else t1 `subMap` r2)
-      | otherwise	= (p1==p2) && l1 `subMap` l2 && r1 `subMap` r2
-    BIN({}) `subMap` _		= False
-    TIP(k x) `subMap` t2	= runLookup (lookupC k t2) False (x <?=)
-    NIL `subMap` _		= True
 
 mask0 :: Key -> Mask -> Bool
 mask0 i m

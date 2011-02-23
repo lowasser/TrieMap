@@ -57,6 +57,7 @@ other-modules:
   Data.TrieMap.Subset,
   Data.TrieMap.Buildable,
   Data.TrieMap.SetOp,
+  Data.TrieMap.Projection,
   Data.TrieMap.Representation.Class,
   Data.TrieMap.Representation.TH,
   Data.TrieMap.Representation.TH.Utils,
