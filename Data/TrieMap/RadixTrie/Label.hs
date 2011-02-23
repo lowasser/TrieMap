@@ -107,7 +107,7 @@ instance TrieKey k => Label V.Vector k where
 
 instance Label P.Vector Word where
   data Edge P.Vector Word a =
-    SEdge !Int !(U()) !(SNode (U(Edge) a))
+    SEdge !(U()) !(SNode (U(Edge) a))
     | SEdgeX !Int !(U()) a !(SNode (U(Edge) a))
   data Path P.Vector Word a =
     SRoot
@@ -134,9 +134,9 @@ instance Label P.Vector Word where
   sView (PStackZ ks z k stack) = Stack ks Nothing (Just z) (Just (k, stack))
   sView (PTip ks a) = Stack ks (Just a) Nothing Nothing
   
-  edge !ks Nothing ts = SEdge (sizeM ts) ks (getWordMap ts)
+  edge !ks Nothing ts = SEdge ks (getWordMap ts)
   edge !ks (Just v) ts = SEdgeX (getSize v + sizeM ts) ks v (getWordMap ts)
-  edge' sz !ks Nothing ts = SEdge sz ks (getWordMap ts)
+  edge' _ !ks Nothing ts = SEdge ks (getWordMap ts)
   edge' sz !ks (Just v) ts = SEdgeX sz ks v (getWordMap ts)
   
   root = SRoot
@@ -145,7 +145,7 @@ instance Label P.Vector Word where
 
   loc ks ts path = SLoc ks (getWordMap ts) path
 
-  eView (SEdge s ks ts) = Edge s ks Nothing (WordMap ts)
+  eView (SEdge ks ts) = Edge (getSize ts) ks Nothing (WordMap ts)
   eView (SEdgeX s ks v ts) = Edge s ks (Just v) (WordMap ts)
   pView SRoot = Root
   pView (SDeep path ks tHole) = Deep path ks Nothing (Hole tHole)

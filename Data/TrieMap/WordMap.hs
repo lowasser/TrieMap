@@ -136,25 +136,27 @@ instance TrieKey Word where
 	fromDistAscListFold = fromAscListFold const
 	
 	{-# INLINE insertWithM #-}
-	insertWithM f k a (WordMap m) = case insertWithC f k a m of
-	  (# sz#, node #) -> WordMap (SNode{sz = I# sz#, node})
+	insertWithM f k a (WordMap m) = WordMap (insertWithC f k (getSize a) a m)
 
-insertWithC :: Sized a => (a -> a) -> Key -> a -> SNode a -> (# Int#, Node a #)
-insertWithC f !k a !t = ins t (#, #) where
+insertWithC :: Sized a => (a -> a) -> Key -> Int -> a -> SNode a -> SNode a
+insertWithC f !k !szA a !t = ins' t where
   {-# INLINE tip #-}
-  tip = singleton k a
+  tip = SNode {sz = szA, node = Tip k a}
+  
+  {-# INLINE out #-}
+  out SNode{sz = I# sz#, node} = (# sz#, node #)
   {-# INLINE ins' #-}
-  ins' !t cont = ins t $ \ sz# node -> cont SNode{sz = I# sz#, node}
-  result ret SNode{sz = I# sz#, node}  = ret sz# node
-  ins !t ret = case t of
+  ins' t = case ins t of
+    (# sz#, node #) -> SNode{sz = I# sz#, node}
+  ins !t = case t of
     BIN(p m l r)
-      | nomatch k p m	-> result ret (join k tip p t)
-      | mask0 k m	-> ins' l $ \ l' -> result ret (bin' p m l' r)
-      | otherwise	-> ins' r $ \ r' -> result ret (bin' p m l r')
+      | nomatch k p m	-> out $ join k tip p t
+      | mask0 k m	-> out $ bin' p m (ins' l) r
+      | otherwise	-> out $ bin' p m l (ins' r)
     TIP(kx x)
-      | k == kx		-> result ret (singleton kx (f x))
-      | otherwise	-> result ret (join k tip kx t)
-    NIL			-> result ret tip
+      | k == kx		-> out $ singleton kx (f x)
+      | otherwise	-> out $ join k tip kx t
+    NIL			-> out tip
 
 index :: Int -> SNode a -> (a -> (Int, WHole a) :~> r) -> r
 index i !t result = indexT i t Root where

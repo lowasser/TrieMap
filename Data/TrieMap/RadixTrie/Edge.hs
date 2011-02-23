@@ -277,23 +277,22 @@ indexEdge e = unpack $ \ i result -> let
       (TrieKey k, Sized a) => (a -> a) -> V() -> a -> V(Edge) a -> V(Edge) a,
       Sized a => (a -> a) -> U() -> a -> U(Edge) a -> U(Edge) a #-}
 insertEdge :: (Label v k, Sized a) => (a -> a) -> v k -> a -> Edge v k a -> Edge v k a
-insertEdge f ks0 a e = insertE ks0 id e where
-  insertE !ks cont eL@EDGE(szL ls !v ts) = iMatchSlice matcher matches ks ls where
+insertEdge f ks0 a e = insertE ks0 e where
+  insertE !ks eL@EDGE(szL ls !v ts) = iMatchSlice matcher matches ks ls where
     !sza = getSize a
     !szV = szL - sizeM ts
-    matcher !i k l z = runLookup (unifyM k eK' l eL') z (cont . edge (takeSlice i ls) Nothing)
+    matcher !i k l z = runLookup (unifyM k eK' l eL') z (edge (takeSlice i ls) Nothing)
       where	eK' = edge' sza (dropSlice (i+1) ks) (Just a) emptyM
 		eL' = dropEdge (i+1) eL
     matches kLen lLen = case compare kLen lLen of
-      LT -> cont (edge' (sza + szL) ks (Just a) (singletonM l eL'))
+      LT -> (edge' (sza + szL) ks (Just a) (singletonM l eL'))
 	  where	l = ls !$ kLen; eL' = dropEdge (kLen+1) eL
-      EQ -> cont (edge ls (Just (maybe a f v)) ts)
-      GT -> searchMC (ks !$ lLen) ts nomatch match where
+      EQ -> (edge ls (Just (maybe a f v)) ts)
+      GT -> edge' sz' ls v ts' where
 	ks' = dropSlice (lLen + 1) ks
-	nomatch tHole = cont (edge' sz' ls v ts') where
-	  ts' = assignM (edge' sza ks' (Just a) emptyM) tHole; sz' = szL - sizeM ts + sizeM ts'
-	match e' tHole = insertE (dropSlice (lLen + 1) ks) (\ e'' -> 
-	  let ts' = assignM e'' tHole; sz' = szV + sizeM ts' in cont (edge' sz' ls v ts')) e'
+	k = ks !$ lLen
+	ts' = insertWithM (insertE ks') k (edge' sza ks' (Just a) emptyM) ts
+	sz' = sizeM ts' + szV
 
 {-# SPECIALIZE fromAscListEdge ::
       (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (V(Stack) a) (V()) a (V(MEdge) a),
@@ -331,11 +330,9 @@ fromAscListEdge f = case inline fromDistAscListFold of
 	    | otherwise	= stack ks (Just (maybe vK (f vK) vL)) brL lStack
 		
     
---     snocBranch ::  Maybe z0 -> k -> Stack v k a z0 -> z0
     snocBranch Nothing k stack = beginB k (roll stack)
     snocBranch (Just s) k stack = snocB s k (roll stack)
     
---     roll :: Stack v k a z0 -> Edge v k a
     roll stack = case sView stack of
       Stack ks (Just vK) _ Nothing	-> singletonEdge ks vK
       Stack ks vK brK (Just (kChar, stack')) ->

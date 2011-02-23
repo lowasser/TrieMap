@@ -15,7 +15,7 @@ OPTIMIZED_GHC_OPTS := -O2 -fno-spec-constr-count -fno-spec-constr-threshold \
 THREADSCOPE_OPTS := $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS) -eventlog
 PROFILING_OPTS := -prof -hisuf p_hi -auto-all -rtsopts -osuf p_o $(OPTIMIZED_GHC_OPTS) $(GHC_OPTS)
 HP2PS_OPTS := -c -s -m12 -d
-RTS_OPTS := -H256M -A32M -s
+RTS_OPTS := -H256M -A32M -s -M1G
 PROGRESSION_PREFIXES := ""
 PROGRESSION_GROUP := normal-bench
 
