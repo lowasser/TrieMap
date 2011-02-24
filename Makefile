@@ -1,6 +1,6 @@
 
 PLOT_FILE := bench.png
-.PHONY : opt bench clean install prof test debug benchprof threadscope $(PLOT_FILE) BenchmarkP.prof
+.PHONY : opt bench clean install prof test debug benchprof threadscope $(PLOT_FILE) BenchmarkP.prof intbench
 
 GHC_BIN := ghc-7.0.1
 FAST_DIR := out/fast
@@ -38,6 +38,29 @@ testdbg :: TestsP
 
 bench : SAMPLES = 30
 bench : $(PLOT_FILE)
+
+intbench : SAMPLES = 30
+intbench : bench-IntBench-Trie.csv bench-IntBench-Set.csv bench-IntBench-IntSet.csv
+	./IntBench-Trie --mode=graph --group=$(PROGRESSION_GROUP) --compare="IntBench-Trie,IntBench-Set,IntBench-IntSet" --plot=intbench.png \
+		--plot-log-y
+
+bench-IntBench-Trie.csv : IntBench-Trie
+	./$< +RTS $(RTS_OPTS) -RTS --name="$<" $(BENCH_OPTS)
+
+bench-IntBench-Set.csv : IntBench-Set
+	./$< +RTS $(RTS_OPTS) -RTS --name="$<" $(BENCH_OPTS)
+
+bench-IntBench-IntSet.csv : IntBench-IntSet
+	./$< +RTS $(RTS_OPTS) -RTS --name="$<" $(BENCH_OPTS)
+
+IntBench-Trie : opt IntBench/Trie.hs IntBench/Base.hs
+	$(GHC_BIN) $(OPTIMIZED_GHC_OPTS) -w IntBench.Trie -main-is IntBench.Trie -o IntBench-Trie
+
+IntBench-Set : IntBench/Set.hs IntBench/Base.hs
+	$(GHC_BIN) $(OPTIMIZED_GHC_OPTS) -w IntBench.Set -main-is IntBench.Set -o IntBench-Set
+
+IntBench-IntSet : IntBench/IntSet.hs IntBench/Base.hs
+	$(GHC_BIN) $(OPTIMIZED_GHC_OPTS) -w IntBench.IntSet -main-is IntBench.IntSet -o IntBench-IntSet
 
 BENCH_OPTS = --mode=run --group=$(PROGRESSION_GROUP) --prefixes=$(PROGRESSION_PREFIXES) \
 		--compare="" -- -s $(SAMPLES)
