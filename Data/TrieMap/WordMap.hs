@@ -80,10 +80,13 @@ instance Traversable (TrieMap Word) where
 
 instance Buildable (TrieMap Word) Word where
   type UStack (TrieMap Word) = SNode
+  {-# INLINE uFold #-}
   uFold = fmap WordMap . defaultUFold nil singleton (\ f k a -> insertWithC f k (getSize a) a)
   type AStack (TrieMap Word) = WordStack
+  {-# INLINE aFold #-}
   aFold = fmap WordMap . fromAscList
   type DAStack (TrieMap Word) = WordStack
+  {-# INLINE daFold #-}
   daFold = aFold const
 
 #define SETOP(op) op f (WordMap m1) (WordMap m2) = WordMap (op f m1 m2)
