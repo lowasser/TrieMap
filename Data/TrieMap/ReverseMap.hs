@@ -1,8 +1,7 @@
 {-# LANGUAGE TypeFamilies, FlexibleContexts, GeneralizedNewtypeDeriving, FlexibleInstances, NamedFieldPuns, RecordWildCards #-}
-{-# LANGUAGE MultiParamTypeClasses, CPP #-}
+{-# LANGUAGE MultiParamTypeClasses, CPP, UnboxedTuples, MagicHash #-}
 module Data.TrieMap.ReverseMap () where
 
-import Control.Monad.Unpack
 import Control.Monad.Ends
 
 import qualified Data.Monoid as M
@@ -11,6 +10,7 @@ import Data.TrieMap.TrieKey
 import Data.TrieMap.Modifiers
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1)
+import GHC.Exts
 
 newtype DualPlus m a = DualPlus {runDualPlus :: m a} deriving (Functor, Monad)
 newtype Dual f a = Dual {runDual :: f a} deriving (Functor)
@@ -75,11 +75,10 @@ instance TrieKey k => TrieKey (Rev k) where
 	afterM (RHole hole) = RevMap (beforeM hole)
 	afterWithM a (RHole hole) = RevMap (beforeWithM a hole)
 	searchMC (Rev k) (RevMap m) = mapSearch RHole (searchMC k m)
-	indexMC (RevMap m) = unpack $ \ i result ->
-	    indexMC m $~ revIndex i m $ mapInput revResult result
-	  where	revIndex :: Sized a => Int -> a -> Int
-		revIndex i a = getSize a - 1 - i
-		revResult (Indexed i' a hole) = Indexed (revIndex i' a) a (RHole hole)
+	indexM (RevMap m) i = case indexM m (revIndex i m) of
+	  (# i', a, hole #) -> (# revIndex i' a, a, RHole hole #)
+	  where	revIndex :: Sized a => Int# -> a -> Int#
+		revIndex i a = getSize# a -# 1# -# i
 	
 	extractHoleM (RevMap m) = fmap RHole <$> runDualPlus (extractHoleM m)
 	firstHoleM (RevMap m) = First (fmap RHole <$> getLast (lastHoleM m))

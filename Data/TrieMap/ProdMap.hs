@@ -1,8 +1,6 @@
-{-# LANGUAGE TupleSections, PatternGuards, TypeFamilies, FlexibleInstances, RecordWildCards, CPP, FlexibleContexts #-}
+{-# LANGUAGE TupleSections, PatternGuards, TypeFamilies, FlexibleInstances, RecordWildCards, CPP, FlexibleContexts, UnboxedTuples #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Data.TrieMap.ProdMap () where
-
-import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
 
@@ -63,8 +61,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	searchMC (k1, k2) (PMap m) f g = searchMC k1 m f' g' where
 	  f' hole1 = f (PHole hole1 (singleHoleM k2))
 	  g' m' hole1 = mapSearch (PHole hole1) (searchMC k2 m') f g
-	indexMC (PMap m) = unpack $ \ i result ->
-	  indexMC' m i $ \ (Indexed i' m' hole1) -> mapIndex (PHole hole1) (indexMC m' $~ i') result
+	indexM (PMap m) i = case indexM m i of
+	  (# i', m', hole1 #) -> case indexM m' i' of
+	    (# i'', a, hole2 #) -> (# i'', a, PHole hole1 hole2 #)
 	extractHoleM (PMap m) = do
 		(m', hole1) <- extractHoleM m
 		(v, hole2) <- extractHoleM m'

@@ -4,13 +4,13 @@
 module Data.TrieMap.OrdMap () where
 
 import Control.Monad.Lookup
-import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 import Data.TrieMap.Modifiers
 
 import Prelude hiding (lookup, foldr, foldl, foldr1, foldl1, map)
+import GHC.Exts
 
 #define DELTA 5
 #define RATIO 2
@@ -113,15 +113,14 @@ instance Ord k => TrieKey (Ordered k) where
 	afterWithM a (Empty k path) = OrdMap $ after (singleton k a) path
 	afterWithM a (Full k path _ r) = OrdMap $ after (insertMin k a r) path
 	searchMC (Ord k) (OrdMap m) = search k m
-	indexMC (OrdMap m) = unpack $ \ i result -> let
-		indexT path !i BIN(kx x l r) 
-		  | i < sl	= indexT (LeftBin kx x path r) i l
-		  | i < sx	= result $~ Indexed (i - sl) x (Full kx path l r)
-		  | otherwise	= indexT (RightBin kx x l path) (i - sx) r
-			where	sl = getSize l
-				sx = sl + getSize x
-		indexT _ _ _ = indexFail
-		in indexT Root i m
+	indexM (OrdMap m) i = indexT Root i m where
+	  indexT path !i SNode{sz, node = Bin kx x l r}
+	    | i <# sl	= indexT (LeftBin kx x path r) i l
+	    | i <# sx	= (# i -# sl, x, Full kx path l r #)
+	    | otherwise	= indexT (RightBin kx x l path) (i -# sx) r
+	      where !sl = getSize# l
+		    !sx = unbox $ sz - getSize r
+	  indexT _ _ _ = indexFail ()
 	extractHoleM (OrdMap m) = extractHole Root m where
 		extractHole path BIN(kx x l r) =
 			extractHole (LeftBin kx x path r) l `mplus`

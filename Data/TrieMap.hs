@@ -975,10 +975,8 @@ search k (TMap m) = searchMC (toRep k) m nomatch match where
 -- @'elemAt' i m == let (v, loc) = 'index' i m in ('key' loc, v)@
 {-# INLINEABLE index #-}
 index :: TKey k => Int -> TMap k a -> (a, TLocation k a)
-index i m
-	| i < 0 || i >= size m
-		= error "TrieMap.index: index out of range"
-index i (TMap m) = indexMC' m i $ \ (Indexed _ (Assoc k a) hole) -> (a, TLoc k hole)
+index i (TMap m) = case indexM m (unbox i) of
+  (# _, Assoc k a, hole #) -> (a, TLoc k hole)
 
 {-# INLINE extract #-}
 extract :: (TKey k, Functor m, MonadPlus m) => TMap k a -> m (a, TLocation k a)

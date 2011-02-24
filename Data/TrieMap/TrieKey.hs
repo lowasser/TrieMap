@@ -31,7 +31,7 @@ import Control.Applicative hiding (empty)
 import Control.Monad
 import Control.Monad.Lookup
 import Control.Monad.Ends
-import Control.Monad.Unpack
+-- import Control.Monad.Unpack
 
 import Data.Monoid (Monoid(..))
 import Data.Foldable
@@ -93,7 +93,7 @@ class (Ord k,
   beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
   beforeWithM, afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
   searchMC :: k -> TrieMap k a -> SearchCont (Hole k a) a r
-  indexMC :: Sized a => TrieMap k a -> Int :~> IndexCont (Hole k a) a r
+  indexM :: Sized a => TrieMap k a -> Int# -> (# Int#, a, Hole k a #)
 
   -- By combining rewrite rules and these NOINLINE pragmas, we automatically derive
   -- specializations of functions for every instance of TrieKey.
@@ -124,10 +124,6 @@ instance TrieKey k => Nullable (TrieMap k) where
   isNull m = case getSimpleM m of
     Null -> True
     _ -> False
-
-{-# INLINE indexMC' #-}
-indexMC' :: (TrieKey k, Sized a) => TrieMap k a -> Int -> (IndexedHole a (Hole k a) -> r) -> r
-indexMC' m i result = (indexMC m $~ i) (unpack result)
 
 foldl1Empty :: a
 foldl1Empty = error "Error: cannot call foldl1 on an empty map"

@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeFamilies, CPP, FlexibleInstances, FlexibleContexts, NamedFieldPuns, RecordWildCards, UndecidableInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, UnboxedTuples #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.Key () where
 
@@ -67,7 +67,8 @@ instance TKey k => TrieKey (Key k) where
 	afterM (KeyHole hole) = keyMap (afterM hole)
 	afterWithM a (KeyHole hole) = keyMap (afterWithM a hole)
 	searchMC (Key k) KMAP(m) = mapSearch KeyHole (searchMC (toRep k) m)
-	indexMC KMAP(m) = mapIndex KeyHole <$> indexMC m
+	indexM KMAP(m) i = case indexM m i of
+	  (# i', a, hole #) -> (# i', a, KeyHole hole #)
 	extractHoleM KMAP(m) = fmap KeyHole <$> extractHoleM m
 	assignM v (KeyHole hole) = keyMap (assignM v hole)
 	clearM (KeyHole hole) = keyMap (clearM hole)

@@ -1,8 +1,7 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, MultiParamTypeClasses, UnboxedTuples #-}
 module Data.TrieMap.UnitMap () where
 
-import Control.Monad.Unpack
-
+import Data.Maybe (fromMaybe)
 import Data.TrieMap.TrieKey
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1)
@@ -71,8 +70,8 @@ instance TrieKey () where
 	searchMC _ (Unit (Just v)) _ g = g v Hole
 	searchMC _ _ f _ = f Hole
 
-	indexMC (Unit (Just v)) = unpack $ \ i result -> result $~ Indexed i v Hole
-	indexMC _ = indexFail
+	indexM (Unit v) i = 
+	  (# i, fromMaybe indexFail v, Hole #)
 	
 	unifierM _ _ _ = mzero
 	unifyM _ _ _ _ = mzero

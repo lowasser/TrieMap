@@ -118,8 +118,8 @@ instance TrieKey Word where
 
 	{-# INLINE searchMC #-}
 	searchMC !k (WordMap t) notfound found = searchC k t (unpack (notfound .  Hole)) (\ a -> unpack (found a . Hole))
-	{-# INLINE indexMC #-}
-	indexMC (WordMap m) = unpack $ \ i result -> index i m (\ a -> unpack $ \ (i, hole) -> result $~ Indexed i a (Hole hole))
+	{-# INLINE indexM #-}
+	indexM (WordMap m) i = index i m
 	extractHoleM (WordMap m) = extractHole Root m where
 		extractHole _ (SNode _ Nil) = mzero
 		extractHole path TIP(kx x) = return (x, hole kx path)
@@ -162,14 +162,14 @@ insertWithC f !k !szA a !t = ins' t where
       | otherwise	-> out $ join k tip kx t
     NIL			-> out tip
 
-index :: Int -> SNode a -> (a -> (Int, WHole a) :~> r) -> r
-index i !t result = indexT i t Root where
-  indexT i TIP(kx x) path = result x $~ (i, WHole kx path)
+index :: Int# -> SNode a -> (# Int#, a, Hole Word a #)
+index i !t = indexT i t Root where
+  indexT i TIP(kx x) path = (# i, x, hole kx path #)
   indexT i BIN(p m l r) path
-	  | i < sl	= indexT i l (LeftBin p m path r)
-	  | otherwise	= indexT (i - sl) r (RightBin p m l path)
-	  where !sl = getSize l
-  indexT _ NIL _		= indexFail
+	  | i <# sl	= indexT i l (LeftBin p m path r)
+	  | otherwise	= indexT (i -# sl) r (RightBin p m l path)
+	  where !sl = getSize# l
+  indexT _ NIL _	= indexFail ()
 
 searchC :: Key -> SNode a -> (WHole a :~> r) -> (a -> WHole a :~> r) -> r
 searchC !k t notfound found = seek Root t where

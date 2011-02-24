@@ -19,7 +19,6 @@ module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
 
 import Control.Monad.Lookup
 import Control.Monad.Ends
-import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.WordMap ()
@@ -259,17 +258,18 @@ extractEdgeLoc EDGE(_ ks v ts) path = case v of
 			extractEdgeLoc e' (deep path ks v tHole)
 
 {-# SPECIALIZE indexEdge :: 
-      (TrieKey k, Sized a) => V(Edge) a -> Int :~> IndexCont (V(EdgeLoc) a) a r,
-      Sized a => U(Edge) a -> Int :~> IndexCont (U(EdgeLoc) a) a r #-}
-indexEdge :: (Label v k, Sized a) => Edge v k a -> Int :~> IndexCont (EdgeLoc v k a) a r
-indexEdge e = unpack $ \ i result -> let
+      (TrieKey k, Sized a) => V(Edge) a -> Int# -> (# Int#, a, V(EdgeLoc) a #),
+      Sized a => U(Edge) a -> Int# -> (# Int#, a, U(EdgeLoc) a #) #-}
+indexEdge :: (Label v k, Sized a) => Edge v k a -> Int# -> (# Int#, a, EdgeLoc v k a #)
+indexEdge e i = let
   indexE i !e path = case eView e of
     Edge sE ks v@(Just a) ts
-      | i < sv		-> result $~ Indexed i a (loc ks ts path)
-      | otherwise	-> indexMC' ts (i - sv) $ \ (Indexed i' e' tHole) -> indexE i' e' (deep path ks v tHole)
-	  where	!sv = sE - sizeM ts
-    Edge _ ks Nothing ts
-		-> indexMC' ts i $ \ (Indexed i' e' tHole) -> indexE i' e' (deep path ks Nothing tHole)
+      | i <# sv		-> (# i, a, loc ks ts path #)
+      | otherwise	-> case indexM ts (i -# sv) of
+	  (# i', e', tHole #) -> indexE i' e' (deep path ks v tHole)
+	  where	!sv = unbox $ sE - sizeM ts
+    Edge _ ks Nothing ts -> case indexM ts i of
+	  (# i', e', tHole #) -> indexE i' e' (deep path ks Nothing tHole)
   in indexE i e root
 
 {-# SPECIALIZE insertEdge ::

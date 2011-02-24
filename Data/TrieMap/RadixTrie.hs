@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns, FlexibleContexts, TypeFamilies, FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances, CPP #-}
+{-# LANGUAGE UnboxedTuples #-}
 module Data.TrieMap.RadixTrie () where
 
 import Data.TrieMap.TrieKey
@@ -72,8 +73,9 @@ instance TrieKey k => TrieKey (Vector k) where
 	{-# INLINE searchMC #-}
 	searchMC ks (Radix (Just e)) = mapSearch Hole (searchEdgeC ks e)
 	searchMC ks _ = \ f _ -> f (singleHoleM ks)
-	indexMC (Radix (Just e)) = mapIndex Hole <$> indexEdge e
-	indexMC _ = indexFail
+	indexM (Radix (Just e)) i = case indexEdge e i of
+	  (# i', a, loc #) -> (# i', a, Hole loc #)
+	indexM _ _ = indexFail ()
 
 	clearM (Hole loc) = Radix (clearEdge loc)
 	{-# INLINE assignM #-}
@@ -151,8 +153,9 @@ instance TrieKey (P.Vector Word) where
 	  f' loc = f (WHole loc)
 	  g' a loc = g a (WHole loc)
 	searchMC ks _ f _ = f (singleHoleM ks)
-	indexMC (WRadix (Just e)) = mapIndex WHole <$> indexEdge e
-	indexMC _ = indexFail
+	indexM (WRadix (Just e)) i = case indexEdge e i of
+	  (# i', a, loc #) -> (# i', a, WHole loc #)
+	indexM _ _ = indexFail ()
 	
 	clearM (WHole loc) = WRadix (clearEdge loc)
 	{-# INLINE assignM #-}

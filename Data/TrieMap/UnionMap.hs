@@ -1,9 +1,7 @@
 {-# LANGUAGE UnboxedTuples, TypeFamilies, PatternGuards, ViewPatterns, CPP, BangPatterns, FlexibleInstances, RecordWildCards #-}
-{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, MagicHash #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.UnionMap () where
-
-import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.UnitMap ()
@@ -167,14 +165,18 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	searchMC (Left k) (UVIEW m1 m2) = mapSearch (`hole1` m2) (searchMC' k m1)
 	searchMC (Right k) (UVIEW m1 m2) = mapSearch (hole2 m1) (searchMC' k m2)
 	
-	indexMC m = unpack $ \ i result -> case m of
-	  MapL m1	-> mapIndex HoleX0 (indexMC m1 $~ i) result
-	  MapR m2	-> mapIndex Hole0X (indexMC m2 $~ i) result
-	  Union _ m1 m2
-	    | i < s1	-> mapIndex (`HoleXR` m2) (indexMC m1 $~ i) result
-	    | otherwise	-> mapIndex (m1 `HoleLX`) (indexMC m2 $~ (i - s1)) result
-	    where s1 = sizeM m1
-	  _		-> indexFail
+	indexM m i = case m of
+	  MapL m1	-> case indexM m1 i of
+	    (# i', a, hole1 #) -> (# i', a, HoleX0 hole1 #)
+	  MapR m2	-> case indexM m2 i of
+	    (# i', a, hole2 #) -> (# i', a, Hole0X hole2 #)
+	  Union _  m1 m2
+	    | i <# s1, (# i', a, hole1 #) <- indexM m1 i
+	    	-> (# i', a, HoleXR hole1 m2 #)
+	    | (# i', a, hole2 #) <- indexM m2 (i -# s1)
+		-> (# i', a, HoleLX m1 hole2 #)
+	    where !s1 = sizeM# m1
+	  _	-> indexFail ()
 
 	extractHoleM (UVIEW !m1 !m2) = holes1 `mplus` holes2 where
 	  holes1 = holes extractHoleM (`hole1` m2) m1
