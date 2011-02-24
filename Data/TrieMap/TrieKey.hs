@@ -12,7 +12,6 @@ module Data.TrieMap.TrieKey (
   module Data.TrieMap.TrieKey.Buildable,
   module Data.TrieMap.TrieKey.SetOp,
   module Data.TrieMap.TrieKey.Projection,
-  module Data.TrieMap.TrieKey.IndexedHole,
   module Data.TrieMap.TrieKey.Search,
   MonadPlus(..),
   Monoid(..),
@@ -24,14 +23,12 @@ import Data.TrieMap.TrieKey.Subset
 import Data.TrieMap.TrieKey.Buildable
 import Data.TrieMap.TrieKey.SetOp
 import Data.TrieMap.TrieKey.Projection
-import Data.TrieMap.TrieKey.IndexedHole
 import Data.TrieMap.TrieKey.Search
 
 import Control.Applicative hiding (empty)
 import Control.Monad
 import Control.Monad.Lookup
 import Control.Monad.Ends
--- import Control.Monad.Unpack
 
 import Data.Monoid (Monoid(..))
 import Data.Foldable
@@ -175,6 +172,9 @@ searchMC' k (Just m) f g = searchMC k m f g
 
 elemsM :: TrieKey k => TrieMap k a -> [a]
 elemsM m = build (\ f z -> foldr f z m)
+
+indexFail :: a
+indexFail = error "Error: index out of bounds"
 
 {-# RULES
   "extractHoleM/First" [0] extractHoleM = firstHoleM;
