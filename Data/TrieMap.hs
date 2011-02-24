@@ -75,19 +75,31 @@ module Data.TrieMap (
 	foldrWithKey,
 	foldlWithKey,
 	-- * Conversion
+	keysSet,
+	-- ** Lists
 	elems,
 	keys,
-	keysSet,
 	assocs,
-	-- ** Lists
 	fromList,
 	fromListWith,
 	fromListWithKey,
+	-- ** Vectors
+	elemsVector,
+	keysVector,
+	assocsVector,
+	fromVector,
+	fromVectorWith,
+	fromVectorWithKey,
 	-- ** Ordered lists
 	fromAscList,
 	fromAscListWith,
 	fromAscListWithKey,
 	fromDistinctAscList,
+	-- ** Ordered vectors
+	fromAscVector,
+	fromAscVectorWith,
+	fromAscVectorWithKey,
+	fromDistinctAscVector,
 	-- * Filter
 	filter,
 	filterWithKey,
@@ -139,6 +151,12 @@ import Data.TrieMap.Representation.Instances ()
 
 import qualified Data.Foldable as F
 import Data.Maybe hiding (mapMaybe)
+
+import Data.Vector.Build
+import qualified Data.Vector.Generic as G
+import Data.Vector.Fusion.Util (unId)
+import Data.Vector.Fusion.Stream.Monadic (Stream(..), Step(..))
+import qualified Data.Vector.Fusion.Stream.Monadic as S
 
 import GHC.Exts (build)
 
@@ -670,6 +688,13 @@ maxViewWithKey m = do
 elems :: TKey k => TMap k a -> [a]
 elems m = build (\ c n -> foldrWithKey (\ _ a -> c a) n m)
 
+{-# INLINE elemsVector #-}
+-- |
+-- Return all elements of the map in the ascending order of their keys.
+-- Does not currently fuse.
+elemsVector :: (TKey k, G.Vector v a) => TMap k a -> v a
+elemsVector (TMap m) = toVectorMapN (sizeM m) (\ (Assoc _ a) -> a) m
+
 -- | Return all keys of the map in ascending order.
 --
 -- > keys (fromList [(5,"a"), (3,"b")]) == [3,5]
@@ -678,6 +703,11 @@ elems m = build (\ c n -> foldrWithKey (\ _ a -> c a) n m)
 keys :: TKey k => TMap k a -> [k]
 keys m = build (\ c n -> foldrWithKey (\ k _ -> c k) n m)
 
+-- | Return all keys of the map in ascending order.
+-- Does not currently fuse.
+keysVector :: (TKey k, G.Vector v k) => TMap k a -> v k
+keysVector (TMap m) = toVectorMapN (sizeM m) (\ (Assoc k _) -> k) m
+
 -- | Return all key\/value pairs in the map in ascending key order.
 --
 -- > assocs (fromList [(5,"a"), (3,"b")]) == [(3,"b"), (5,"a")]
@@ -685,6 +715,12 @@ keys m = build (\ c n -> foldrWithKey (\ k _ -> c k) n m)
 {-# INLINE assocs #-}
 assocs :: TKey k => TMap k a -> [(k, a)]
 assocs m = build (\ c n -> foldrWithKey (curry c) n m)
+
+{-# INLINE assocsVector #-}
+-- | Return all key\/value pairs in the map in ascending key order.
+-- Does not currently fuse.
+assocsVector :: (TKey k, G.Vector v (k, a)) => TMap k a -> v (k, a)
+assocsVector (TMap m) = toVectorMapN (sizeM m) (\ (Assoc k a) -> (k, a)) m
 
 -- | Map values and separate the 'Left' and 'Right' results.
 --
@@ -822,6 +858,23 @@ isSubmapOf = isSubmapOfBy (==)
 isSubmapOfBy :: TKey k => (a -> b -> Bool) -> TMap k a -> TMap k b -> Bool
 isSubmapOfBy (<=) (TMap m1) (TMap m2) = let ?le = \ (Assoc _ a) (Assoc _ b) -> a <= b in m1 <=? m2
 
+{-# INLINE fromFoldStream #-}
+fromFoldStream :: (Repr k, TrieKey (Rep k), Monad m) => 
+  FromList z (Rep k) (Assoc k a) -> Stream m (k, a) -> m (TMap k a)
+fromFoldStream Foldl{..} (Stream suc s0 _) = run s0 where
+  run s = do
+    step <- suc s
+    case step of
+      Done	-> return empty
+      Skip s'	-> run s'
+      Yield (k, a) s' -> run' (begin (toRep k) (Assoc k a)) s'
+  run' stack s = do
+    step <- suc s
+    case step of
+      Done	-> return (TMap (done stack))
+      Skip s'	-> run' stack s'
+      Yield (k, a) s' -> run' (snoc stack (toRep k) (Assoc k a)) s'
+
 -- | Build a map from a list of key\/value pairs. See also 'fromAscList'.
 -- If the list contains more than one value for the same key, the last value
 -- for the key is retained.
@@ -833,6 +886,11 @@ isSubmapOfBy (<=) (TMap m1) (TMap m2) = let ?le = \ (Assoc _ a) (Assoc _ b) -> a
 fromList :: TKey k => [(k, a)] -> TMap k a
 fromList = fromListWith const
 
+{-# INLINE fromVector #-}
+-- | Equivalent to @'fromList' ('G.toList' xs)@.
+fromVector :: (TKey k, G.Vector v (k, a)) => v (k, a) -> TMap k a
+fromVector = fromVectorWith const
+
 -- | Build a map from an ascending list in linear time.
 -- /The precondition (input list is ascending) is not checked./
 --
@@ -842,6 +900,11 @@ fromList = fromListWith const
 fromAscList :: TKey k => [(k, a)] -> TMap k a
 fromAscList = fromAscListWith const
 
+{-# INLINE fromAscVector #-}
+-- | Equivalent to @'fromAscList' ('G.toList' xs)@.
+fromAscVector :: (TKey k, G.Vector v (k, a)) => v (k, a) -> TMap k a
+fromAscVector = fromAscVectorWith const
+
 -- | Build a map from a list of key\/value pairs with a combining function. See also 'fromAscListWith'.
 --
 -- > fromListWith (++) [(5,"a"), (5,"b"), (3,"b"), (3,"a"), (5,"a")] == fromList [(3, "ab"), (5, "aba")]
@@ -849,6 +912,11 @@ fromAscList = fromAscListWith const
 {-# INLINE fromListWith #-}
 fromListWith :: TKey k => (a -> a -> a) -> [(k, a)] -> TMap k a
 fromListWith = fromListWithKey . const
+
+{-# INLINE fromVectorWith #-}
+-- | Equivalent to @'fromListWith' f ('G.toList' xs)@.
+fromVectorWith :: (TKey k, G.Vector v (k, a)) => (a -> a -> a) -> v (k, a) -> TMap k a
+fromVectorWith = fromVectorWithKey . const
 
 -- | Build a map from an ascending list in linear time with a combining function for equal keys.
 -- /The precondition (input list is ascending) is not checked./
@@ -858,15 +926,10 @@ fromListWith = fromListWithKey . const
 fromAscListWith :: TKey k => (a -> a -> a) -> [(k, a)] -> TMap k a
 fromAscListWith = fromAscListWithKey . const
 
-{-# INLINE fromFold #-}
-fromFold :: (Repr k, TrieKey (Rep k)) => FromList z (Rep k) (Assoc k a) -> [(k, a)] -> TMap k a
-fromFold Foldl{..} = fL where
-  fL [] = empty
-  fL ((k, a):xs) = fL' (begin (toRep k) (Assoc k a)) xs
-  
-  fL' s xs = s `seq` case xs of
-    []	-> TMap (done s)
-    (k,a):xs -> fL' (snoc s (toRep k) (Assoc k a)) xs
+{-# INLINE fromAscVectorWith #-}
+-- | Equivalent to @'fromAscListWith' f ('G.toList' xs)@.
+fromAscVectorWith :: (TKey k, G.Vector v (k, a)) => (a -> a -> a) -> v (k, a) -> TMap k a
+fromAscVectorWith = fromAscVectorWithKey . const
 
 -- | Build a map from a list of key\/value pairs with a combining function. See also 'fromAscListWith'.
 --
@@ -874,7 +937,13 @@ fromFold Foldl{..} = fL where
 -- > fromListWith (++) [] == empty
 {-# INLINEABLE fromListWithKey #-}
 fromListWithKey :: TKey k => (k -> a -> a -> a) -> [(k, a)] -> TMap k a
-fromListWithKey f = fromFold (uFold f')
+fromListWithKey f xs = unId $ fromFoldStream (uFold f') (S.fromList xs)
+	where f' (Assoc k a) (Assoc _ b) = Assoc k (f k a b)
+
+{-# INLINE fromVectorWithKey #-}
+-- | Equivalent to @'fromListWithKey' f ('G.toList' xs)@.
+fromVectorWithKey :: (TKey k, G.Vector v (k, a)) => (k -> a -> a -> a) -> v (k, a) -> TMap k a
+fromVectorWithKey f xs = unId $ fromFoldStream (uFold f') (G.stream xs)
 	where f' (Assoc k a) (Assoc _ b) = Assoc k (f k a b)
 
 -- | Build a map from an ascending list in linear time.
@@ -884,7 +953,13 @@ fromListWithKey f = fromFold (uFold f')
 -- > fromAscList [(3,"b"), (5,"a"), (5,"b")] == fromList [(3, "b"), (5, "b")]
 {-# INLINEABLE fromAscListWithKey #-}
 fromAscListWithKey :: TKey k => (k -> a -> a -> a) -> [(k, a)] -> TMap k a
-fromAscListWithKey f = fromFold $ aFold f'
+fromAscListWithKey f xs = unId $ fromFoldStream (aFold f') (S.fromList xs)
+	where f' (Assoc k a) (Assoc _ b) = Assoc k (f k a b)
+
+{-# INLINE fromAscVectorWithKey #-}
+-- | Equivalent to @'fromAscListWithKey' f ('G.toList' xs)@.
+fromAscVectorWithKey :: (TKey k, G.Vector v (k, a)) => (k -> a -> a -> a) -> v (k, a) -> TMap k a
+fromAscVectorWithKey f xs = unId $ fromFoldStream (aFold f') (G.stream xs)
 	where f' (Assoc k a) (Assoc _ b) = Assoc k (f k a b)
 
 -- | Build a map from an ascending list of distinct elements in linear time.
@@ -893,7 +968,12 @@ fromAscListWithKey f = fromFold $ aFold f'
 -- > fromDistinctAscList [(3,"b"), (5,"a")] == fromList [(3, "b"), (5, "a")]
 {-# INLINEABLE fromDistinctAscList #-}
 fromDistinctAscList :: TKey k => [(k, a)] -> TMap k a
-fromDistinctAscList = fromFold daFold
+fromDistinctAscList xs = unId $ fromFoldStream daFold (S.fromList xs)
+
+{-# INLINE fromDistinctAscVector #-}
+-- | Equivalent to @'fromDistinctAscList' ('G.toList' xs)@.
+fromDistinctAscVector :: (TKey k, G.Vector v (k, a)) => v (k, a) -> TMap k a
+fromDistinctAscVector xs = unId $ fromFoldStream daFold (G.stream xs)
 
 -- | /O(1)/. The number of elements in the map.
 --

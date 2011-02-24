@@ -10,20 +10,6 @@ description:	     Provides a efficient and compact implementation of generalized
                      .
                      The most recent release combines zipper-based ideas from recently proposed changes to Data.Map, as well
                      as heavily optimized ByteString and Vector instances based on the vector package.
-                     .
-                     Benchmarks indicate that compared to @Data.Map@, @TrieMap@ is faster (1.4-1.9x) at @lookup@ 
-                     and @splitLookup@ and tremendously (7-14x) faster for set operations (@union@, @difference@, @intersection).
-                     
-                     It is statistically tied on @insert@ and @findMin@/@findMax@.
-                     
-                     However, it is slightly slower at @fromList@ and considerably (2.5x) slower for @filter@, @elemAt@,
-                     and @toList@.  @TrieMap@ tends to use somewhat more memory, and frequently perform better
-                     with increased heap space and allocation area.
-                     .
-                     Compared to the @bytestring-trie-0.2.3@ package, this implementation has faster (~1.25x)
-                     @insert@ and @lookup@ and significantly faster (2x) @toList@, but slower (2-3x) @filter@.
-                     @bytestring-trie@ does not, however, support any of the other operations mentioned above,
-                     and it needs /O(n)/ time for @size@, while @TrieMap@ offers /O(1)/ @size@.
 license:             BSD3
 license-file:	     LICENSE
 author:              Louis Wasserman
@@ -51,14 +37,16 @@ exposed-modules:
   Data.TrieMap.Modifiers
 other-modules:
   Control.Monad.Ends,
+  Control.Monad.Lookup,
+  Data.Vector.Build,
   Data.TrieMap.TrieKey,
   Data.TrieMap.Utils,
   Data.TrieMap.Sized,
+  Data.TrieMap.TrieKey.Search,
   Data.TrieMap.TrieKey.Subset,
   Data.TrieMap.TrieKey.Buildable,
   Data.TrieMap.TrieKey.SetOp,
   Data.TrieMap.TrieKey.Projection,
-  Data.TrieMap.TrieKey.IndexedHole,
   Data.TrieMap.Representation.Class,
   Data.TrieMap.Representation.TH,
   Data.TrieMap.Representation.TH.Utils,

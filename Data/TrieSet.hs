@@ -52,11 +52,17 @@ module Data.TrieSet (
 	elems,
 	toList,
 	fromList,
+	-- ** Vector
+	toVector,
+	fromVector,
 	-- ** Ordered lists
 	toAscList,
 	fromAscList,
-	fromDistinctAscList)
- 		where
+	fromDistinctAscList,
+	-- ** Ordered vectors
+	fromAscVector,
+	fromDistinctAscVector)
+	where
 
 import Control.Monad
 import Control.Monad.Ends
@@ -67,6 +73,12 @@ import Data.TrieMap.Class.Instances ()
 import Data.TrieMap.TrieKey hiding (foldr, foldl, toList, union, diff, isect)
 import qualified Data.TrieMap.TrieKey.SetOp as Set
 import Data.TrieMap.Representation.Class
+
+import Data.Vector.Build
+import qualified Data.Vector.Generic as G
+import Data.Vector.Fusion.Util (unId)
+import Data.Vector.Fusion.Stream.Monadic (Stream(..), Step(..))
+import qualified Data.Vector.Fusion.Stream.Monadic as S
 
 import Data.Maybe(fromJust)
 
@@ -232,32 +244,62 @@ toList = toAscList
 toAscList :: TKey a => TSet a -> [a]
 toAscList s = build (\ c n -> foldr c n s)
 
-{-# INLINE fromFold #-}
-fromFold :: (Repr a, TrieKey (Rep a)) => FromList z (Rep a) (Elem a) -> [a] -> TSet a
-fromFold Foldl{..} = fL where
-  fL [] = empty
-  fL (x:xs) = fL' (begin (toRep x) (Elem x)) xs
-  
-  fL' s xs = s `seq` case xs of
-    []	-> TSet (done s)
-    x:xs -> fL' (snoc s (toRep x) (Elem x)) xs
+{-# INLINE fromFoldStream #-}
+fromFoldStream :: (Monad m, Repr a, TrieKey (Rep a)) => FromList z (Rep a) (Elem a) -> Stream m a -> m (TSet a)
+fromFoldStream Foldl{..} (Stream suc s0 _) = run s0 where
+  run s = do
+    step <- suc s
+    case step of
+      Done -> return empty
+      Skip s' -> run s'
+      Yield x s' -> run' (begin (toRep x) (Elem x)) s'
+  run' stack s = do
+    step <- suc s
+    case step of
+      Done -> return (TSet (done stack))
+      Skip s' -> run' stack s'
+      Yield x s' -> run' (snoc stack (toRep x) (Elem x)) s'
 
 {-# INLINE fromList #-}
 -- | Create a set from a list of elements.
 fromList :: TKey a => [a] -> TSet a
-fromList = fromFold $ uFold const
+fromList xs = unId (fromFoldStream (uFold const) (S.fromList xs))
+
+{-# INLINE fromVector #-}
+-- | Create a set from a vector of elements.
+fromVector :: (TKey a, G.Vector v a) => v a -> TSet a
+fromVector xs = unId (fromFoldStream (uFold const) (G.stream xs))
 
 {-# INLINE fromAscList #-}
 -- | Build a set from an ascending list in linear time.
 -- /The precondition (input list is ascending) is not checked./
 fromAscList :: TKey a => [a] -> TSet a
-fromAscList = fromFold $ aFold const
+fromAscList xs = unId (fromFoldStream (aFold const) (S.fromList xs))
+
+{-# INLINE fromAscVector #-}
+-- | Build a set from an ascending vector in linear time.
+-- /The precondition (input vector is ascending) is not checked./
+fromAscVector :: (TKey a, G.Vector v a) => v a -> TSet a
+fromAscVector xs = unId (fromFoldStream (aFold const) (G.stream xs))
 
 {-# INLINE fromDistinctAscList #-}
 -- | /O(n)/. Build a set from an ascending list of distinct elements in linear time.
 -- /The precondition (input list is strictly ascending) is not checked./
 fromDistinctAscList :: TKey a => [a] -> TSet a
-fromDistinctAscList = fromFold daFold
+fromDistinctAscList xs = unId (fromFoldStream daFold (S.fromList xs))
+
+{-# INLINE fromDistinctAscVector #-}
+-- | /O(n)/. Build a set from an ascending vector of distinct elements in linear time.
+-- /The precondition (input vector is strictly ascending) is not checked./
+fromDistinctAscVector :: (TKey a, G.Vector v a) => v a -> TSet a
+fromDistinctAscVector xs = unId (fromFoldStream daFold (G.stream xs))
+
+{-# INLINE toVector #-}
+-- | /O(n)/.  Construct a vector from the elements of this set.  Does not currently fuse.
+toVector :: (TKey a, G.Vector v a) => TSet a -> v a
+toVector (TSet s) = toVectorMapN (sizeM s) getElem s
+-- If we want this to fuse, our best bet is probably a method to iterate a hole to the next key...or something.
+-- This seems difficult, but perhaps not impossible.
 
 -- | /O(1)/. Is this the empty set?
 null :: TKey a => TSet a -> Bool
