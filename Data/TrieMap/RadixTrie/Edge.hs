@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash, BangPatterns, UnboxedTuples, PatternGuards, CPP, ViewPatterns, NamedFieldPuns, ScopedTypeVariables #-}
-{-# LANGUAGE RecordWildCards, TypeOperators #-}
+{-# LANGUAGE RecordWildCards, TypeOperators, FlexibleContexts #-}
 {-# OPTIONS -funbox-strict-fields -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
       afterEdge,
@@ -19,6 +19,7 @@ module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
 
 import Control.Monad.Lookup
 import Control.Monad.Ends
+import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.WordMap ()
@@ -93,23 +94,25 @@ lookupEdge ks e = Lookup $ \ no yes -> let
 			  = runLookup (lookupMC k ts) no (lookupE ks')
   in lookupE ks e
 
-{-# INLINE searchEdgeC #-}
-searchEdgeC :: (Eq k, Label v k) => v k -> Edge v k a -> SearchCont (EdgeLoc v k a) a r
-searchEdgeC ks0 e nomatch0 match0 = searchE ks0 e root where
-  nomatch !ls !ts path = nomatch0 (loc ls ts path)
-  match a !ls !ts path = match0 a (loc ls ts path)
+{-# SPECIALIZE INLINE searchEdgeC ::
+      TrieKey k => V() -> V(Edge) a -> (V(EdgeLoc) a :~> r) -> (a -> V(EdgeLoc) a :~> r) -> r,
+      U() -> U(Edge) a -> (U(EdgeLoc) a :~> r) -> (a -> U(EdgeLoc) a :~> r) -> r #-}
+searchEdgeC :: (Eq k, Label v k, Unpackable (EdgeLoc v k a)) => 
+  v k -> Edge v k a -> (EdgeLoc v k a :~> r) -> (a -> EdgeLoc v k a :~> r) -> r
+searchEdgeC ks0 e nomatch match = searchE ks0 e root where
   searchE !ks e@EDGE(_ !ls !v ts) path = iMatchSlice matcher matches ks ls where
     matcher i k l z = 
-      runLookup (unifierM k l (dropEdge (i+1) e)) z (nomatch (dropSlice (i+1) ks) emptyM . deep path (takeSlice i ls) Nothing)
+      runLookup (unifierM k l (dropEdge (i+1) e)) z 
+	(\ tHole -> nomatch $~ loc (dropSlice (i+1) ks) emptyM (deep path (takeSlice i ls) Nothing tHole))
     matches kLen lLen = case compare kLen lLen of
       LT -> let lPre = takeSlice kLen ls; l = ls !$ kLen; e' = dropEdge (kLen + 1) e in
-	      nomatch lPre (singletonM l e') path
-      EQ -> maybe nomatch match v ls ts path
+	      nomatch $~ loc lPre (singletonM l e') path
+      EQ -> maybe nomatch match v $~ loc ls ts path
       GT -> let
 	  {-# INLINE kk #-}
 	  kk = ks !$ lLen
 	  ks' = dropSlice (lLen + 1) ks
-	  nomatch' tHole = nomatch ks' emptyM (deep path ls v tHole)
+	  nomatch' tHole = nomatch $~ loc ks' emptyM (deep path ls v tHole)
 	  match' e' tHole = searchE ks' e' (deep path ls v tHole)
 	  in searchMC kk ts nomatch' match'
 

@@ -54,7 +54,9 @@ data WHole a = WHole !Key (Path a)
 {-# ANN type WHole ForceSpecConstr #-}
 
 $(noUnpackInstance ''Path)
+$(noUnpackInstance ''Node)
 $(unpackInstance ''WHole)
+$(unpackInstance ''SNode)
 
 {-# INLINE hole #-}
 hole :: Key -> Path a -> Hole Word a

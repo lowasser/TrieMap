@@ -108,7 +108,7 @@ Tests : fast
 TestsP : fast debug
 	$(GHC_BIN) $(DEBUG_GHC_OPTS) Tests -o TestsP -main-is Tests.main
 
-BenchmarkP : opt prof
+BenchmarkP : prof
 	$(GHC_BIN) $(PROFILING_OPTS) -w TrieBench -o BenchmarkP -main-is TrieBench.main
 
 Benchmark : opt

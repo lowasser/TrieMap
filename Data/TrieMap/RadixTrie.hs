@@ -2,6 +2,8 @@
 {-# LANGUAGE UnboxedTuples #-}
 module Data.TrieMap.RadixTrie () where
 
+import Control.Monad.Unpack
+
 import Data.TrieMap.TrieKey
 
 import Data.Vector (Vector)
@@ -71,8 +73,10 @@ instance TrieKey k => TrieKey (Vector k) where
 
 	singleHoleM ks = Hole (singleLoc ks)
 	{-# INLINE searchMC #-}
-	searchMC ks (Radix (Just e)) = mapSearch Hole (searchEdgeC ks e)
-	searchMC ks _ = \ f _ -> f (singleHoleM ks)
+	searchMC ks (Radix m) nomatch match = case m of
+	  Just e	-> searchEdgeC ks e nomatch' match'
+	  Nothing	-> nomatch' $~ singleLoc ks
+	 where nomatch' = unpack (nomatch . Hole); match' a = unpack (match a . Hole)
 	indexM (Radix (Just e)) i = case indexEdge e i of
 	  (# i', a, loc #) -> (# i', a, Hole loc #)
 	indexM _ _ = indexFail ()
@@ -149,10 +153,10 @@ instance TrieKey (P.Vector Word) where
 
 	singleHoleM ks = WHole (singleLoc ks)
 	{-# INLINE searchMC #-}
-	searchMC ks (WRadix (Just e)) f g = searchEdgeC ks e f' g' where
-	  f' loc = f (WHole loc)
-	  g' a loc = g a (WHole loc)
-	searchMC ks _ f _ = f (singleHoleM ks)
+	searchMC ks (WRadix m) nomatch match = case m of
+	  Just e	-> searchEdgeC ks e nomatch' match'
+	  Nothing	-> nomatch' $~ singleLoc ks
+	 where nomatch' = unpack (nomatch . WHole); match' a = unpack (match a . WHole)
 	indexM (WRadix (Just e)) i = case indexEdge e i of
 	  (# i', a, loc #) -> (# i', a, WHole loc #)
 	indexM _ _ = indexFail ()

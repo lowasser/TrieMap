@@ -3,6 +3,7 @@
 module Data.TrieMap.RadixTrie.Label where
 
 import Control.Monad.Unpack
+import Control.Monad.Trans.Reader
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.RadixTrie.Slice
@@ -102,7 +103,13 @@ instance TrieKey k => Label V.Vector k where
   sView (VStackAZ ks a z k stack) = Stack ks (Just a) (Just z) (Just (k, stack))
   sView (VStackA ks a k stack) = Stack ks (Just a) Nothing (Just (k, stack))
   sView (VStackZ ks z k stack) = Stack ks Nothing (Just z) (Just (k, stack))
---   sView (VStack ks v ts) = Stack ks v (WordMap ts)
+
+instance TrieKey k => Unpackable (V(EdgeLoc) a) where
+  newtype UnpackedReaderT (EdgeLoc V.Vector k a) m r =
+    VLocRT {runVLocRT :: UnpackedReaderT (V.Vector k) (ReaderT (V(Branch) a) (ReaderT (V(Path) a) m)) r}
+  runUnpackedReaderT func (VLoc ks ts path) =
+    runVLocRT func `runUnpackedReaderT` ks `runReaderT` ts `runReaderT` path
+  unpackedReaderT func = VLocRT $ unpackedReaderT $ \ ks -> ReaderT $ \ ts -> ReaderT $ \ path -> func (VLoc ks ts path)
 
 instance Label P.Vector Word where
   data Edge P.Vector Word a =
@@ -150,7 +157,14 @@ instance Label P.Vector Word where
   pView (SDeep path ks tHole) = Deep path ks Nothing (Hole tHole)
   pView (SDeepX path ks v tHole) = Deep path ks (Just v) (Hole tHole)
   locView (SLoc ks ts path) = Loc ks (WordMap ts) path
---   sView (SStack ks v ts) = Stack ks v (WordMap ts)
+
+instance Unpackable (U(EdgeLoc) a) where
+  newtype UnpackedReaderT (U(EdgeLoc) a) m r =
+    ULocRT {runULocRT :: UnpackedReaderT (U()) (UnpackedReaderT (SNode (U(Edge) a)) (ReaderT (U(Path) a) m)) r}
+  runUnpackedReaderT func (SLoc ks ts path) =
+    runULocRT func `runUnpackedReaderT` ks `runUnpackedReaderT` ts `runReaderT` path
+  unpackedReaderT func = ULocRT $ unpackedReaderT $ \ ks -> unpackedReaderT $ \ ts -> ReaderT $ \ path ->
+    func (SLoc ks ts path)
 
 {-# SPECIALIZE singletonEdge ::
     (TrieKey k, Sized a) => V() -> a -> V(Edge) a,
