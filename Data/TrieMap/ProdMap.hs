@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections, PatternGuards, TypeFamilies, FlexibleInstances, RecordWildCards, CPP, FlexibleContexts, UnboxedTuples #-}
+{-# LANGUAGE TupleSections, TypeFamilies, FlexibleInstances, RecordWildCards, CPP, FlexibleContexts, UnboxedTuples #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Data.TrieMap.ProdMap () where
 
