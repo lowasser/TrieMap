@@ -10,7 +10,6 @@ import Data.TrieMap.Sized
 import Data.TrieMap.Modifiers
 
 import Prelude hiding (lookup, foldr, foldl, foldr1, foldl1, map)
-import GHC.Exts
 
 #define DELTA 5
 #define RATIO 2
@@ -23,7 +22,7 @@ data Path k a =
 data Node k a =
   Tip
   | Bin k a !(SNode k a) !(SNode k a)
-data SNode k a = SNode{sz :: !Int, count :: !Int, node :: Node k a}
+data SNode k a = SNode{count :: !Int, node :: Node k a}
 
 #define TIP SNode{node=Tip}
 #define BIN(args) SNode{node=Bin args}
@@ -42,18 +41,18 @@ instance Sized a => Sized (Node k a) where
     Tip	-> 0
     Bin _ a l r	-> getSize a + getSize l + getSize r
 
-instance Sized (SNode k a) where
-  getSize# SNode{sz} = unbox sz
+instance Sized a => Sized (SNode k a) where
+  getSize# SNode{node} = getSize# node
 
 nCount :: Node k a -> Int
 nCount Tip = 0
 nCount (Bin _ _ l r) = 1 + count l + count r
 
-sNode :: Sized a => Node k a -> SNode k a
-sNode !n = SNode (getSize n) (nCount n) n
+sNode :: Node k a -> SNode k a
+sNode !node = SNode {count = nCount node, node}
 
 tip :: SNode k a
-tip = SNode 0 0 Tip
+tip = SNode 0 Tip
 
 instance Ord k => Subset (TrieMap (Ordered k)) where
   OrdMap m1 <=? OrdMap m2 = m1 <=? m2
@@ -101,7 +100,7 @@ instance Ord k => TrieKey (Ordered k) where
 		BIN(_ a TIP TIP)
 			-> Singleton a
 		_	-> NonSimple
-	sizeM (OrdMap m) = sz m
+	sizeM (OrdMap m) = getSize m
 	
 	singleHoleM (Ord k) = Empty k Root
 	beforeM (Empty _ path) = OrdMap $ before tip path
@@ -113,14 +112,6 @@ instance Ord k => TrieKey (Ordered k) where
 	afterWithM a (Empty k path) = OrdMap $ after (singleton k a) path
 	afterWithM a (Full k path _ r) = OrdMap $ after (insertMin k a r) path
 	searchMC (Ord k) (OrdMap m) = search k m
-	indexM (OrdMap m) i = indexT Root i m where
-	  indexT path !i SNode{sz, node = Bin kx x l r}
-	    | i <# sl	= indexT (LeftBin kx x path r) i l
-	    | i <# sx	= (# i -# sl, x, Full kx path l r #)
-	    | otherwise	= indexT (RightBin kx x l path) (i -# sx) r
-	      where !sl = getSize# l
-		    !sx = unbox $ sz - getSize r
-	  indexT _ _ _ = indexFail ()
 	extractHoleM (OrdMap m) = extractHole Root m where
 		extractHole path BIN(kx x l r) =
 			extractHole (LeftBin kx x path r) l `mplus`
@@ -145,7 +136,7 @@ instance Ord k => TrieKey (Ordered k) where
 	{-# INLINE insertWithM #-}
 	insertWithM f (Ord k) a (OrdMap m) = OrdMap (insertWith f k a m)
 
-insertWith :: (Ord k, Sized a) => (a -> a) -> k -> a -> SNode k a -> SNode k a
+insertWith :: Ord k => (a -> a) -> k -> a -> SNode k a -> SNode k a
 insertWith f k a = k `seq` ins where
   ins BIN(kx x l r) = case compare k kx of
     EQ -> bin kx (f x) l r
@@ -153,7 +144,7 @@ insertWith f k a = k `seq` ins where
     GT -> balance kx x l (ins r)
   ins TIP = singleton k a
 
-rebuild :: Sized a => SNode k a -> Path k a -> SNode k a
+rebuild :: SNode k a -> Path k a -> SNode k a
 rebuild t Root = t
 rebuild t (LeftBin kx x path r) = rebuild (balance kx x t r) path
 rebuild t (RightBin kx x l path) = rebuild (balance kx x l t) path
@@ -166,14 +157,14 @@ lookupC k = look where
 	GT	-> look r
   look _ = mzero
 
-singleton :: Sized a => k -> a -> SNode k a
+singleton :: k -> a -> SNode k a
 singleton k a = bin k a tip tip
 
 instance Traversable (SNode k) where
   traverse f = trav where
     trav TIP = pure tip
     trav SNode{node = Bin k a l r, ..} =
-      let done a' l' r' = SNode sz count (Bin k a' l' r') in
+      let done a' l' r' = SNode {node = Bin k a' l' r', ..} in
 	done <$> f a <*> trav l <*> trav r
 
 instance Foldable (SNode k) where
@@ -259,7 +250,7 @@ hedgeUnion f cmplo cmphi BIN(kx x l r) t2
                     Nothing -> Just x
                     Just (_,y) -> f x y
 
-filterGt :: (Ord k, Sized a) => (k -> Ordering) -> SNode k a -> SNode k a
+filterGt :: Ord k => (k -> Ordering) -> SNode k a -> SNode k a
 filterGt _   TIP = tip
 filterGt cmp BIN(kx x l r)
   = case cmp kx of
@@ -267,7 +258,7 @@ filterGt cmp BIN(kx x l r)
       GT -> filterGt  cmp r
       EQ -> r
 
-filterLt :: (Ord k, Sized a) => (k -> Ordering) -> SNode k a -> SNode k a
+filterLt :: Ord k => (k -> Ordering) -> SNode k a -> SNode k a
 filterLt _   TIP = tip
 filterLt cmp BIN(kx x l r)
   = case cmp kx of
@@ -315,19 +306,19 @@ hedgeDiff  f cmplo cmphi t BIN(kx x l r)
     tl          = hedgeDiff f cmplo cmpkx lt l
     tr          = hedgeDiff f cmpkx cmphi gt r
 
-joinMaybe :: (Ord k, Sized a) => k -> Maybe a -> SNode k a -> SNode k a -> SNode k a
+joinMaybe :: Ord k => k -> Maybe a -> SNode k a -> SNode k a -> SNode k a
 joinMaybe kx = maybe merge (join kx)
 
-join :: Sized a => k -> a -> SNode k a -> SNode k a -> SNode k a
+join :: k -> a -> SNode k a -> SNode k a -> SNode k a
 join kx x TIP r  = insertMin  kx x r
 join kx x l TIP  = insertMax  kx x l
-join kx x l@(SNode _ sL (Bin ky y ly ry)) r@(SNode _ sR (Bin kz z lz rz))
+join kx x l@SNode{count = sL, node = Bin ky y ly ry} r@SNode{count = sR, node = Bin kz z lz rz}
   | DELTA * sL <= sR = balance kz z (join kx x l lz) rz
   | DELTA * sR <= sL = balance ky y ly (join kx x ry r)
   | otherwise        = bin kx x l r
 
 -- insertMin and insertMax don't perform potentially expensive comparisons.
-insertMax,insertMin :: Sized a => k -> a -> SNode k a -> SNode k a
+insertMax,insertMin :: k -> a -> SNode k a -> SNode k a
 insertMax kx x = insMax where
   insMax TIP	= singleton kx x
   insMax BIN(ky y l r)
@@ -341,10 +332,10 @@ insertMin kx x = insMin where
 {--------------------------------------------------------------------
   [merge l r]: merges two trees.
 --------------------------------------------------------------------}
-merge :: Sized a => SNode k a -> SNode k a -> SNode k a
+merge :: SNode k a -> SNode k a -> SNode k a
 merge TIP r   = r
 merge l TIP   = l
-merge l@(SNode _ sL (Bin kx x lx rx)) r@(SNode _ sR (Bin ky y ly ry))
+merge l@SNode{count = sL, node = Bin kx x lx rx} r@SNode{count = sR, node = Bin ky y ly ry}
   | DELTA * sL <= sR	= balance ky y (merge l ly) ry
   | DELTA * sR <= sL	= balance kx x lx (merge rx r)
   | otherwise		= glue l r
@@ -353,28 +344,28 @@ merge l@(SNode _ sL (Bin kx x lx rx)) r@(SNode _ sR (Bin ky y ly ry))
   [glue l r]: glues two trees together.
   Assumes that [l] and [r] are already balanced with respect to each other.
 --------------------------------------------------------------------}
-glue :: Sized a => SNode k a -> SNode k a -> SNode k a
+glue :: SNode k a -> SNode k a -> SNode k a
 glue TIP r = r
 glue l TIP = l
 glue l r
   | count l > count r	= let !(# f, l' #) = deleteFindMax balance l in f l' r
   | otherwise		= let !(# f, r' #) = deleteFindMin balance r in f l r'
 
-deleteFindMin :: Sized a => (k -> a -> x) -> SNode k a -> (# x, SNode k a #)
+deleteFindMin :: (k -> a -> x) -> SNode k a -> (# x, SNode k a #)
 deleteFindMin f t 
   = case t of
       BIN(k x TIP r)	-> (# f k x, r #)
       BIN(k x l r)	-> onSnd (\ l' -> balance k x l' r) (deleteFindMin f) l
       _			-> (# error "Map.deleteFindMin: can not return the minimal element of an empty fmap", tip #)
 
-deleteFindMax :: Sized a => (k -> a -> x) -> SNode k a -> (# x, SNode k a #)
+deleteFindMax :: (k -> a -> x) -> SNode k a -> (# x, SNode k a #)
 deleteFindMax f t
   = case t of
       BIN(k x l TIP)	-> (# f k x, l #)
       BIN(k x l r)	-> onSnd (balance k x l) (deleteFindMax f) r
       TIP		-> (# error "Map.deleteFindMax: can not return the maximal element of an empty fmap", tip #)
 
-balance :: Sized a => k -> a -> SNode k a -> SNode k a -> SNode k a
+balance :: k -> a -> SNode k a -> SNode k a -> SNode k a
 balance k x l r
   | sR >= (DELTA * sL)	= rotateL  k x l r
   | sL >= (DELTA * sR)	= rotateR  k x l r
@@ -384,7 +375,7 @@ balance k x l r
     !sR = count r
 
 -- rotate
-rotateL :: Sized a => k -> a -> SNode k a -> SNode k a -> SNode k a
+rotateL :: k -> a -> SNode k a -> SNode k a -> SNode k a
 rotateL k x l r@BIN(_ _ ly ry)
   | sL < (RATIO * sR)	= singleL k x l r
   | otherwise		= doubleL k x l r
@@ -392,7 +383,7 @@ rotateL k x l r@BIN(_ _ ly ry)
   	!sR = count ry
 rotateL k x l TIP	= insertMax k x l
 
-rotateR :: Sized a => k -> a -> SNode k a -> SNode k a -> SNode k a
+rotateR :: k -> a -> SNode k a -> SNode k a -> SNode k a
 rotateR k x l@BIN(_ _ ly ry) r
   | sR < (RATIO * sL)	= singleR k x l r
   | otherwise		= doubleR k x l r
@@ -401,28 +392,28 @@ rotateR k x l@BIN(_ _ ly ry) r
 rotateR k x TIP r	= insertMin k x r
 
 -- basic rotations
-singleL, singleR :: Sized a => k -> a -> SNode k a -> SNode k a -> SNode k a
+singleL, singleR :: k -> a -> SNode k a -> SNode k a -> SNode k a
 singleL k1 x1 t1 BIN(k2 x2 t2 t3)  = bin k2 x2 (bin k1 x1 t1 t2) t3
 singleL k1 x1 t1 TIP = bin k1 x1 t1 tip
 singleR  k1 x1 BIN(k2 x2 t1 t2) t3  = bin k2 x2 t1 (bin k1 x1 t2 t3)
 singleR  k1 x1 TIP t2 = bin k1 x1 tip t2
 
-doubleL, doubleR :: Sized a => k -> a -> SNode k a -> SNode k a -> SNode k a
+doubleL, doubleR :: k -> a -> SNode k a -> SNode k a -> SNode k a
 doubleL  k1 x1 t1 BIN(k2 x2 BIN(k3 x3 t2 t3) t4) = bin k3 x3 (bin k1 x1 t1 t2) (bin k2 x2 t3 t4)
 doubleL  k1 x1 t1 t2 = singleL k1 x1 t1 t2
 doubleR  k1 x1 BIN(k2 x2 t1 BIN(k3 x3 t2 t3)) t4 = bin k3 x3 (bin k2 x2 t1 t2) (bin k1 x1 t3 t4)
 doubleR  k1 x1 t1 t2 = singleR  k1 x1 t1 t2
 
-bin :: Sized a => k -> a -> SNode k a -> SNode k a -> SNode k a
+bin :: k -> a -> SNode k a -> SNode k a -> SNode k a
 bin k x l r
   = sNode (Bin k x l r)
 
-before :: Sized a => SNode k a -> Path k a -> SNode k a
+before :: SNode k a -> Path k a -> SNode k a
 before t (LeftBin _ _ path _) = before t path
 before t (RightBin k a l path) = before (join k a l t) path
 before t _ = t
 
-after :: Sized a => SNode k a -> Path k a -> SNode k a
+after :: SNode k a -> Path k a -> SNode k a
 after t (LeftBin k a path r) = after (join k a t r) path
 after t (RightBin _ _ _ path) = after t path
 after t _ = t

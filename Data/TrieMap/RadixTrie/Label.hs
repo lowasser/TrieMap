@@ -24,8 +24,7 @@ class (Unpackable (v k), Vector v k, TrieKey k) => Label v k where
   data Path v k :: * -> *
   data EdgeLoc v k :: * -> *
   data Stack v k :: * -> *
-  edge :: Sized a => v k -> Maybe a -> Branch v k a -> Edge v k a
-  edge' :: Int -> v k -> Maybe a -> Branch v k a -> Edge v k a
+  edge :: v k -> Maybe a -> Branch v k a -> Edge v k a
   root :: Path v k a
   deep :: Path v k a -> v k -> Maybe a -> BHole v k a -> Path v k a
   loc :: v k -> Branch v k a -> Path v k a -> EdgeLoc v k a
@@ -40,25 +39,23 @@ type BHole v k a = Hole k (Edge v k a)
 
 type Branch v k a = TrieMap k (Edge v k a)
 data EView v k a =
-	Edge Int (v k) (Maybe a) (Branch v k a)
+	Edge (v k) (Maybe a) (Branch v k a)
 data LocView v k a = Loc !( v k) (Branch v k a) (Path v k a)
 data PView v k a = Root
 	| Deep (Path v k a) (v k) (Maybe a) (BHole v k a)
 data StackView v k a = Stack (v k) (Maybe a) (Maybe (DAMStack k (Edge v k a))) (Maybe (k, Stack v k a))
 type MEdge v k a = Maybe (Edge v k a)
 
-instance Sized (EView v k a) where
-  getSize# (Edge sz _ _ _) = unbox sz
-
-instance Label v k => Sized (Edge v k a) where
-  {-# SPECIALIZE instance TrieKey k => Sized (V(Edge) a) #-}
-  {-# SPECIALIZE instance Sized (U(Edge) a) #-}
-  getSize# e = getSize# (eView e)
+instance (Label v k, Sized a) => Sized (Edge v k a) where
+  {-# SPECIALIZE instance (TrieKey k, Sized a) => Sized (V(Edge) a) #-}
+  {-# SPECIALIZE instance Sized a => Sized (U(Edge) a) #-}
+  getSize# e = unbox $ case eView e of
+    Edge _ v ts -> getSize v + getSize ts
 
 instance TrieKey k => Label V.Vector k where
   data Edge V.Vector k a =
-    VEdge !Int !(V()) (V(Branch) a)
-    | VEdgeX !Int !(V()) a (V(Branch) a)
+    VEdge !(V()) (V(Branch) a)
+    | VEdgeX !(V()) a (V(Branch) a)
   data Path V.Vector k a =
     VRoot
     | VDeep (V(Path) a) !(V()) (V(BHole) a)
@@ -71,10 +68,8 @@ instance TrieKey k => Label V.Vector k where
     | VTip !(V()) a
   
   {-# INLINE edge #-}
-  edge !ks Nothing ts = VEdge (sizeM ts) ks ts
-  edge !ks (Just a) ts = VEdgeX (sizeM ts + getSize a) ks a ts
-  edge' s !ks Nothing ts = VEdge s ks ts
-  edge' s !ks (Just a) ts = VEdgeX s ks a ts
+  edge !ks Nothing ts = VEdge ks ts
+  edge !ks (Just a) ts = VEdgeX ks a ts
   
   root = VRoot
   deep path !ks Nothing tHole = VDeep path ks tHole
@@ -82,8 +77,8 @@ instance TrieKey k => Label V.Vector k where
   
   loc = VLoc
   
-  eView (VEdge s ks ts) = Edge s ks Nothing ts
-  eView (VEdgeX s ks v ts) = Edge s ks (Just v) ts
+  eView (VEdge ks ts) = Edge ks Nothing ts
+  eView (VEdgeX ks v ts) = Edge ks (Just v) ts
   pView VRoot = Root
   pView (VDeep path ks tHole) = Deep path ks Nothing tHole
   pView (VDeepX path ks v tHole) = Deep path ks (Just v) tHole
@@ -113,14 +108,14 @@ instance TrieKey k => Unpackable (V(EdgeLoc) a) where
 
 instance Label P.Vector Word where
   data Edge P.Vector Word a =
-    SEdge !(U()) !(SNode (U(Edge) a))
-    | SEdgeX !Int !(U()) a !(SNode (U(Edge) a))
+    SEdge !(U()) !(Node (U(Edge) a))
+    | SEdgeX !(U()) a (Node (U(Edge) a))
   data Path P.Vector Word a =
     SRoot
     | SDeep (U(Path) a) !(U()) !(WHole (U(Edge) a))
     | SDeepX (U(Path) a) !(U()) a !(WHole (U(Edge) a))
   data EdgeLoc P.Vector Word a =
-    SLoc !(U()) !(SNode (U(Edge) a)) (U(Path) a)
+    SLoc !(U()) !(Node (U(Edge) a)) (U(Path) a)
   data Stack P.Vector Word a =
     PStackAZ !(U()) a !(WordStack (U(Edge) a)) !Word (U(Stack) a)
     | PStackA !(U()) a !Word (U(Stack) a)
@@ -141,9 +136,7 @@ instance Label P.Vector Word where
   sView (PTip ks a) = Stack ks (Just a) Nothing Nothing
   
   edge !ks Nothing ts = SEdge ks (getWordMap ts)
-  edge !ks (Just v) ts = SEdgeX (getSize v + sizeM ts) ks v (getWordMap ts)
-  edge' _ !ks Nothing ts = SEdge ks (getWordMap ts)
-  edge' sz !ks (Just v) ts = SEdgeX sz ks v (getWordMap ts)
+  edge !ks (Just v) ts = SEdgeX ks v (getWordMap ts)
   
   root = SRoot
   deep path !ks Nothing tHole = SDeep path ks (getHole tHole)
@@ -151,8 +144,8 @@ instance Label P.Vector Word where
 
   loc ks ts path = SLoc ks (getWordMap ts) path
 
-  eView (SEdge ks ts) = Edge (getSize ts) ks Nothing (WordMap ts)
-  eView (SEdgeX s ks v ts) = Edge s ks (Just v) (WordMap ts)
+  eView (SEdge ks ts) = Edge ks Nothing (WordMap ts)
+  eView (SEdgeX ks v ts) = Edge ks (Just v) (WordMap ts)
   pView SRoot = Root
   pView (SDeep path ks tHole) = Deep path ks Nothing (Hole tHole)
   pView (SDeepX path ks v tHole) = Deep path ks (Just v) (Hole tHole)
@@ -160,17 +153,17 @@ instance Label P.Vector Word where
 
 instance Unpackable (U(EdgeLoc) a) where
   newtype UnpackedReaderT (U(EdgeLoc) a) m r =
-    ULocRT {runULocRT :: UnpackedReaderT (U()) (UnpackedReaderT (SNode (U(Edge) a)) (ReaderT (U(Path) a) m)) r}
+    ULocRT {runULocRT :: UnpackedReaderT (U()) (UnpackedReaderT (Node (U(Edge) a)) (ReaderT (U(Path) a) m)) r}
   runUnpackedReaderT func (SLoc ks ts path) =
     runULocRT func `runUnpackedReaderT` ks `runUnpackedReaderT` ts `runReaderT` path
   unpackedReaderT func = ULocRT $ unpackedReaderT $ \ ks -> unpackedReaderT $ \ ts -> ReaderT $ \ path ->
     func (SLoc ks ts path)
 
 {-# SPECIALIZE singletonEdge ::
-    (TrieKey k, Sized a) => V() -> a -> V(Edge) a,
-    Sized a => U() -> a -> U(Edge) a #-}
-singletonEdge :: (Label v k, Sized a) => v k -> a -> Edge v k a
-singletonEdge !ks a = edge' (getSize a) ks (Just a) emptyM
+    TrieKey k => V() -> a -> V(Edge) a,
+    U() -> a -> U(Edge) a #-}
+singletonEdge :: (Label v k) => v k -> a -> Edge v k a
+singletonEdge !ks a = edge ks (Just a) emptyM
 
 {-# SPECIALIZE singleLoc :: 
     TrieKey k => V() -> V(EdgeLoc) a,
@@ -182,7 +175,7 @@ singleLoc ks = loc ks emptyM root
     TrieKey k => V(Edge) a -> Simple a,
     U(Edge) a -> Simple a #-}
 getSimpleEdge :: Label v k => Edge v k a -> Simple a
-getSimpleEdge !(eView -> Edge _ _ v ts)
+getSimpleEdge !(eView -> Edge _ v ts)
   | isNull ts	= maybe Null Singleton v
   | otherwise	= NonSimple
 
@@ -193,13 +186,13 @@ getSimpleEdge !(eView -> Edge _ _ v ts)
     TrieKey k => Int -> V(Edge) a -> V(Edge) a,
     Int -> U(Edge) a -> U(Edge) a #-}
 dropEdge, unDropEdge :: Label v k => Int -> Edge v k a -> Edge v k a
-dropEdge !n !(eView -> Edge sz# ks v ts) = edge' sz# (dropSlice n ks) v ts
-unDropEdge !n !(eView -> Edge sz# ks v ts) = edge' sz# (unDropSlice n ks) v ts
+dropEdge !n !(eView -> Edge ks v ts) = edge (dropSlice n ks) v ts
+unDropEdge !n !(eView -> Edge ks v ts) = edge (unDropSlice n ks) v ts
 
 {-# SPECIALIZE cEdge ::
-    (TrieKey k, Sized a) => V() -> Maybe a -> V(Branch) a -> V(MEdge) a,
-    Sized a => U() -> Maybe a -> U(Branch) a -> U(MEdge) a #-}
-cEdge :: (Label v k, Sized a) => v k -> Maybe a -> Branch v k a -> MEdge v k a
+    TrieKey k => V() -> Maybe a -> V(Branch) a -> V(MEdge) a,
+    U() -> Maybe a -> U(Branch) a -> U(MEdge) a #-}
+cEdge :: (Label v k) => v k -> Maybe a -> Branch v k a -> MEdge v k a
 cEdge !ks v ts = case v of
   Nothing -> case getSimpleM ts of
     Null	-> Nothing

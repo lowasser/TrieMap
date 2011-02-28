@@ -8,7 +8,6 @@ module Data.TrieMap.RadixTrie.Edge     ( searchEdgeC,
       clearEdge,
       diffEdge,
       extractEdgeLoc,
-      indexEdge,
       insertEdge,
       isectEdge,
       lookupEdge,
@@ -134,29 +133,29 @@ mapEitherEdge f = mapEitherE where
 		!(# tsL, tsR #) = mapEither mapEitherE ts
 
 {-# INLINE assignEdge #-}
-assignEdge :: (Label v k, Sized a) => a -> EdgeLoc v k a -> Edge v k a
+assignEdge :: Label v k => a -> EdgeLoc v k a -> Edge v k a
 assignEdge v LOC(ks ts path) = assign (edge ks (Just v) ts) path
 
 {-# SPECIALIZE assign ::
-      (TrieKey k, Sized a) => V(Edge) a -> V(Path) a -> V(Edge) a,
-      Sized a => U(Edge) a -> U(Path) a -> U(Edge) a #-}
-assign :: (Label v k, Sized a) => Edge v k a -> Path v k a -> Edge v k a
+      TrieKey k => V(Edge) a -> V(Path) a -> V(Edge) a,
+      U(Edge) a -> U(Path) a -> U(Edge) a #-}
+assign :: Label v k => Edge v k a -> Path v k a -> Edge v k a
 assign e DEEP(path ks v tHole)	= assign (edge ks v (assignM e tHole)) path
 assign e _			= e
 
 {-# SPECIALIZE clearEdge :: 
-      (TrieKey k, Sized a) => V(EdgeLoc) a -> V(MEdge) a,
-      Sized a => U(EdgeLoc) a -> U(MEdge) a #-}
-clearEdge :: (Label v k, Sized a) => EdgeLoc v k a -> MEdge v k a
+      TrieKey k => V(EdgeLoc) a -> V(MEdge) a,
+      U(EdgeLoc) a -> U(MEdge) a #-}
+clearEdge :: Label v k => EdgeLoc v k a -> MEdge v k a
 clearEdge LOC(ks ts path) = rebuild (cEdge ks Nothing ts) path where
   rebuild Nothing DEEP(path ks v tHole)	= rebuild (cEdge ks v (clearM tHole)) path
   rebuild Nothing _	= Nothing
   rebuild (Just e) path = Just $ assign e path
 
 {-# SPECIALIZE unionEdge :: 
-      (TrieKey k, Sized a) => (a -> a -> Maybe a) -> V(Edge) a -> V(Edge) a -> V(MEdge) a,
-      Sized a => (a -> a -> Maybe a) -> U(Edge) a -> U(Edge) a -> U(MEdge) a #-}
-unionEdge :: (Label v k, Sized a) => 
+      TrieKey k => (a -> a -> Maybe a) -> V(Edge) a -> V(Edge) a -> V(MEdge) a,
+      (a -> a -> Maybe a) -> U(Edge) a -> U(Edge) a -> U(MEdge) a #-}
+unionEdge :: Label v k => 
 	(a -> a -> Maybe a) -> Edge v k a -> Edge v k a -> MEdge v k a
 unionEdge f = unionE where
   unionE !eK@EDGE(_ ks0 !vK tsK) !eL@EDGE(_ ls0 !vL tsL) = iMatchSlice matcher matches ks0 ls0 where
@@ -191,8 +190,8 @@ isectEdge f = isectE where
 	      let eK' = dropEdge (lLen + 1) eK in unDropEdge (lLen + 1) <$> eK' `isectE` eL'
 
 {-# SPECIALIZE diffEdge ::
-      (TrieKey k, Sized a) => (a -> b -> Maybe a) -> V(Edge) a -> V(Edge) b -> V(MEdge) a,
-      Sized a => (a -> b -> Maybe a) -> U(Edge) a -> U(Edge) b -> U(MEdge) a #-}
+      TrieKey k => (a -> b -> Maybe a) -> V(Edge) a -> V(Edge) b -> V(MEdge) a,
+      (a -> b -> Maybe a) -> U(Edge) a -> U(Edge) b -> U(MEdge) a #-}
 diffEdge :: (Eq k, Label v k, Sized a) =>
 	(a -> b -> Maybe a) -> Edge v k a -> Edge v k b -> MEdge v k a
 diffEdge f = diffE where
@@ -220,12 +219,12 @@ instance (Eq k, Label v k) => Subset (Edge v k) where
       GT	-> let k = ks0 !$ lLen in runLookup (lookupMC k tsL) False (dropEdge (lLen + 1) eK <=?)
 
 {-# SPECIALIZE beforeEdge :: 
-      (TrieKey k, Sized a) => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,
-      Sized a => Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
+      TrieKey k => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,
+      Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
 {-# SPECIALIZE afterEdge :: 
-      (TrieKey k, Sized a) => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,
-      Sized a => Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
-beforeEdge, afterEdge :: (Label v k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
+      TrieKey k => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,
+      Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
+beforeEdge, afterEdge :: Label v k => Maybe a -> EdgeLoc v k a -> MEdge v k a
 beforeEdge v LOC(ks ts path) = case cEdge ks v ts of
   Nothing	-> before path
   Just e	-> Just $ beforeWith e path
@@ -260,25 +259,10 @@ extractEdgeLoc EDGE(_ ks v ts) path = case v of
   where	extractTS = do	(e', tHole) <- extractHoleM ts
 			extractEdgeLoc e' (deep path ks v tHole)
 
-{-# SPECIALIZE indexEdge :: 
-      (TrieKey k, Sized a) => V(Edge) a -> Int# -> (# Int#, a, V(EdgeLoc) a #),
-      Sized a => U(Edge) a -> Int# -> (# Int#, a, U(EdgeLoc) a #) #-}
-indexEdge :: (Label v k, Sized a) => Edge v k a -> Int# -> (# Int#, a, EdgeLoc v k a #)
-indexEdge e i = let
-  indexE i !e path = case eView e of
-    Edge sE ks v@(Just a) ts
-      | i <# sv		-> (# i, a, loc ks ts path #)
-      | otherwise	-> case indexM ts (i -# sv) of
-	  (# i', e', tHole #) -> indexE i' e' (deep path ks v tHole)
-	  where	!sv = unbox $ sE - sizeM ts
-    Edge _ ks Nothing ts -> case indexM ts i of
-	  (# i', e', tHole #) -> indexE i' e' (deep path ks Nothing tHole)
-  in indexE i e root
-
 {-# SPECIALIZE insertEdge ::
-      (TrieKey k, Sized a) => (a -> a) -> V() -> a -> V(Edge) a -> V(Edge) a,
-      Sized a => (a -> a) -> U() -> a -> U(Edge) a -> U(Edge) a #-}
-insertEdge :: (Label v k, Sized a) => (a -> a) -> v k -> a -> Edge v k a -> Edge v k a
+      TrieKey k => (a -> a) -> V() -> a -> V(Edge) a -> V(Edge) a,
+      (a -> a) -> U() -> a -> U(Edge) a -> U(Edge) a #-}
+insertEdge :: Label v k => (a -> a) -> v k -> a -> Edge v k a -> Edge v k a
 insertEdge f ks0 a e = insertE ks0 e where
   !sza = getSize a
   insertE !ks eL@EDGE(szL ls !v ts) = iMatchSlice matcher matches ks ls where
@@ -297,9 +281,9 @@ insertEdge f ks0 a e = insertE ks0 e where
 	sz' = sizeM ts' + szV
 
 {-# SPECIALIZE fromAscListEdge ::
-      (TrieKey k, Sized a) => (a -> a -> a) -> Foldl (V(Stack)) (V()) a (V(MEdge) a),
-      Sized a => (a -> a -> a) -> Foldl (U(Stack)) (U()) a (U(MEdge) a) #-}
-fromAscListEdge :: forall v k a .(Label v k, Sized a) => (a -> a -> a) -> 
+      TrieKey k => (a -> a -> a) -> Foldl (V(Stack)) (V()) a (V(MEdge) a),
+      (a -> a -> a) -> Foldl (U(Stack)) (U()) a (U(MEdge) a) #-}
+fromAscListEdge :: forall v k a .Label v k => (a -> a -> a) -> 
   Foldl (Stack v k) (v k) a (MEdge v k a)
 fromAscListEdge f = case inline daFold of
   Foldl{snoc = snocB, begin = beginB, done = doneB} 

@@ -12,8 +12,8 @@ import Prelude hiding (foldr, foldl, foldr1, foldl1)
 
 type RepMap k = TrieMap (Rep k)
 
-keyMap :: (Repr k, TrieKey (Rep k), Sized a) => TrieMap (Rep k) a -> TrieMap (Key k) a
-keyMap m = KeyMap (sizeM m) m
+keyMap :: (Repr k, TrieKey (Rep k)) => TrieMap (Rep k) a -> TrieMap (Key k) a
+keyMap m = KeyMap m
 
 #define KMAP(m) KeyMap{tMap = m}
 #define CONTEXT(cl) (Repr k, TrieKey (Rep k), cl (RepMap k))
@@ -24,10 +24,10 @@ instance CONTEXT(Foldable) => Foldable (TrieMap (Key k)) where
   foldl f z KMAP(m) = foldl f z m
 
 instance CONTEXT(Functor) => Functor (TrieMap (Key k)) where
-  fmap f KeyMap{..} = KeyMap{sz, tMap = f <$> tMap}
+  fmap f KeyMap{..} = KeyMap{tMap = f <$> tMap}
 
 instance CONTEXT(Traversable) => Traversable (TrieMap (Key k)) where
-  traverse f KeyMap{..} = KeyMap sz <$> traverse f tMap
+  traverse f KeyMap{..} = KeyMap <$> traverse f tMap
 
 instance CONTEXT(Subset) => Subset (TrieMap (Key k)) where
   KMAP(m1) <=? KMAP(m2) = m1 <=? m2
@@ -52,13 +52,13 @@ instance CONTEXT(Project) => Project (TrieMap (Key k)) where
 
 -- | @'TrieMap' ('Key' k) a@ is a wrapper around a @TrieMap (Rep k) a@.
 instance TKey k => TrieKey (Key k) where
-	data TrieMap (Key k) a = KeyMap {sz :: !Int, tMap :: !(TrieMap (Rep k) a)}
+	newtype TrieMap (Key k) a = KeyMap {tMap :: TrieMap (Rep k) a}
 	newtype Hole (Key k) a = KeyHole (Hole (Rep k) a)
 	
-	emptyM = KeyMap 0 emptyM
-	singletonM (Key k) a = KeyMap (getSize a) (singletonM (toRep k) a)
+	emptyM = KeyMap emptyM
+	singletonM (Key k) a = KeyMap (singletonM (toRep k) a)
 	getSimpleM KMAP(m) = getSimpleM m
-	sizeM = sz
+	sizeM KMAP(m) = sizeM m
 	lookupMC (Key k) KMAP(m) = lookupMC (toRep k) m
 
 	singleHoleM (Key k) = KeyHole (singleHoleM (toRep k))
@@ -67,8 +67,6 @@ instance TKey k => TrieKey (Key k) where
 	afterM (KeyHole hole) = keyMap (afterM hole)
 	afterWithM a (KeyHole hole) = keyMap (afterWithM a hole)
 	searchMC (Key k) KMAP(m) = mapSearch KeyHole (searchMC (toRep k) m)
-	indexM KMAP(m) i = case indexM m i of
-	  (# i', a, hole #) -> (# i', a, KeyHole hole #)
 	extractHoleM KMAP(m) = fmap KeyHole <$> extractHoleM m
 	assignM v (KeyHole hole) = keyMap (assignM v hole)
 	clearM (KeyHole hole) = keyMap (clearM hole)

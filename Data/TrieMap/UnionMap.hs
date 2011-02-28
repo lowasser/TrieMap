@@ -11,19 +11,19 @@ import GHC.Exts
 import Prelude hiding (foldr, foldr1, foldl, foldl1, (^))
 
 {-# INLINE (^) #-}
-(^) :: (TrieKey k1, TrieKey k2, Sized a) => Maybe (TrieMap k1 a) -> Maybe (TrieMap k2 a) -> TrieMap (Either k1 k2) a
+(^) :: (TrieKey k1, TrieKey k2) => Maybe (TrieMap k1 a) -> Maybe (TrieMap k2 a) -> TrieMap (Either k1 k2) a
 Nothing ^ Nothing	= Empty
 Just m1 ^ Nothing	= MapL m1
 Nothing ^ Just m2	= MapR m2
-Just m1 ^ Just m2	= Union (sizeM m1 + sizeM m2) m1 m2
+Just m1 ^ Just m2	= mapLR m1 m2
 
-mapLR :: (TrieKey k1, TrieKey k2, Sized a) => TrieMap k1 a -> TrieMap k2 a -> TrieMap (Either k1 k2) a
-mapLR m1 m2 = Union (sizeM m1 + getSize m2) m1 m2
+mapLR :: (TrieKey k1, TrieKey k2) => TrieMap k1 a -> TrieMap k2 a -> TrieMap (Either k1 k2) a
+mapLR m1 m2 = Union m1 m2
 
-singletonL :: (TrieKey k1, TrieKey k2, Sized a) => k1 -> a -> TrieMap (Either k1 k2) a
+singletonL :: (TrieKey k1, TrieKey k2) => k1 -> a -> TrieMap (Either k1 k2) a
 singletonL k a = MapL (singletonM k a)
 
-singletonR :: (TrieKey k1, TrieKey k2, Sized a) => k2 -> a -> TrieMap (Either k1 k2) a
+singletonR :: (TrieKey k1, TrieKey k2) => k2 -> a -> TrieMap (Either k1 k2) a
 singletonR k a = MapR (singletonM k a)
 
 data UView k1 k2 a = UView (Maybe (TrieMap k1 a)) (Maybe (TrieMap k2 a))
@@ -35,7 +35,7 @@ uView :: TrieMap (Either k1 k2) a -> UView k1 k2 a
 uView Empty = UView Nothing Nothing
 uView (MapL m1) = UView (Just m1) Nothing
 uView (MapR m2) = UView Nothing (Just m2)
-uView (Union _ m1 m2) = UView (Just m1) (Just m2)
+uView (Union m1 m2) = UView (Just m1) (Just m2)
 
 hView :: Hole (Either k1 k2) a -> HView k1 k2 a
 hView (HoleX0 hole1) = Hole1 hole1 Nothing
@@ -58,7 +58,7 @@ instance CONTEXT(Functor) => Functor (TrieMap (Either k1 k2)) where
   fmap _ Empty = Empty
   fmap f (MapL m1) = MapL (f <$> m1)
   fmap f (MapR m2) = MapR (f <$> m2)
-  fmap f (Union s m1 m2) = Union s (f <$> m1) (f <$> m2)
+  fmap f (Union m1 m2) = Union (f <$> m1) (f <$> m2)
 
 instance CONTEXT(Foldable) => Foldable (TrieMap (Either k1 k2)) where
   foldMap f (UVIEW m1 m2) = fmap (foldMap f) m1 `mappendM` fmap (foldMap f) m2
@@ -69,7 +69,7 @@ instance CONTEXT(Traversable) => Traversable (TrieMap (Either k1 k2)) where
   traverse _ Empty = pure Empty
   traverse f (MapL m1) = MapL <$> traverse f m1
   traverse f (MapR m2) = MapR <$> traverse f m2
-  traverse f (Union s m1 m2) = Union s <$> traverse f m1 <*> traverse f m2
+  traverse f (Union m1 m2) = Union <$> traverse f m1 <*> traverse f m2
 
 instance CONTEXT(Subset) => Subset (TrieMap (Either k1 k2)) where
   (UVIEW m11 m12) <=? (UVIEW m21 m22)
@@ -88,7 +88,7 @@ runUView :: TrieMap (Either k1 k2) a -> (Maybe (TrieMap k1 a) -> Maybe (TrieMap 
 runUView Empty f = inline f Nothing Nothing
 runUView (MapL mL) f = inline f (Just mL) Nothing
 runUView (MapR mR) f = inline f Nothing (Just mR)
-runUView (Union _ mL mR) f = inline f (Just mL) (Just mR)
+runUView (Union mL mR) f = inline f (Just mL) (Just mR)
 
 instance CONTEXT(SetOp) => SetOp (TrieMap (Either k1 k2)) where
   union f m1 m2 
@@ -118,7 +118,7 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		Empty
 		| MapL (TrieMap k1 a)
 		| MapR (TrieMap k2 a)
-		| Union !Int (TrieMap k1 a) (TrieMap k2 a)
+		| Union (TrieMap k1 a) (TrieMap k2 a)
 	data Hole (Either k1 k2) a =
 		HoleX0 (Hole k1 a)
 		| HoleXR (Hole k1 a) (TrieMap k2 a)
@@ -132,10 +132,7 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 		mSimple :: TrieKey k => Maybe (TrieMap k a) -> Simple a
 		mSimple = maybe mzero getSimpleM
 	
-	sizeM Empty = 0
-	sizeM (MapL m1) = sizeM m1
-	sizeM (MapR m2) = sizeM m2
-	sizeM (Union s _ _) = s
+	sizeM (UVIEW m1 m2) = getSize m1 + getSize m2
 	
 	lookupMC (Left k) (UVIEW (Just m1) _) = lookupMC k m1
 	lookupMC (Right k) (UVIEW _ (Just m2)) = lookupMC k m2
@@ -165,19 +162,6 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (Either k1 k2) where
 	searchMC (Left k) (UVIEW m1 m2) = mapSearch (`hole1` m2) (searchMC' k m1)
 	searchMC (Right k) (UVIEW m1 m2) = mapSearch (hole2 m1) (searchMC' k m2)
 	
-	indexM m i = case m of
-	  MapL m1	-> case indexM m1 i of
-	    (# i', a, hole1 #) -> (# i', a, HoleX0 hole1 #)
-	  MapR m2	-> case indexM m2 i of
-	    (# i', a, hole2 #) -> (# i', a, Hole0X hole2 #)
-	  Union _  m1 m2
-	    | i <# s1, (# i', a, hole1 #) <- indexM m1 i
-	    	-> (# i', a, HoleXR hole1 m2 #)
-	    | (# i', a, hole2 #) <- indexM m2 (i -# s1)
-		-> (# i', a, HoleLX m1 hole2 #)
-	    where !s1 = sizeM# m1
-	  _	-> indexFail ()
-
 	extractHoleM (UVIEW !m1 !m2) = holes1 `mplus` holes2 where
 	  holes1 = holes extractHoleM (`hole1` m2) m1
 	  holes2 = holes extractHoleM (hole2 m1) m2

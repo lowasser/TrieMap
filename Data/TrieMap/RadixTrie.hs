@@ -77,9 +77,6 @@ instance TrieKey k => TrieKey (Vector k) where
 	  Just e	-> searchEdgeC ks e nomatch' match'
 	  Nothing	-> nomatch' $~ singleLoc ks
 	 where nomatch' = unpack (nomatch . Hole); match' a = unpack (match a . Hole)
-	indexM (Radix (Just e)) i = case indexEdge e i of
-	  (# i', a, loc #) -> (# i', a, Hole loc #)
-	indexM _ _ = indexFail ()
 
 	clearM (Hole loc) = Radix (clearEdge loc)
 	{-# INLINE assignM #-}
@@ -157,9 +154,6 @@ instance TrieKey (P.Vector Word) where
 	  Just e	-> searchEdgeC ks e nomatch' match'
 	  Nothing	-> nomatch' $~ singleLoc ks
 	 where nomatch' = unpack (nomatch . WHole); match' a = unpack (match a . WHole)
-	indexM (WRadix (Just e)) i = case indexEdge e i of
-	  (# i', a, loc #) -> (# i', a, WHole loc #)
-	indexM _ _ = indexFail ()
 	
 	clearM (WHole loc) = WRadix (clearEdge loc)
 	{-# INLINE assignM #-}
