@@ -1,5 +1,5 @@
-{-# LANGUAGE TypeFamilies, FlexibleContexts, FlexibleInstances, UndecidableInstances #-}
-
+{-# LANGUAGE TypeFamilies, FlexibleContexts, FlexibleInstances, UndecidableInstances, DeriveFunctor, StandaloneDeriving #-}
+{-# LANGUAGE DeriveTraversable #-}
 module Data.TrieMap.Class (TMap(..), TSet(..), TKey, Rep, TrieMap, TrieKey) where
 
 import Data.TrieMap.TrieKey
@@ -9,6 +9,9 @@ import Prelude hiding (foldr, foldl, foldl1, foldr1)
 
 -- | A map from keys @k@ to values @a@, backed by a trie.
 newtype TMap k a = TMap {getTMap :: TrieMap (Rep k) (Assoc k a)}
+
+deriving instance TKey k => Functor (TMap k)
+deriving instance TKey k => Traversable (TMap k)
 
 -- | A set of values @a@, backed by a trie.
 newtype TSet a = TSet {getTSet :: TrieMap (Rep a) (Elem a)}
@@ -20,15 +23,7 @@ class (Repr k, TrieKey (Rep k)) => TKey k
 
 instance (Repr k, TrieKey (Rep k)) => TKey k
 
-instance TKey k => Functor (TMap k) where
-	fmap f (TMap m) = TMap (fmap (fmap f) m)
-
 instance TKey k => Foldable (TMap k) where
 	foldMap f (TMap m) = foldMap (foldMap f) m
 	foldr f z (TMap m) = foldr (flip $ foldr f) z m
 	foldl f z (TMap m) = foldl (foldl f) z m
-	foldr1 f (TMap m) = foldr1 f (getValue <$> m)
-	foldl1 f (TMap m) = foldl1 f (getValue <$> m)
-
-instance TKey k => Traversable (TMap k) where
-	traverse f (TMap m) = TMap <$> traverse (traverse f) m
