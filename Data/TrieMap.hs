@@ -9,7 +9,9 @@ module Data.TrieMap (
 	-- ** Components
 	key,
 	before,
+	beforeWith,
 	after,
+	afterWith,
 	-- ** Locations in maps
 	search,
 	index,
@@ -1022,6 +1024,13 @@ before (TLoc _ hole) = TMap (beforeM hole)
 {-# INLINE after #-}
 after :: TKey k => TLocation k a -> TMap k a
 after (TLoc _ hole) = TMap (afterM hole)
+
+beforeWith :: TKey k => a -> TLocation k a -> TMap k a
+beforeWith a (TLoc k hole) = TMap (beforeWithM (Assoc k a) hole)
+
+-- | @'afterWith' a loc@ is equivalent to @'insert' ('key' loc) a ('after' loc)@.
+afterWith :: TKey k => a -> TLocation k a -> TMap k a
+afterWith a (TLoc k hole) = TMap (afterWithM (Assoc k a) hole)
 
 -- | Search the map for the given key, returning the
 -- corresponding value (if any) and an updatable location for that key.
