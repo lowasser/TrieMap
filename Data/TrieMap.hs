@@ -1025,6 +1025,7 @@ before (TLoc _ hole) = TMap (beforeM hole)
 after :: TKey k => TLocation k a -> TMap k a
 after (TLoc _ hole) = TMap (afterM hole)
 
+-- | @'beforeWith' a loc@ is equivalent to @'insert' ('key' loc) a ('before' loc)@.
 beforeWith :: TKey k => a -> TLocation k a -> TMap k a
 beforeWith a (TLoc k hole) = TMap (beforeWithM (Assoc k a) hole)
 
