@@ -71,7 +71,7 @@ instance Traversable (TrieMap (Ordered k)) where
 
 instance Ord k => Buildable (TrieMap (Ordered k)) (Ordered k) where
   type UStack (TrieMap (Ordered k)) = TrieMap (Ordered k)
-  uFold = defaultUFold emptyM singletonM insertWithM
+  uFold = defaultUFold singletonM insertWithM
   type AStack (TrieMap (Ordered k)) = Distinct (Ordered k) (Stack k)
   aFold = combineFold daFold
   type DAStack (TrieMap (Ordered k)) = Stack k

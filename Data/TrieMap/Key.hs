@@ -40,38 +40,38 @@ instance (Repr k, TrieKey (Rep k), Buildable (RepMap k) (Rep k)) => Buildable (T
   type DAStack (TrieMap (Key k)) = DAMStack (Rep k)
   daFold = keyMap <$> mapFoldlKeys keyRep daFold
 
-#define SETOP(op) op f KMAP(m1) KMAP(m2) = keyMap (op f m1 m2)
+#define SETOP(op) op f KMAP(m1) KMAP(m2) = keyMap <$> op f m1 m2
 instance CONTEXT(SetOp) => SetOp (TrieMap (Key k)) where
   SETOP(union)
   SETOP(isect)
   SETOP(diff)
 
 instance CONTEXT(Project) => Project (TrieMap (Key k)) where
-  mapMaybe f KMAP(m) = keyMap $ mapMaybe f m
-  mapEither f KMAP(m) = both keyMap (mapEither f) m
+  mapMaybe f KMAP(m) = keyMap <$> mapMaybe f m
+  mapEither f KMAP(m) = case mapEither f m of
+    (# mL, mR #) -> (# keyMap <$> mL, keyMap <$> mR #)
 
 -- | @'TrieMap' ('Key' k) a@ is a wrapper around a @TrieMap (Rep k) a@.
 instance TKey k => TrieKey (Key k) where
 	data TrieMap (Key k) a = KeyMap {sz :: !Int, tMap :: !(TrieMap (Rep k) a)}
 	newtype Hole (Key k) a = KeyHole (Hole (Rep k) a)
 	
-	emptyM = KeyMap 0 emptyM
 	singletonM (Key k) a = KeyMap (getSize a) (singletonM (toRep k) a)
 	getSimpleM KMAP(m) = getSimpleM m
 	sizeM = sz
 	lookupMC (Key k) KMAP(m) = lookupMC (toRep k) m
 
 	singleHoleM (Key k) = KeyHole (singleHoleM (toRep k))
-	beforeM (KeyHole hole) = keyMap (beforeM hole)
+	beforeM (KeyHole hole) = keyMap <$> beforeM hole
 	beforeWithM a (KeyHole hole) = keyMap (beforeWithM a hole)
-	afterM (KeyHole hole) = keyMap (afterM hole)
+	afterM (KeyHole hole) = keyMap <$> afterM hole
 	afterWithM a (KeyHole hole) = keyMap (afterWithM a hole)
 	searchMC (Key k) KMAP(m) = mapSearch KeyHole (searchMC (toRep k) m)
 	indexM KMAP(m) i = case indexM m i of
 	  (# i', a, hole #) -> (# i', a, KeyHole hole #)
 	extractHoleM KMAP(m) = fmap KeyHole <$> extractHoleM m
 	assignM v (KeyHole hole) = keyMap (assignM v hole)
-	clearM (KeyHole hole) = keyMap (clearM hole)
+	clearM (KeyHole hole) = keyMap <$> clearM hole
 	
 	insertWithM f (Key k) a KMAP(m) = keyMap (insertWithM f (toRep k) a m)
 	

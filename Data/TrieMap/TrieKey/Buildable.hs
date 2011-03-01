@@ -21,30 +21,28 @@ class Buildable f k | f -> k where
 data Foldl stack k a result =
   Foldl {snoc :: stack a -> k -> a -> stack a,
 	  begin :: k -> a -> stack a,
-	  zero :: result,
 	  done :: stack a -> result}
 
 instance Functor (Foldl stack k a) where
-  fmap f Foldl{..} = Foldl{zero = f zero, done = f . done, ..}
+  fmap f Foldl{..} = Foldl{done = f . done, ..}
 
 {-# INLINE runFoldl #-}
-runFoldl :: Foldl stack k a result -> [(k, a)] -> result
+runFoldl :: Foldl stack k a result -> [(k, a)] -> Maybe result
 runFoldl Foldl{..} = fL where
-  fL [] = zero
+  fL [] = Nothing
   fL ((k, a):xs) = fL' (begin k a) xs
   
   fL' !s ((k, a):xs) = fL' (snoc s k a) xs
-  fL' s [] = done s
+  fL' s [] = Just $ done s
 
 {-# INLINE mapFoldlKeys #-}
 mapFoldlKeys :: (k -> k') -> Foldl stack k' a result -> Foldl stack k a result
 mapFoldlKeys f Foldl{..} = Foldl{snoc = \ z k a -> snoc z (f k) a, begin = begin . f, ..}
 
 {-# INLINE defaultUFold #-}
-defaultUFold :: f a -> (k -> a -> f a) -> ((a -> a) -> k -> a -> f a -> f a) -> 
+defaultUFold :: (k -> a -> f a) -> ((a -> a) -> k -> a -> f a -> f a) -> 
   (a -> a -> a) -> Foldl f k a (f a)
-defaultUFold empty single insert f = Foldl{
-  zero = empty,
+defaultUFold single insert f = Foldl{
   begin = single,
   snoc = \ m k a -> insert (f a) k a m,
   done = id}
@@ -53,7 +51,7 @@ data Distinct k z a = Begin k a | Dist k a (z a)
 
 {-# INLINE combineFold #-}
 combineFold :: Eq k => Foldl stack k a result -> (a -> a -> a) -> Foldl (Distinct k stack) k a result
-combineFold Foldl{..} f = Foldl{snoc = snoc', begin = Begin, zero, done = done'} where
+combineFold Foldl{..} f = Foldl{snoc = snoc', begin = Begin, done = done'} where
     snoc' (Begin k a) k' a'
       | k == k'	= Begin k (f a' a)
     snoc' (Dist k a stk) k' a'

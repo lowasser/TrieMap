@@ -43,19 +43,12 @@ type UMStack k = UStack (TrieMap k)
 type AMStack k = AStack (TrieMap k)
 type DAMStack k = DAStack (TrieMap k)
 
-data Simple a = Null | Singleton a | NonSimple
+data Simple a = Singleton a | NonSimple
 
 instance Monad Simple where
 	return = Singleton
-	Null >>= _ = Null
 	Singleton a >>= k = k a
 	NonSimple >>= _ = NonSimple
-
-instance MonadPlus Simple where
-	mzero = Null
-	Null `mplus` simple	= simple
-	simple `mplus` Null	= simple
-	_ `mplus` _		= NonSimple
 
 {-# INLINE onSnd #-}
 onSnd :: (c -> d) -> (a -> (# b, c #)) -> a -> (# b, d #)
@@ -76,7 +69,6 @@ class (Ord k,
 	SetOp (TrieMap k),
 	Project (TrieMap k)) => TrieKey k where
   data TrieMap k :: * -> *
-  emptyM :: TrieMap k a
   singletonM :: Sized a => k -> a -> TrieMap k a
   getSimpleM :: TrieMap k a -> Simple a
   sizeM# :: Sized a => TrieMap k a -> Int#
@@ -85,7 +77,7 @@ class (Ord k,
   
   data Hole k :: * -> *
   singleHoleM :: k -> Hole k a
-  beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
+  beforeM, afterM :: Sized a => Hole k a -> Maybe (TrieMap k a)
   beforeWithM, afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
   searchMC :: k -> TrieMap k a -> SearchCont (Hole k a) a r
   indexM :: Sized a => TrieMap k a -> Int# -> (# Int#, a, Hole k a #)
@@ -104,18 +96,18 @@ class (Ord k,
   
   insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
   insertWithM f k a m = inline searchMC k m (assignM a) (assignM . f)
-  alterM :: (TrieKey k, Sized a) => (Maybe a -> Maybe a) -> k -> TrieMap k a -> TrieMap k a
+  alterM :: (TrieKey k, Sized a) => (Maybe a -> Maybe a) -> k -> TrieMap k a -> Maybe (TrieMap k a)
   {-# INLINE alterM #-}
   alterM f k m = searchMC k m nomatch match where
     nomatch hole = case f Nothing of
-      Nothing	-> m
-      Just a'	-> assignM a' hole
+      Nothing	-> Just m
+      Just a'	-> Just $ assignM a' hole
     match a hole = case f (Just a) of
       Nothing	-> clearM hole
-      Just a'	-> assignM a' hole
+      Just a'	-> Just $ assignM a' hole
   
   assignM :: Sized a => a -> Hole k a -> TrieMap k a
-  clearM :: Sized a => Hole k a -> TrieMap k a
+  clearM :: Sized a => Hole k a -> Maybe (TrieMap k a)
   unifierM :: Sized a => k -> k -> a -> Lookup r (Hole k a)
   unifyM :: Sized a => k -> a -> k -> a -> Lookup r (TrieMap k a)
   
@@ -125,11 +117,6 @@ class (Ord k,
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM#
 
-instance TrieKey k => Nullable (TrieMap k) where
-  isNull m = case getSimpleM m of
-    Null -> True
-    _ -> False
-
 foldl1Empty :: a
 foldl1Empty = error "Error: cannot call foldl1 on an empty map"
 
@@ -137,8 +124,9 @@ foldr1Empty :: a
 foldr1Empty = error "Error: cannot call foldr1 on an empty map"
 
 {-# INLINE fillHoleM #-}
-fillHoleM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
-fillHoleM = maybe clearM assignM
+fillHoleM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> Maybe (TrieMap k a)
+fillHoleM Nothing hole = clearM hole
+fillHoleM (Just a) hole = Just (assignM a hole)
 
 {-# INLINE mappendM #-}
 mappendM :: Monoid m => Maybe m -> Maybe m -> m
@@ -151,15 +139,14 @@ insertWithM' :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> Maybe (TrieMap k a
 insertWithM' f k a = maybe (singletonM k a) (insertWithM f k a)
 
 {-# INLINE beforeMM #-}
-beforeMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
-beforeMM = maybe beforeM beforeWithM
+beforeMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> Maybe (TrieMap k a)
+beforeMM Nothing hole = beforeM hole
+beforeMM (Just a) hole = Just (beforeWithM a hole)
 
 {-# INLINE afterMM #-}
-afterMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
-afterMM = maybe afterM afterWithM
-
-clearM' :: (TrieKey k, Sized a) => Hole k a -> Maybe (TrieMap k a)
-clearM' hole = guardNull (clearM hole)
+afterMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> Maybe (TrieMap k a)
+afterMM Nothing hole = afterM hole
+afterMM (Just a) hole = Just (afterWithM a hole)
 
 {-# INLINE searchMC' #-}
 searchMC' :: TrieKey k => k -> Maybe (TrieMap k a) -> (Hole k a -> r) -> (a -> Hole k a -> r) -> r
@@ -176,6 +163,5 @@ indexFail = error "Error: index out of bounds"
   "extractHoleM/First" [0] extractHoleM = firstHoleM;
   "extractHoleM/Last" [0] extractHoleM = lastHoleM;
   "sizeM" [0] forall m . sizeM m = I# (sizeM# m);
-  "getSimpleM/emptyM" getSimpleM emptyM = Null;
   "getSimpleM/singletonM" forall k a . getSimpleM (singletonM k a) = Singleton a;
   #-}

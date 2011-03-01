@@ -1,10 +1,13 @@
 {-# LANGUAGE TupleSections, TypeFamilies, FlexibleInstances, RecordWildCards, CPP, FlexibleContexts, UnboxedTuples #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, GeneralizedNewtypeDeriving, StandaloneDeriving #-}
 module Data.TrieMap.ProdMap () where
 
 import Data.TrieMap.TrieKey
+import Data.Functor.Immoral
 
 import Prelude hiding (foldl, foldl1, foldr, foldr1)
+
+deriving instance ImmoralMap (TrieMap k1 (TrieMap k2 a)) (TrieMap (k1, k2) a)
 
 #define CONTEXT(cl) (TrieKey k1, TrieKey k2, cl (TrieMap k1), cl (TrieMap k2))
 
@@ -17,35 +20,35 @@ instance CONTEXT(Foldable) => Foldable (TrieMap (k1, k2)) where
   foldl f z (PMap m) = foldl (foldl f) z m
 
 instance CONTEXT(Traversable) => Traversable (TrieMap (k1, k2)) where
-  traverse f (PMap m) = PMap <$> traverse (traverse f) m
+  traverse f (PMap m) = castMap $ traverse (traverse f) m
 
 instance CONTEXT(Subset) => Subset (TrieMap (k1, k2)) where
   PMap m1 <=? PMap m2 = m1 <<=? m2
 
 instance (TrieKey k1, TrieKey k2) => Buildable (TrieMap (k1, k2)) (k1, k2) where
   type UStack (TrieMap (k1, k2)) = TrieMap (k1, k2)
-  uFold = defaultUFold emptyM singletonM insertWithM
+  uFold = defaultUFold singletonM insertWithM
   type AStack (TrieMap (k1, k2)) = Stack k1 k2 (DAMStack k1) (AMStack k2)
   aFold f = prodFold daFold (aFold f)
   type DAStack (TrieMap (k1, k2)) = Stack k1 k2 (DAMStack k1) (DAMStack k2)
   daFold = prodFold daFold daFold
 
-#define SETOP(op,opM) op f (PMap m1) (PMap m2) = PMap ((op) ((opM) f) m1 m2)
+#define SETOP(op) op f (PMap m1) (PMap m2) = castMap ((op) ((op) f) m1 m2)
 instance CONTEXT(SetOp) => SetOp (TrieMap (k1, k2)) where
-  SETOP(union,unionM)
-  SETOP(isect,isectM)
-  SETOP(diff,diffM)
+  SETOP(union)
+  SETOP(isect)
+  SETOP(diff)
 
 instance CONTEXT(Project) => Project (TrieMap (k1, k2)) where
-  mapMaybe f (PMap m) = PMap $ mapMaybe (mapMaybeM f) m
-  mapEither f (PMap m) = both' PMap PMap (mapEither (mapEitherM f)) m
+  mapMaybe f (PMap m) = castMap $ mapMaybe (mapMaybe f) m
+  mapEither f (PMap m) = case mapEither (mapEither f) m of
+    (# mL, mR #) -> (# castMap mL, castMap mR #)
 
 -- | @'TrieMap' (k1, k2) a@ is implemented as a @'TrieMap' k1 ('TrieMap' k2 a)@.
 instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	newtype TrieMap (k1, k2) a = PMap (TrieMap k1 (TrieMap k2 a))
 	data Hole (k1, k2) a = PHole (Hole k1 (TrieMap k2 a)) (Hole k2 a)
 
-	emptyM = PMap emptyM
 	singletonM (k1, k2) = PMap . singletonM k1 . singletonM k2
 	getSimpleM (PMap m) = getSimpleM m >>= getSimpleM
 	sizeM (PMap m) = sizeM m
@@ -54,9 +57,9 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	  f' = insertWithM f k2 a
 	
 	singleHoleM (k1, k2) = PHole (singleHoleM k1) (singleHoleM k2)
-	beforeM (PHole hole1 hole2) = PMap (beforeMM (gNull beforeM hole2) hole1)
+	beforeM (PHole hole1 hole2) = castMap $ beforeMM (beforeM hole2) hole1
 	beforeWithM a (PHole hole1 hole2) = PMap (beforeWithM (beforeWithM a hole2) hole1)
-	afterM (PHole hole1 hole2) = PMap (afterMM (gNull afterM hole2) hole1)
+	afterM (PHole hole1 hole2) = castMap $ afterMM (afterM hole2) hole1
 	afterWithM a (PHole hole1 hole2) = PMap (afterWithM (afterWithM a hole2) hole1)
 	searchMC (k1, k2) (PMap m) f g = searchMC k1 m f' g' where
 	  f' hole1 = f (PHole hole1 (singleHoleM k2))
@@ -69,7 +72,7 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 		(v, hole2) <- extractHoleM m'
 		return (v, PHole hole1 hole2)
 	
-	clearM (PHole hole1 hole2) = PMap (fillHoleM (clearM' hole2) hole1)
+	clearM (PHole hole1 hole2) = castMap $ fillHoleM (clearM hole2) hole1
 	assignM a (PHole hole1 hole2) = PMap (assignM (assignM a hole2) hole1)
 	
 	unifierM (k1', k2') (k1, k2) a = 
@@ -78,16 +81,13 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	unifyM (k11, k12) a1 (k21, k22) a2 =
 	  let unify1 = unifyM k11 (singletonM k12 a1) k21 (singletonM k22 a2)
 	      unify2 = singletonM k11 <$> unifyM k12 a1 k22 a2
-	      in PMap <$> (unify1 `mplus` unify2)
-
-gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
-gNull = (guardNull .)
+	      in castMap $ unify1 `mplus` unify2
 
 prodFold :: Eq k1 => FromList z1 k1 (TrieMap k2 a) -> FromList z2 k2 a -> 
   FromList (Stack k1 k2 z1 z2) (k1, k2) a
-prodFold Foldl{snoc = snoc1, begin = begin1, zero = zero1, done = done1}
+prodFold Foldl{snoc = snoc1, begin = begin1, done = done1}
 	    Foldl{snoc = snoc2, begin = begin2, done = done2}
-  = Foldl{zero = PMap zero1, ..}
+  = Foldl{..}
   where	snoc (First k1 stk2) (k1', k2') a
 	  | k1' == k1	= First k1 (snoc2 stk2 k2' a)
 	snoc (Stack k1 stk1 stk2) (k1', k2') a
