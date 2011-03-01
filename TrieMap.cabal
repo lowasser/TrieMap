@@ -10,6 +10,8 @@ description:	     Provides a efficient and compact implementation of generalized
                      .
                      The most recent release combines zipper-based ideas from recently proposed changes to Data.Map, as well
                      as heavily optimized ByteString and Vector instances based on the vector package.
+                     
+                     For best performance, use @cabal install -fllvm -O2@.
 license:             BSD3
 license-file:	     LICENSE
 author:              Louis Wasserman
@@ -21,14 +23,19 @@ source-repository head
   type:              git
   location:          git@github.com:lowasser/TrieMap.git
 
+Flag LLVM {
+  Description: Compile with LLVM, because you mean srs bzns
+  Default: False
+}
+
 Library{
 build-Depends:    base < 5.0.0.0, containers, template-haskell >= 2.5.0.0, bytestring >= 0.9.1.0, th-expand-syns,
                   vector >= 0.6, primitive >= 0.3, unpack-funcs >= 0.1.2, transformers >= 0.2.0.0
 ghc-options:
-  -Wall -fno-warn-name-shadowing -fno-warn-orphans -O2 -fno-spec-constr-count -fno-spec-constr-threshold
+  -Wall -fno-warn-name-shadowing -fno-warn-orphans -fno-spec-constr-count -fno-spec-constr-threshold
   -fno-liberate-case-threshold -fmax-worker-args=100
-if impl(ghc >= 7.0.0)
-  ghc-options: -optlo-O3 -optlo-std-compile-opts
+if impl(ghc >= 7.0.0) && flag(LLVM)
+  ghc-options: -fllvm -optlo-O3 -optlo-std-compile-opts
 exposed-modules:  
   Data.TrieMap,
   Data.TrieSet,
