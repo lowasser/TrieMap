@@ -1,5 +1,5 @@
 name:		     TrieMap
-version:             4.0.0
+version:             4.0.1
 cabal-version:       >= 1.6
 tested-with:	     GHC
 category:            Algorithms
@@ -28,7 +28,7 @@ ghc-options:
   -Wall -fno-warn-name-shadowing -fno-warn-orphans -O2 -fno-spec-constr-count -fno-spec-constr-threshold
   -fno-liberate-case-threshold -fmax-worker-args=100
 if impl(ghc >= 7.0.0)
-  ghc-options: -fllvm -optlo-O3 -optlo-std-compile-opts
+  ghc-options: -optlo-O3 -optlo-std-compile-opts
 exposed-modules:  
   Data.TrieMap,
   Data.TrieSet,
