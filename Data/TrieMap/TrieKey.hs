@@ -83,8 +83,6 @@ class (Ord k,
   sizeM :: Sized a => TrieMap k a -> Int
   lookupMC :: k -> TrieMap k a -> Lookup r a
   
-  insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
-  
   data Hole k :: * -> *
   singleHoleM :: k -> Hole k a
   beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
@@ -104,7 +102,17 @@ class (Ord k,
   lastHoleM :: Sized a => TrieMap k a -> Last (a, Hole k a)
   lastHoleM m = inline extractHoleM m
   
+  insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
   insertWithM f k a m = inline searchMC k m (assignM a) (assignM . f)
+  alterM :: (TrieKey k, Sized a) => (Maybe a -> Maybe a) -> k -> TrieMap k a -> TrieMap k a
+  {-# INLINE alterM #-}
+  alterM f k m = searchMC k m nomatch match where
+    nomatch hole = case f Nothing of
+      Nothing	-> m
+      Just a'	-> assignM a' hole
+    match a hole = case f (Just a) of
+      Nothing	-> clearM hole
+      Just a'	-> assignM a' hole
   
   assignM :: Sized a => a -> Hole k a -> TrieMap k a
   clearM :: Sized a => Hole k a -> TrieMap k a
@@ -132,10 +140,6 @@ foldr1Empty = error "Error: cannot call foldr1 on an empty map"
 fillHoleM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
 fillHoleM = maybe clearM assignM
 
-{-# INLINE lookupM #-}
-lookupM :: TrieKey k => k -> TrieMap k a -> Maybe a
-lookupM k m = runLookup (lookupMC k m) Nothing Just
-
 {-# INLINE mappendM #-}
 mappendM :: Monoid m => Maybe m -> Maybe m -> m
 Nothing `mappendM` Nothing = mempty
@@ -156,14 +160,6 @@ afterMM = maybe afterM afterWithM
 
 clearM' :: (TrieKey k, Sized a) => Hole k a -> Maybe (TrieMap k a)
 clearM' hole = guardNull (clearM hole)
-
-{-# INLINE alterM #-}
-alterM :: (TrieKey k, Sized a) => (Maybe a -> Maybe a) -> k -> TrieMap k a -> TrieMap k a
-alterM f k m = searchMC k m g h where
-  g hole = case f Nothing of
-    Nothing	-> m
-    Just a	-> assignM a hole
-  h = fillHoleM . f . Just
 
 {-# INLINE searchMC' #-}
 searchMC' :: TrieKey k => k -> Maybe (TrieMap k a) -> (Hole k a -> r) -> (a -> Hole k a -> r) -> r

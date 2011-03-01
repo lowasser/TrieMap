@@ -166,14 +166,12 @@ unionEdge f = unionE where
     
     matches kLen lLen = case compare kLen lLen of
       EQ -> cEdge ks0 (union f vK vL) $ union unionE tsK tsL
-      LT -> searchMC l tsK nomatch match where
+      LT -> cEdge ks0 vK $ alterM g l tsK where
 	eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen
-	nomatch holeKT = cEdge ks0 vK $ assignM eL' holeKT
-	match eK' holeKT = cEdge ks0 vK $ fillHoleM (eK' `unionE` eL') holeKT
-      GT -> searchMC k tsL nomatch match where
+	g eK = union unionE eK (Just eL')
+      GT -> cEdge ks0 vK $ alterM g k tsL where
 	eK' = dropEdge (lLen + 1) eK; k = ks0 !$ lLen
-	nomatch holeLT = cEdge ls0 vL $ assignM eK' holeLT
-	match eL' holeLT = cEdge ls0 vL $ fillHoleM (eK' `unionE` eL') holeLT
+	g = union unionE (Just eK')
 
 {-# SPECIALIZE isectEdge ::
       (TrieKey k, Sized c) => (a -> b -> Maybe c) -> V(Edge) a -> V(Edge) b -> V(MEdge) c,
@@ -187,7 +185,7 @@ isectEdge f = isectE where
       EQ -> cEdge ks0 (isect f vK vL) $ isect isectE tsK tsL
       LT -> let l = ls0 !$ kLen in runLookup (lookupMC l tsK) Nothing $ \ eK' ->
 	      let eL' = dropEdge (kLen + 1) eL in unDropEdge (kLen + 1) <$> eK' `isectE` eL'
-      GT -> let k = ks0 !$ lLen in runLookup (lookupMC k tsL) Nothing $ \ eL' -> 
+      GT -> let k = ks0 !$ lLen in runLookup (lookupMC k tsL) Nothing $ \ eL' ->
 	      let eK' = dropEdge (lLen + 1) eK in unDropEdge (lLen + 1) <$> eK' `isectE` eL'
 
 {-# SPECIALIZE diffEdge ::
