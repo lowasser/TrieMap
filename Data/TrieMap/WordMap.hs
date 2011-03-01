@@ -326,7 +326,7 @@ instance Project Node where
     mEither NIL = (# nil, nil #)
 
 {-# INLINE alter #-}
-alter :: Sized a => (Maybe a -> Maybe a) -> Key -> Node a -> Node a
+alter :: (Maybe a -> Maybe a) -> Key -> Node a -> Node a
 alter f k t = getWordMap $ alterM f k (WordMap t)
 
 mask0 :: Key -> Mask -> Bool
@@ -399,7 +399,7 @@ unifier k' k a = Lookup $ \ no yes ->
   if k == k' then no else yes (WHole k' $ branchHole k' k Root (singleton k a))
 
 {-# INLINE fromAscList #-}
-fromAscList :: Sized a => (a -> a -> a) -> Foldl WordStack Key a (Node a)
+fromAscList :: (a -> a -> a) -> Foldl WordStack Key a (Node a)
 fromAscList f = Foldl{zero = nil, ..} where
   begin kx vx = WordStack kx vx Nada
 

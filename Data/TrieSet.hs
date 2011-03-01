@@ -42,8 +42,6 @@ module Data.TrieSet (
 	minView,
 	maxView,
 	-- * Index
-	elemAt,
-	deleteAt,
 	lookupIndex,
 	-- * Conversion
 	-- ** Map
@@ -333,16 +331,6 @@ s1 `isProperSubsetOf` s2 = size s1 < size s2 && s1 `isSubsetOf` s2
 -- | Generate a 'TMap' by mapping on the elements of a 'TSet'.
 mapSet :: TKey a => (a -> b) -> TSet a -> TMap a b
 mapSet f (TSet s) = TMap (fmap (\ (Elem a) -> Assoc a (f a)) s)
-
--- | Returns the element at the specified index.  Throws an error if an invalid index is specified.
-elemAt :: TKey a => Int -> TSet a -> a
-elemAt i (TSet s) = case indexM s (unbox i) of
-  (# _, Elem a, _ #) -> a
-
--- | Deletes the element at the specified index.  Throws an error if an invalid index is specified.
-deleteAt :: TKey a => Int -> TSet a -> TSet a
-deleteAt i (TSet s) = case indexM s (unbox i) of
-  (# _, _, hole #) -> TSet (clearM hole)
 
 -- | If the specified element is in the set, returns 'Just' the index of the element, otherwise returns 'Nothing'.
 lookupIndex :: TKey a => a -> TSet a -> Maybe Int

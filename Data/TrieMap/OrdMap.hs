@@ -205,7 +205,7 @@ instance Ord k => Subset (SNode k) where
       where result _ Nothing _	= False
 	    result tl (Just y) tr	= x <=? y && l `subMap` tl && r `subMap` tr
 
-fromDistAscList :: (Eq k, Sized a) => Foldl (Stack k) k a (SNode k a)
+fromDistAscList :: Eq k => Foldl (Stack k) k a (SNode k a)
 fromDistAscList = Foldl{zero = tip, ..} where
   incr !t (Yes t' stk) = No (incr (t' `glue` t) stk)
   incr !t (No stk) = Yes t stk
@@ -231,7 +231,7 @@ instance Ord k => SetOp (SNode k) where
       result tl found tr = joinMaybe k2 (found >>= \ (Elem x1') -> f x1' x2) (tl `intersection` l2) (tr `intersection` r2)
     _ `intersection` _ = tip
 
-hedgeUnion :: (Ord k, Sized a)
+hedgeUnion :: (Ord k)
                   => (a -> a -> Maybe a)
                   -> (k -> Ordering) -> (k -> Ordering)
                   -> SNode k a -> SNode k a -> SNode k a
@@ -284,7 +284,7 @@ trimLookupLo lo cmphi t@BIN(kx x l r)
       GT -> trimLookupLo lo cmphi r
       EQ -> (Just (kx,x),trim (compare lo) cmphi r)
 
-hedgeDiff :: (Ord k, Sized a)
+hedgeDiff :: (Ord k)
                  => (a -> b -> Maybe a)
                  -> (k -> Ordering) -> (k -> Ordering)
                  -> SNode k a -> SNode k b -> SNode k a

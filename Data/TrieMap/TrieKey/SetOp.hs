@@ -5,7 +5,6 @@ module Data.TrieMap.TrieKey.SetOp (
   Isect, Union, Diff,
   SetOp(..)) where
 
-import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey.Subset
 
 type IsectM f a b c = f a -> f b -> Maybe (f c)
@@ -19,9 +18,9 @@ type Diff f a b = f a -> f b -> f a
 type Id a = a
 
 class SetOp f where
-  isect :: Sized c => IsectM Id a b c -> Isect f a b c
-  union :: Sized a => UnionM Id a -> Union f a
-  diff :: Sized a => DiffM Id a b -> Diff f a b
+  isect :: IsectM Id a b c -> Isect f a b c
+  union :: UnionM Id a -> Union f a
+  diff :: DiffM Id a b -> Diff f a b
 
 instance SetOp Maybe where
   {-# INLINE isect #-}
@@ -38,13 +37,13 @@ instance SetOp Maybe where
   diff _ Nothing _ = Nothing
 
 {-# INLINE isectM #-}
-isectM :: (Nullable f, SetOp f, Sized c) => IsectM Id a b c -> IsectM f a b c
+isectM :: (Nullable f, SetOp f) => IsectM Id a b c -> IsectM f a b c
 isectM f a b = guardNull (isect f a b)
 
 {-# INLINE diffM #-}
-diffM :: (Nullable f, SetOp f, Sized a) => DiffM Id a b -> DiffM f a b
+diffM :: (Nullable f, SetOp f) => DiffM Id a b -> DiffM f a b
 diffM f a b = guardNull (diff f a b)
 
 {-# INLINE unionM #-}
-unionM :: (Nullable f, SetOp f, Sized a) => UnionM Id a -> UnionM f a
+unionM :: (Nullable f, SetOp f) => UnionM Id a -> UnionM f a
 unionM f a b = guardNull (union f a b)

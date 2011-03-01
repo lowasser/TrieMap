@@ -52,7 +52,6 @@ tToList strs = sum [BS.length str | str <- toList strs]
 tFDAL strings = size (fromDistinctAscList strings)
 
 tInsert strs = size (insert (BS.pack "scientifitude") strs)
-tIndex strs = elemAt (31415926 `rem` size strs) strs
 
 tNeighborhood (strs, str) = case splitMember str strs of
   (l, x, r) -> (findMax l, x, findMin r)

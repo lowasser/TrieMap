@@ -99,6 +99,10 @@ instance TrieKey k => Label V.Vector k where
   sView (VStackA ks a k stack) = Stack ks (Just a) Nothing (Just (k, stack))
   sView (VStackZ ks z k stack) = Stack ks Nothing (Just z) (Just (k, stack))
 
+{-# INLINE edge' #-}
+edge' :: (Label v k) => Int -> v k -> Maybe a -> Branch v k a -> Edge v k a
+edge' = const edge
+
 instance TrieKey k => Unpackable (V(EdgeLoc) a) where
   newtype UnpackedReaderT (EdgeLoc V.Vector k a) m r =
     VLocRT {runVLocRT :: UnpackedReaderT (V.Vector k) (ReaderT (V(Branch) a) (ReaderT (V(Path) a) m)) r}

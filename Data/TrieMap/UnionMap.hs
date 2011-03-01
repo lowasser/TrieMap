@@ -189,7 +189,7 @@ holes k f (Just a) = fmap f <$> k a
 holes _ _ Nothing = mzero
 
 {-# INLINE unionFold #-}
-unionFold :: (TrieKey k1, TrieKey k2, Sized a) =>
+unionFold :: (TrieKey k1, TrieKey k2) =>
   FromList z1 k1 a -> FromList z2 k2 a -> FromList (Stack z1 z2) (Either k1 k2) a
 unionFold Foldl{snoc = snocL, begin = beginL, done = doneL}
 	    Foldl{snoc = snocR, begin = beginR, done = doneR}

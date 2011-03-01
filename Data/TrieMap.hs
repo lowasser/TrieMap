@@ -12,7 +12,6 @@ module Data.TrieMap (
 	after,
 	-- ** Locations in maps
 	search,
-	index,
 	minLocation,
 	maxLocation,
 	-- ** Building maps
@@ -117,9 +116,6 @@ module Data.TrieMap (
 	-- * Indexed
 	lookupIndex,
 	findIndex,
-	elemAt,
-	updateAt,
-	deleteAt,
 	-- * Min/Max
 	findMin,
 	findMax,
@@ -1041,23 +1037,6 @@ search k (TMap m) = searchMC (toRep k) m nomatch match where
   nomatch hole = (Nothing, TLoc k hole)
   match (Assoc k a) hole = (Just a, TLoc k hole)
 
--- | Return the value and an updatable location for the
--- /i/th key in the map.  Calls 'error' if /i/ is out of range.
---
--- Properties:
---
--- @
--- 0 \<= i && i \< 'size' m ==>
---     let (v, loc) = 'index' i m in
---         'size' ('before' loc) == i && 'assign' v loc == m
--- @
---
--- @'elemAt' i m == let (v, loc) = 'index' i m in ('key' loc, v)@
-{-# INLINEABLE index #-}
-index :: TKey k => Int -> TMap k a -> (a, TLocation k a)
-index i (TMap m) = case indexM m (unbox i) of
-  (# _, Assoc k a, hole #) -> (a, TLoc k hole)
-
 {-# INLINE extract #-}
 extract :: (TKey k, Functor m, MonadPlus m) => TMap k a -> m (a, TLocation k a)
 extract (TMap m) = fmap (\ (Assoc k a, hole) -> (a, TLoc k hole)) (extractHoleM m)
@@ -1137,41 +1116,3 @@ lookupIndex :: TKey k => k -> TMap k a -> Maybe Int
 lookupIndex k m = case search k m of
 	(Nothing, _)	-> Nothing
 	(_, hole)	-> Just $ size (before hole)
-
--- | Retrieve an element by /index/. Calls 'error' when an
--- invalid index is used.
---
--- > elemAt 0 (fromList [(5,"a"), (3,"b")]) == (3,"b")
--- > elemAt 1 (fromList [(5,"a"), (3,"b")]) == (5, "a")
--- > elemAt 2 (fromList [(5,"a"), (3,"b")])    Error: index out of range
-{-# INLINEABLE elemAt #-}
-elemAt :: TKey k => Int -> TMap k a -> (k, a)
-elemAt i m = case index i m of
-	(a, hole) -> (key hole, a)
-
--- | Update the element at /index/. Calls 'error' when an
--- invalid index is used.
---
--- > updateAt (\ _ _ -> Just "x") 0    (fromList [(5,"a"), (3,"b")]) == fromList [(3, "x"), (5, "a")]
--- > updateAt (\ _ _ -> Just "x") 1    (fromList [(5,"a"), (3,"b")]) == fromList [(3, "b"), (5, "x")]
--- > updateAt (\ _ _ -> Just "x") 2    (fromList [(5,"a"), (3,"b")])    Error: index out of range
--- > updateAt (\ _ _ -> Just "x") (-1) (fromList [(5,"a"), (3,"b")])    Error: index out of range
--- > updateAt (\_ _  -> Nothing)  0    (fromList [(5,"a"), (3,"b")]) == singleton 5 "a"
--- > updateAt (\_ _  -> Nothing)  1    (fromList [(5,"a"), (3,"b")]) == singleton 3 "b"
--- > updateAt (\_ _  -> Nothing)  2    (fromList [(5,"a"), (3,"b")])    Error: index out of range
--- > updateAt (\_ _  -> Nothing)  (-1) (fromList [(5,"a"), (3,"b")])    Error: index out of range
-{-# INLINEABLE updateAt #-}
-updateAt :: TKey k => (k -> a -> Maybe a) -> Int -> TMap k a -> TMap k a
-updateAt f i m = case index i m of
-	(a, hole) -> fillHole (f (key hole) a) hole
-
--- | Delete the element at /index/.
--- Defined as (@'deleteAt' i map = 'updateAt' (\k x -> 'Nothing') i map@).
---
--- > deleteAt 0  (fromList [(5,"a"), (3,"b")]) == singleton 5 "a"
--- > deleteAt 1  (fromList [(5,"a"), (3,"b")]) == singleton 3 "b"
--- > deleteAt 2 (fromList [(5,"a"), (3,"b")])     Error: index out of range
--- > deleteAt (-1) (fromList [(5,"a"), (3,"b")])  Error: index out of range
-{-# INLINEABLE deleteAt #-}
-deleteAt :: TKey k => Int -> TMap k a -> TMap k a
-deleteAt i m = clear (snd (index i m))

@@ -60,8 +60,6 @@ instance Arbitrary Op where
 		return (Op MapMaybe),
 		liftM Op (liftM Union recurse),
 		liftM Op (liftM Isect recurse),
-		liftM (Op . ElemAt) (arbitrary `suchThat` (>= 0)),
-		liftM (Op . DeleteAt) (arbitrary `suchThat` (>= 0)),
 		return (Op UpdateMin),
 		return (Op UpdateMax)]
 	shrink (Op (Insert k v)) = [Op (Insert k' v') | k' <- shrink k, v' <- shrink v]
@@ -86,8 +84,6 @@ instance Show Op where
 	show (Op MaxView) = "MaxView"
 	show (Op MapMaybe) = "MapMaybe"
 	show (Op (Union ops)) = "Union " ++ show ops
-	show (Op (DeleteAt i)) = "DeleteAt " ++ show i
-	show (Op (ElemAt i)) = "ElemAt " ++ show i
 	show (Op (Isect ops)) = "Isect " ++ show ops
 	show (Op UpdateMax) = "UpdateMax"
 	show (Op UpdateMin) = "UpdateMin"
@@ -104,8 +100,6 @@ data Operation r where
 	MapMaybe :: Operation ()
 	Union :: [Op] -> Operation ()
 	Isect :: [Op] -> Operation ()
-	DeleteAt :: Int -> Operation ()
-	ElemAt :: Int -> Operation (Maybe (Key, Val))
 	UpdateMax :: Operation ()
 	UpdateMin :: Operation ()
 
@@ -140,8 +134,6 @@ operateMap m MaxView = case M.maxViewWithKey m of
 operateMap m MapMaybe = ((), M.mapMaybeWithKey mapMaybeFunc m)
 operateMap m (Union ops) =
 	let m' = generateMap M.empty ops in ((), M.union m m')
-operateMap m (DeleteAt i) = if M.null m then ((), m) else ((), M.deleteAt (i `mod` M.size m) m)
-operateMap m (ElemAt i) = if M.null m then (Nothing, m) else (Just $ M.elemAt (i `mod` M.size m) m, m)
 operateMap m (Isect ops) = ((), M.intersectionWithKey isectFunc m (generateMap M.empty ops))
 operateMap m (UpdateMin) = ((), M.updateMinWithKey mapMaybeFunc m)
 operateMap m (UpdateMax) = ((), M.updateMaxWithKey mapMaybeFunc m)
@@ -165,12 +157,6 @@ operateTMap m MaxView = case T.maxViewWithKey m of
 operateTMap m MapMaybe = ((), T.mapMaybeWithKey mapMaybeFunc m)
 operateTMap m (Union ops) = ((), T.union m $ generateTMap T.empty ops)
 operateTMap m (Isect ops) = ((), T.intersectionWithKey isectFunc m (generateTMap T.empty ops))
-operateTMap m (DeleteAt i)
-	| T.null m	= ((), m)
-	| otherwise	= ((), T.deleteAt (i `mod` T.size m) m)
-operateTMap m (ElemAt i)
-	| T.null m	= (Nothing, m)
-	| otherwise	= (Just $ T.elemAt (i `mod` T.size m) m, m)
 operateTMap m UpdateMin = ((), T.updateMinWithKey mapMaybeFunc m)
 operateTMap m UpdateMax = ((), T.updateMaxWithKey mapMaybeFunc m)
 
@@ -189,8 +175,6 @@ VERIFYOP(MinView)
 VERIFYOP(MaxView)
 VERIFYOP(MapMaybe)
 VERIFYOP(Union)
-VERIFYOP(DeleteAt)
-VERIFYOP(ElemAt)
 VERIFYOP(Isect)
 VERIFYOP(UpdateMin)
 VERIFYOP(UpdateMax)
@@ -234,8 +218,6 @@ concretes = [
 	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,0], "a")] in T.assocs (T.fromList input) == input),
 	printTestCase "comparisons are correct"
 	  (let input = [(BS.pack [0], "a"), (BS.pack [0,0,0,0,maxBound], "a")] in T.assocs (T.fromList input) == input),
-	printTestCase "deleteAt works for OrdMap"
-	  (let input = [(1.4 :: Double, 'a'), (-4.0, 'b')] in T.assocs (T.deleteAt 0 (T.fromList input)) == [(1.4, 'a')]),
 	printTestCase "genOptRepr is consistent with equality" (\ a b -> ((a :: Key') == b) == (toRep a == toRep b))
 	,printTestCase "after works for RadixTrie" 
 	  (let input = [("abcd", 'a'), ("abcdef", 'b')]; m = T.fromList input in 

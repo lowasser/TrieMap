@@ -8,15 +8,13 @@ module Data.TrieMap.TrieKey.Buildable (
   Distinct,
   combineFold) where
 
-import Data.TrieMap.Sized
-
 class Buildable f k | f -> k where
   type UStack f :: * -> *
-  uFold :: Sized a => (a -> a -> a) -> Foldl (UStack f) k a (f a)
+  uFold :: (a -> a -> a) -> Foldl (UStack f) k a (f a)
   type AStack f :: * -> *
-  aFold :: Sized a => (a -> a -> a) -> Foldl (AStack f) k a (f a)
+  aFold :: (a -> a -> a) -> Foldl (AStack f) k a (f a)
   type DAStack f :: * -> *
-  daFold :: Sized a => Foldl (DAStack f) k a (f a)
+  daFold :: Foldl (DAStack f) k a (f a)
 
 data Foldl stack k a result =
   Foldl {snoc :: stack a -> k -> a -> stack a,
