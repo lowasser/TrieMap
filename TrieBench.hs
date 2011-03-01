@@ -67,7 +67,6 @@ tBenches strings revs = bgroup ""
     bench "Filter" (nf' tFilterBench strSet),
     bench "Split" (nf' tSplitBench strSet),
     bench "Neighborhood" (nf' tNeighborhood (strSet, someStr2)),
-    bench "Index" (nf' tIndex strSet),
     bench "Min/Max" (nf' tEnds strSet),
     bench "ToList" (nf' tToList strSet),
     bench "Insert" (nf' tInsert strSet),

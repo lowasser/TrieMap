@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash, TypeFamilies, MultiParamTypeClasses, FlexibleInstances, BangPatterns, CPP, ViewPatterns #-}
-{-# OPTIONS -funbox-strict-fields #-}
+{-# OPTIONS -funbox-strict-fields -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.RadixTrie.Label where
 
 import Control.Monad.Unpack

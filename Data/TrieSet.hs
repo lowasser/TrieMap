@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, ImplicitParams, RecordWildCards, FlexibleContexts #-}
+{-# LANGUAGE UnboxedTuples, ImplicitParams, RecordWildCards, FlexibleContexts, BangPatterns #-}
 module Data.TrieSet (
 	-- * Set type
 	TSet,
@@ -101,47 +101,54 @@ instance TKey a => Monoid (TSet a) where
 
 -- | The empty 'TSet'.
 empty :: TKey a => TSet a
-empty = TSet emptyM
+empty = TSet 0 emptyM
 
 -- | Insert an element into the 'TSet'.
 insert :: TKey a => a -> TSet a -> TSet a
-insert a (TSet s) = TSet (insertWithM (const (Elem a)) (toRep a) (Elem a) s)
+insert a set@(TSet sz s) = searchMC (toRep a) s nomatch match where
+  nomatch hole = TSet (sz + 1) (assignM (Elem a) hole)
+  match _ _ = set
 
 -- | Delete an element from the 'TSet'.
 delete :: TKey a => a -> TSet a -> TSet a
-delete a (TSet s) = TSet (searchMC (toRep a) s clearM (const clearM))
+delete a set@(TSet sz s) = searchMC (toRep a) s nomatch match where
+  nomatch _ = set
+  match _ hole = TSet (sz - 1) (clearM hole)
 
 -- | /O(1)/. Create a singleton set.
 singleton :: TKey a => a -> TSet a
-singleton a = TSet (singletonM (toRep a) (Elem a))
+singleton a = TSet 1 (singletonM (toRep a) (Elem a))
 
 -- | The union of two 'TSet's, preferring the first set when
 -- equal elements are encountered.
 union :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `union` TSet s2 = TSet (Set.union (const . Just) s1 s2)
+s1 `union` s2
+  | null s1	= s2
+  | null s2	= s1
+TSet _ s1 `union` TSet _ s2 = tSet (Set.union (const . Just) s1 s2)
 
 -- | The symmetric difference of two 'TSet's.
 symmetricDifference :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `symmetricDifference` TSet s2 = TSet (Set.union (\ _ _ -> Nothing) s1 s2)
+TSet _ s1 `symmetricDifference` TSet _ s2 = tSet (Set.union (\ _ _ -> Nothing) s1 s2)
 
 -- | Difference of two 'TSet's.
 difference :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `difference` TSet s2 = TSet (Set.diff (\ _ _ -> Nothing) s1 s2)
+TSet _ s1 `difference` TSet _ s2 = tSet (Set.diff (\ _ _ -> Nothing) s1 s2)
 
 -- | Intersection of two 'TSet's.  Elements of the result come from the first set.
 intersection :: TKey a => TSet a -> TSet a -> TSet a
-TSet s1 `intersection` TSet s2 = TSet (Set.isect (const . Just) s1 s2)
+TSet _ s1 `intersection` TSet _ s2 = tSet (Set.isect (const . Just) s1 s2)
 
 -- | Filter all elements that satisfy the predicate.
 filter :: TKey a => (a -> Bool) -> TSet a -> TSet a
-filter p (TSet s) = TSet (mapMaybe (\ (Elem a) -> if p a then return (Elem a) else mzero) s)
+filter p (TSet _ s) = tSet (mapMaybe (\ (Elem a) -> if p a then return (Elem a) else mzero) s)
 
 -- | Partition the set into two sets, one with all elements that satisfy
 -- the predicate and one with all elements that don't satisfy the predicate.
 -- See also 'split'.
 partition :: TKey a => (a -> Bool) -> TSet a -> (TSet a, TSet a)
-partition p (TSet s) = case mapEither f s of
-	  (# s1, s2 #) -> (TSet s1, TSet s2)
+partition p (TSet _ s) = case mapEither f s of
+	  (# s1, s2 #) -> (tSet s1, tSet s2)
   where f e@(Elem a)
 	  | p a		= (# Just e, Nothing #)
 	  | otherwise	= (# Nothing, Just e #)
@@ -156,9 +163,9 @@ split a s = case splitMember a s of
 -- | Performs a 'split' but also returns whether the pivot
 -- element was found in the original set.
 splitMember :: TKey a => a -> TSet a -> (TSet a, Bool, TSet a)
-splitMember a (TSet s) = searchMC (toRep a) s nomatch match where
-  nomatch hole = (TSet (beforeM hole), False, TSet (afterM hole))
-  match _ hole = (TSet (beforeM hole), True, TSet (afterM hole))
+splitMember a (TSet _ s) = searchMC (toRep a) s nomatch match where
+  nomatch hole = (tSet (beforeM hole), False, tSet (afterM hole))
+  match _ hole = (tSet (beforeM hole), True, tSet (afterM hole))
 
 -- |
 -- @'map' f s@ is the set obtained by applying @f@ to each element of @s@.
@@ -181,11 +188,11 @@ mapMonotonic f s = fromDistinctAscList [f x | x <- toAscList s]
 
 -- | Post-order fold.
 foldr :: TKey a => (a -> b -> b) -> b -> TSet a -> b
-foldr f z (TSet s) = F.foldr (flip $ F.foldr f) z s
+foldr f z (TSet _ s) = F.foldr (flip $ F.foldr f) z s
 
 -- | Pre-order fold.
 foldl :: TKey b => (a -> b -> a) -> a -> TSet b -> a
-foldl f z (TSet s) = F.foldl (F.foldl f) z s
+foldl f z (TSet _ s) = F.foldl (F.foldl f) z s
 
 -- | The minimal element of the set.
 findMin :: TKey a => TSet a -> a
@@ -218,16 +225,16 @@ deleteFindMax = fromJust . maxView
 -- | Retrieves the minimal key of the set, and the set
 -- stripped of that element, or 'Nothing' if passed an empty set.
 minView :: TKey a => TSet a -> Maybe (a, TSet a)
-minView (TSet s) = case getFirst (extractHoleM s) of
+minView (TSet sz s) = case getFirst (extractHoleM s) of
   Nothing	-> Nothing
-  Just (Elem a, hole) -> Just (a, TSet (afterM hole))
+  Just (Elem a, hole) -> Just (a, TSet (sz - 1) (afterM hole))
 
 -- | Retrieves the maximal key of the set, and the set
 -- stripped of that element, or 'Nothing' if passed an empty set.
 maxView :: TKey a => TSet a -> Maybe (a, TSet a)
-maxView (TSet s) = case getLast (extractHoleM s) of
+maxView (TSet sz s) = case getLast (extractHoleM s) of
   Nothing	-> Nothing
-  Just (Elem a, hole) -> Just (a, TSet (beforeM hole))
+  Just (Elem a, hole) -> Just (a, TSet (sz - 1) (beforeM hole))
 
 {-# INLINE elems #-}
 -- | See 'toAscList'.
@@ -250,13 +257,13 @@ fromFoldStream Foldl{..} (Stream suc s0 _) = run s0 where
     case step of
       Done -> return empty
       Skip s' -> run s'
-      Yield x s' -> run' (begin (toRep x) (Elem x)) s'
-  run' stack s = do
+      Yield x s' -> run' 1 (begin (toRep x) (Elem x)) s'
+  run' !n stack s = do
     step <- suc s
     case step of
-      Done -> return (TSet (done stack))
-      Skip s' -> run' stack s'
-      Yield x s' -> run' (snoc stack (toRep x) (Elem x)) s'
+      Done -> return (TSet n (done stack))
+      Skip s' -> run' n stack s'
+      Yield x s' -> run' (n+1) (snoc stack (toRep x) (Elem x)) s'
 
 {-# INLINE fromList #-}
 -- | Create a set from a list of elements.
@@ -295,21 +302,22 @@ fromDistinctAscVector xs = unId (fromFoldStream daFold (G.stream xs))
 {-# INLINE toVector #-}
 -- | /O(n)/.  Construct a vector from the elements of this set.  Does not currently fuse.
 toVector :: (TKey a, G.Vector v a) => TSet a -> v a
-toVector (TSet s) = toVectorMapN (sizeM s) getElem s
+toVector (TSet sz s) = toVectorMapN sz getElem s
 -- If we want this to fuse, our best bet is probably a method to iterate a hole to the next key...or something.
 -- This seems difficult, but perhaps not impossible.
 
 -- | /O(1)/. Is this the empty set?
 null :: TKey a => TSet a -> Bool
-null (TSet s) = isNull s
+null (TSet 0 _) = True
+null _ = False
 
 -- | /O(1)/. The number of elements in the set.
 size :: TKey a => TSet a -> Int
-size (TSet s) = getSize s
+size (TSet sz _) = sz
 
 -- | Is the element in the set?
 member :: TKey a => a -> TSet a -> Bool
-member a (TSet s) = runLookup (lookupMC (toRep a) s) False (const True)
+member a (TSet _ s) = runLookup (lookupMC (toRep a) s) False (const True)
 
 -- | Is the element not in the set?
 notMember :: TKey a => a -> TSet a -> Bool
@@ -317,7 +325,7 @@ notMember = not .: member
 
 -- | Is this a subset? @(s1 `isSubsetOf` s2)@ tells whether @s1@ is a subset of @s2@.
 isSubsetOf :: TKey a => TSet a -> TSet a -> Bool
-TSet s1 `isSubsetOf` TSet s2 = let ?le = \ _ _ -> True in s1 <=? s2
+TSet n1 s1 `isSubsetOf` TSet n2 s2 = let ?le = \ _ _ -> True in n1 <= n2 && s1 <=? s2
 
 -- | Is this a proper subset? (ie. a subset but not equal).
 isProperSubsetOf :: TKey a => TSet a -> TSet a -> Bool
@@ -330,8 +338,8 @@ s1 `isProperSubsetOf` s2 = size s1 < size s2 && s1 `isSubsetOf` s2
 {-# INLINE [1] mapSet #-}
 -- | Generate a 'TMap' by mapping on the elements of a 'TSet'.
 mapSet :: TKey a => (a -> b) -> TSet a -> TMap a b
-mapSet f (TSet s) = TMap (fmap (\ (Elem a) -> Assoc a (f a)) s)
+mapSet f (TSet sz s) = TMap sz (fmap (\ (Elem a) -> Assoc a (f a)) s)
 
 -- | If the specified element is in the set, returns 'Just' the index of the element, otherwise returns 'Nothing'.
 lookupIndex :: TKey a => a -> TSet a -> Maybe Int
-lookupIndex a (TSet s) = searchMC (toRep a) s (\ _ -> Nothing) (\ _ hole -> Just $ sizeM (beforeM hole))
+lookupIndex a (TSet _ s) = searchMC (toRep a) s (\ _ -> Nothing) (\ _ hole -> Just $ sizeM (beforeM hole))
