@@ -27,7 +27,7 @@ import Data.TrieMap.TrieKey.Search
 
 import Control.Applicative hiding (empty)
 import Control.Monad
-import Control.Monad.Lookup
+import Control.Monad.Option
 import Control.Monad.Ends
 
 import Data.Monoid (Monoid(..))
@@ -81,7 +81,7 @@ class (Ord k,
   getSimpleM :: TrieMap k a -> Simple a
   sizeM# :: Sized a => TrieMap k a -> Int#
   sizeM :: Sized a => TrieMap k a -> Int
-  lookupMC :: k -> TrieMap k a -> Lookup r a
+  lookupMC :: k -> TrieMap k a -> Option a
   
   data Hole k :: * -> *
   singleHoleM :: k -> Hole k a
@@ -116,10 +116,10 @@ class (Ord k,
   
   assignM :: Sized a => a -> Hole k a -> TrieMap k a
   clearM :: Sized a => Hole k a -> TrieMap k a
-  unifierM :: Sized a => k -> k -> a -> Lookup r (Hole k a)
-  unifyM :: Sized a => k -> a -> k -> a -> Lookup r (TrieMap k a)
+  unifierM :: Sized a => k -> k -> a -> Option (Hole k a)
+  unifyM :: Sized a => k -> a -> k -> a -> Option (TrieMap k a)
   
-  unifierM k' k a = Lookup $ \ no yes -> searchMC k' (singletonM k a) yes (\ _ _ -> no)
+  unifierM k' k a = option $ \ no yes -> searchMC k' (singletonM k a) yes (\ _ _ -> no)
   unifyM k1 a1 k2 a2 = assignM a1 <$> unifierM k1 k2 a2
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where

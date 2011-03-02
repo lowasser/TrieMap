@@ -141,7 +141,7 @@ module Data.TrieMap (
 
 import Control.Monad
 import Control.Monad.Ends
-import Control.Monad.Lookup
+import Control.Monad.Option
 
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances()
@@ -205,7 +205,7 @@ null (TMap m) = isNull m
 -- The function will return the corresponding value as @('Just' value)@, or 'Nothing' if the key isn't in the map.
 {-# INLINE lookup #-}
 lookup :: TKey k => k -> TMap k a -> Maybe a
-lookup k (TMap m) = runLookup (lookupMC (toRep k) m) Nothing (Just . getValue)
+lookup k (TMap m) = liftOption (getValue <$> lookupMC (toRep k) m)
 
 -- | The expression @('findWithDefault' def k map)@ returns the value at key @k@ or returns default value @def@
 -- when the key is not in the map.

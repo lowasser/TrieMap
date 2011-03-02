@@ -3,7 +3,7 @@
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.OrdMap () where
 
-import Control.Monad.Lookup
+import Control.Monad.Option
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
@@ -162,13 +162,14 @@ rebuild t Root = t
 rebuild t (LeftBin kx x path r) = rebuild (balance kx x t r) path
 rebuild t (RightBin kx x l path) = rebuild (balance kx x l t) path
 
-lookupC :: Ord k => k -> SNode k a -> Lookup r a
-lookupC k = look where
+lookupC :: Ord k => k -> SNode k a -> Option a
+lookupC k !t = option $ \ no yes -> let
   look BIN(kx x l r) = case compare k kx of
 	LT	-> look l
-	EQ	-> return x
+	EQ	-> yes x
 	GT	-> look r
-  look _ = mzero
+  look _ = no
+  in look t
 
 singleton :: Sized a => k -> a -> SNode k a
 singleton k a = bin k a tip tip
@@ -292,7 +293,7 @@ trimLookupLo _  _     TIP = (Nothing,tip)
 trimLookupLo lo cmphi t@BIN(kx x l r)
   = case compare lo kx of
       LT -> case cmphi kx of
-              GT -> (runLookup (lookupC lo t) Nothing (\ a -> Just (lo, a)), t)
+              GT -> (liftOption (fmap (lo,) (lookupC lo t)), t)
               _  -> trimLookupLo lo cmphi l
       GT -> trimLookupLo lo cmphi r
       EQ -> (Just (kx,x),trim (compare lo) cmphi r)

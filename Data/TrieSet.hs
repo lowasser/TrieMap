@@ -66,7 +66,7 @@ module Data.TrieSet (
 
 import Control.Monad
 import Control.Monad.Ends
-import Control.Monad.Lookup
+import Control.Monad.Option
 
 import Data.TrieMap.Class
 import Data.TrieMap.Class.Instances ()
@@ -311,7 +311,7 @@ size (TSet s) = getSize s
 
 -- | Is the element in the set?
 member :: TKey a => a -> TSet a -> Bool
-member a (TSet s) = runLookup (lookupMC (toRep a) s) False (const True)
+member a (TSet s) = isSome (lookupMC (toRep a) s)
 
 -- | Is the element not in the set?
 notMember :: TKey a => a -> TSet a -> Bool

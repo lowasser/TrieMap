@@ -7,7 +7,8 @@ import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 
 import Control.Exception (assert)
-import Control.Monad.Lookup
+import Control.Monad (mfilter)
+import Control.Monad.Option
 import Control.Monad.Unpack
 
 import Data.Functor.Immoral
@@ -230,8 +231,8 @@ branchHole !k !p path t
   	p' = mask k m
 
 {-# INLINE lookupC #-}
-lookupC :: Key -> SNode a -> Lookup r a
-lookupC !k !t = Lookup $ \ no yes -> let
+lookupC :: Key -> SNode a -> Option a
+lookupC !k !t = option $ \ no yes -> let
   look BIN(_ m l r) = if zeroN k m then look l else look r
   look TIP(kx x)
       | k == kx = yes x
@@ -283,7 +284,7 @@ instance Subset SNode where
 							  else t1 `subMap` r2)
       | otherwise	= (p1==p2) && l1 `subMap` l2 && r1 `subMap` r2
     BIN({}) `subMap` _		= False
-    TIP(k x) `subMap` t2	= runLookup (lookupC k t2) False (x <?=)
+    TIP(k x) `subMap` t2	= isSome (mfilter (x <?=) (lookupC k t2))
     NIL `subMap` _		= True
 
 instance SetOp SNode where
@@ -311,8 +312,8 @@ instance SetOp SNode where
       (Nil, _)	-> nil
       (Tip{}, Nil)	-> nil
       (Bin{}, Nil)	-> nil
-      (Tip k x, _)	-> runLookup (lookupC k n2) nil (singletonMaybe k . f x)
-      (_, Tip k y)	-> runLookup (lookupC k n1) nil (singletonMaybe k . flip f y)
+      (Tip k x, _)	-> runOption (lookupC k n2) nil (singletonMaybe k . f x)
+      (_, Tip k y)	-> runOption (lookupC k n1) nil (singletonMaybe k . flip f y)
       (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
 	| shorter m1 m2  -> intersection1
 	| shorter m2 m1  -> intersection2
@@ -330,7 +331,7 @@ instance SetOp SNode where
     n1@(SNode _ t1) \\ n2@(SNode _ t2) = case (t1, t2) of
       (Nil, _)	-> nil
       (_, Nil)	-> n1
-      (Tip k x, _)	-> runLookup (lookupC k n2) n1 (singletonMaybe k . f x)
+      (Tip k x, _)	-> runOption (lookupC k n2) n1 (singletonMaybe k . f x)
       (_, Tip k y)	-> alter (>>= flip f y) k n1
       (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
 	| shorter m1 m2  -> difference1
@@ -423,14 +424,16 @@ bin' p m l@SNode{sz=sl} r@SNode{sz=sr} = assert (nonempty l && nonempty r) $ SNo
   	nonempty _ = True
 
 {-# INLINE unify #-}
-unify :: Sized a => Key -> a -> Key -> a -> Lookup r (SNode a)
-unify k1 a1 k2 a2 = Lookup $ \ no yes ->
-  if k1 == k2 then no else yes (join k1 (singleton k1 a1) k2 (singleton k2 a2))
+unify :: Sized a => Key -> a -> Key -> a -> Option (SNode a)
+unify !k1 a1 !k2 a2 = do
+  guard (k1 /= k2)
+  return (join k1 (singleton k1 a1) k2 (singleton k2 a2))
 
 {-# INLINE unifier #-}
-unifier :: Sized a => Key -> Key -> a -> Lookup r (WHole a)
-unifier k' k a = Lookup $ \ no yes ->
-  if k == k' then no else yes (WHole k' $ branchHole k' k Root (singleton k a))
+unifier :: Sized a => Key -> Key -> a -> Option (WHole a)
+unifier !k' !k a = do
+  guard (k /= k')
+  return (WHole k' $ branchHole k' k Root (singleton k a))
 
 {-# INLINE fromAscList #-}
 fromAscList :: Sized a => (a -> a -> a) -> Foldl WordStack Key a (SNode a)
