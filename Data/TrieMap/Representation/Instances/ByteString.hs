@@ -1,7 +1,5 @@
-{-# LANGUAGE UndecidableInstances, TypeFamilies, BangPatterns, CPP #-}
+{-# LANGUAGE UndecidableInstances, TypeFamilies, BangPatterns #-}
 module Data.TrieMap.Representation.Instances.ByteString () where
-
-#include "MachDeps.h"
 
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Utils
@@ -22,7 +20,7 @@ import qualified Data.ByteString as B
 
 import Data.Vector.Primitive
 
-import Prelude
+import Prelude hiding (foldr)
 
 -- | @'Rep' 'ByteString' = 'Rep' ('Vector' 'Word8')@
 instance Repr ByteString where
@@ -35,7 +33,7 @@ bsToRep :: ByteString -> Vector Word
 bsToRep (PS fp off n) = if n <= 0 then empty else inlinePerformIO $ withForeignPtr fp $ \ p0 -> 
   let !src = p0 `advancePtr` off :: Ptr Word8 in do
     !dest <- newByteArray (n' * bytesPerWord)
-    let go !i = if ii < n' then (readWordAt src i >>= out >> go ii) else readLastWordAt n i src >>= out
+    let go !i = if ii < n' then (readWordAt src i (\ w -> out w >> go ii)) else readLastWordAt n i src out
 	  where !ii = i + 1
 		out = writeByteArray dest i
     go 0
@@ -45,43 +43,27 @@ bsToRep (PS fp off n) = if n <= 0 then empty else inlinePerformIO $ withForeignP
 bytesPerWord :: Int
 bytesPerWord = sizeOf (0 :: Word)
 
-readWordAt :: Ptr Word8 -> Int -> IO Word
-readWordAt ptr off = 
-#if WORD_SIZE_IN_BITS == 32
-  accum 3 $ accum 2 $ accum 1 $ accum 0 $ return 0
-#else
-  accum 7 $ accum 6 $ accum 5 $ accum 4 $ accum 3 $ accum 2 $ accum 1 $ accum 0 $ return 0
-#endif
-  where !off' = off * bytesPerWord
-	accum x w = let s = 8 * (bytesPerWord - 1 - x) in
-	  liftM2 (.|.) w $ liftM (\ w -> fromIntegral w .<<. s) $ peekElemOff ptr (x + off')
+{-# INLINE readWordAt #-}
+readWordAt :: Ptr Word8 -> Int -> (Word -> IO a) -> IO a
+readWordAt !ptr !off ret = accum 0 0 where
+  !off' = off * bytesPerWord
+  accum i w
+    | i < bytesPerWord
+      = do	let !s = 8 * (bytesPerWord - 1 - i)
+		!w8 <- peekElemOff ptr (i + off')
+		accum (i+1) (w .|. (fromIntegral w8 .<<. s))
+    | otherwise
+      = ret w
 
-readLastWordAt :: Int -> Int -> Ptr Word8 -> IO Word
-readLastWordAt !n !off !ptr =
-  let	w0 = accum 0 (return 0)
-	w1 = accum 1 w0
-	w2 = accum 2 w1
-	w3 = accum 3 w2
-#if WORD_SIZE_IN_BITS > 32
-	w4 = accum 4 w3
-	w5 = accum 5 w4
-	w6 = accum 6 w5
-	w7 = accum 7 w6
-#endif
-    in case n `remPow` bytesPerWord of
-      1	-> w0
-      2	-> w1
-      3	-> w2
-#if WORD_SIZE_IN_BITS > 32
-      4	-> w3
-      5	-> w4
-      6	-> w5
-      7	-> w6
-      _	-> w7
-#else
-      _	-> w3
-#endif
-  where	!off' = off * bytesPerWord
-	{-# INLINE accum #-}
-	accum x w = let s = 8 * (bytesPerWord - 1 - x) in
-	  liftM2 (.|.) w $ liftM (\ w -> fromIntegral w .<<. s) $ peekElemOff ptr (x + off')
+{-# INLINE readLastWordAt #-}
+readLastWordAt :: Int -> Int -> Ptr Word8 -> (Word -> IO a) -> IO a
+readLastWordAt !n !off !ptr ret = case n `remPow` bytesPerWord of
+  0	-> readWordAt ptr off ret
+  r	-> run 0 0 where
+    run !i !w
+      | i < r	= do
+	  let s = 8 * (bytesPerWord - 1 - i) 
+	  !w8 <- peekElemOff ptr (i + off')
+	  run (i+1) (w .|. (fromIntegral w8 .<<. s))
+      | otherwise = ret w
+    !off' = off * bytesPerWord
