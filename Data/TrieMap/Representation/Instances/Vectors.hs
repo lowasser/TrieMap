@@ -135,10 +135,8 @@ VEC_ENUM_INSTANCES(Char)
 
 -- | We embed IntN into WordN, but we have to be careful about overflow.
 {-# INLINE [1] i2w #-}
-i2w :: forall i w . (Integral i, Bits w, Bits i, Integral w) => i -> w
-i2w !i	| i < 0		= mB - fromIntegral (-i)
-	| otherwise	= mB + fromIntegral i
-	where mB = bit (bitSize (0 :: i) - 1) :: w
+i2w :: forall i w . (Integral i, Bounded i, Bits w, Bits i, Integral w) => i -> w
+i2w !i = fromIntegral i `xor` fromIntegral (minBound :: i)
 
 data PackState s = PackState !Word !Int s | Last !Int | End
 {-# ANN type PackState ForceSpecConstr #-}
