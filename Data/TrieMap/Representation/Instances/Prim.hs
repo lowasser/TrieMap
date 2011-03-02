@@ -5,6 +5,7 @@ module Data.TrieMap.Representation.Instances.Prim () where
 
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Representation.Instances.Vectors
+import Data.TrieMap.Representation.Instances.Basic ()
 import Data.Word
 import Data.Int
 import Data.Char
@@ -29,7 +30,6 @@ instance Repr wTy where { \
 	type RepList wTy = Rep (Vector wTy);\
 	toRepList xs = toRep (fromList xs)}
 
-WREPR(Word)
 WDOC(Word8)
 WREPR(Word8)
 WDOC(Word16)

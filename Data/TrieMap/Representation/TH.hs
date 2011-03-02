@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns, TypeFamilies, TemplateHaskell, PatternGuards, DoAndIfThenElse, ImplicitParams #-}
 
-module Data.TrieMap.Representation.TH (genRepr, genOptRepr, genOrdRepr) where
+module Data.TrieMap.Representation.TH (genRepr, genOptRepr, genOrdRepr, genBaseRepr) where
 
 import Language.Haskell.TH.Syntax
 import Language.Haskell.TH.ExpandSyns
@@ -16,7 +16,7 @@ import Data.TrieMap.Representation.TH.ReprMonad
 -- | Given a type with an associated 'Ord' instance, generates a representation that will cause its 'TMap'
 -- implementation to be essentially equivalent to "Data.Map".
 genOrdRepr :: Name -> Q [Dec]
-genOrdRepr tycon = execReprMonad $ do
+genOrdRepr tycon = execReprMonad True $ do
 	(cxt, ty, _) <- getDataForName tycon
 	outputRepr cxt ty =<< ordRepr ty
 
@@ -55,7 +55,14 @@ getDataForType ty
 -- generates an instance @Repr a@, then it is guaranteed that if @x, y :: a@, and @a@
 -- has a derived 'Ord' instance, then @compare x y == compare (toRep x) (toRep y)@.
 genRepr :: Name -> Q [Dec]
-genRepr tyCon = execReprMonad $ do
+genRepr tyCon = execReprMonad False $ do
+  (_, ty, _) <- getDataForName tyCon
+  let ?combine = mergeWith sumRepr
+  genReprMain ty
+
+-- | Like 'genRepr', except forces the 'RepList' to be the default.
+genBaseRepr :: Name -> Q [Dec]
+genBaseRepr tyCon = execReprMonad True $ do
   (_, ty, _) <- getDataForName tyCon
   let ?combine = mergeWith sumRepr
   genReprMain ty
@@ -72,7 +79,7 @@ genRepr tyCon = execReprMonad $ do
 -- 'genOptRepr' generates an instance @Repr a@, then it is guaranteed that if @x, y :: a@, and
 -- @a@ has a derived 'Eq' instance, then @(x == y) == (toRep x == toRep y)@.
 genOptRepr :: Name -> Q [Dec]
-genOptRepr tyCon = execReprMonad $ do
+genOptRepr tyCon = execReprMonad False $ do
   (_, ty, _) <- getDataForName tyCon
   let ?combine = unify
   genReprMain ty

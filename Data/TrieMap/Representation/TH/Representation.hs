@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, RecordWildCards, NamedFieldPuns, PatternGuards #-}
+{-# LANGUAGE TemplateHaskell, RecordWildCards, NamedFieldPuns, PatternGuards, FlexibleContexts #-}
 module Data.TrieMap.Representation.TH.Representation (
   Representation(..),
   Case(..),
@@ -106,15 +106,23 @@ ordRepr ty = do
 caseToClause :: Case -> Clause
 caseToClause Case{..} = Clause input (NormalB output) []
 
+{-# INLINE toRepListImpl #-}
+toRepListImpl :: (Repr a, Repr (Rep a)) => [a] -> RepList (Rep a)
+toRepListImpl xs = toRepList (map toRep xs)
+
 outputRepr :: Cxt -> Type -> Representation -> ReprMonad Type
 outputRepr cxt ty Repr{..} = do
+  forceDef <- forceDefaultListRep
+  let listReps = if forceDef then
+	[TySynInstD ''RepList [ty] (ConT ''DRepList `AppT` ty),
+	ValD (VarP 'toRepList) (NormalB (VarE 'dToRepList)) []]
+	else [TySynInstD ''RepList [ty] (ConT ''RepList `AppT` reprType),
+	  ValD (VarP 'toRepList) (NormalB (VarE 'toRepListImpl)) []]
   outputInstance ty reprType
     [InstanceD cxt (ConT ''Repr `AppT` ty)
-      [TySynInstD ''Rep [ty] reprType,
+      ([TySynInstD ''Rep [ty] reprType,
 	FunD 'toRep
-	  (map caseToClause cases),
-	TySynInstD ''RepList [ty] (ConT ''V.Vector `AppT` reprType),
-	ValD (VarP 'toRepList) (NormalB (VarE 'dToRepList)) []]]
+	  (map caseToClause cases)] ++ listReps)]
   return reprType
 
 recursiveRepr :: Quasi m => Type -> Exp -> m Representation
