@@ -5,6 +5,7 @@ module Data.TrieMap.OrdMap () where
 
 import Control.Monad.Lookup
 
+import Data.Functor.Immoral
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 import Data.TrieMap.Modifiers
@@ -28,14 +29,8 @@ data SNode k a = SNode{sz :: !Int, count :: !Int, node :: Node k a}
 #define TIP SNode{node=Tip}
 #define BIN(args) SNode{node=Bin args}
 
--- Morally reprehensible exploitation of generalized newtype deriving.
-class ImmoralCast a b where
-  immoralCast :: SNode k a -> SNode k b
-
-instance ImmoralCast a a where
-  immoralCast = id
-
-deriving instance ImmoralCast a (Elem a)
+deriving instance ImmoralMap a (Elem a)
+deriving instance ImmoralMap (SNode k a) (TrieMap (Ordered k) a)
 
 instance Sized a => Sized (Node k a) where
   getSize# m = unbox $ case m of
@@ -77,15 +72,23 @@ instance Ord k => Buildable (TrieMap (Ordered k)) (Ordered k) where
   type DAStack (TrieMap (Ordered k)) = Stack k
   daFold = OrdMap <$> mapFoldlKeys unOrd fromDistAscList
 
-#define SETOP(op) op f (OrdMap m1) (OrdMap m2) = OrdMap (op f m1 m2)
+#define SETOP(op) op f (OrdMap m1) (OrdMap m2) = castMap (op f m1 m2)
 instance Ord k => SetOp (TrieMap (Ordered k)) where
   SETOP(union)
   SETOP(isect)
   SETOP(diff)
 
+instance Nullable (Node k) where
+  isNull Tip = True
+  isNull Bin{} = False
+
+instance Nullable (SNode k) where
+  isNull SNode{node} = isNull node
+
 instance Ord k => Project (TrieMap (Ordered k)) where
-  mapMaybe f (OrdMap m) = OrdMap $ mapMaybe f m
-  mapEither f (OrdMap m) = both OrdMap (mapEither f) m
+  mapMaybe f (OrdMap m) = castMap $ mapMaybe f m
+  mapEither f (OrdMap m) = case mapEither f m of
+    (# mL, mR #) -> (# castMap mL, castMap mR #)
 
 -- | @'TrieMap' ('Ordered' k) a@ is based on "Data.Map".
 instance Ord k => TrieKey (Ordered k) where
@@ -93,23 +96,21 @@ instance Ord k => TrieKey (Ordered k) where
         data Hole (Ordered k) a = 
         	Empty k !(Path k a)
         	| Full k !(Path k a) !(SNode k a) !(SNode k a)
-	emptyM = OrdMap tip
 	singletonM (Ord k) a = OrdMap (singleton k a)
 	lookupMC (Ord k) (OrdMap m) = lookupC k m
 	getSimpleM (OrdMap m) = case m of
-		TIP	-> Null
 		BIN(_ a TIP TIP)
 			-> Singleton a
 		_	-> NonSimple
 	sizeM (OrdMap m) = sz m
 	
 	singleHoleM (Ord k) = Empty k Root
-	beforeM (Empty _ path) = OrdMap $ before tip path
-	beforeM (Full _ path l _) = OrdMap $ before l path
+	beforeM (Empty _ path) = castMap $ guardNull $ before tip path
+	beforeM (Full _ path l _) = castMap $ guardNull $ before l path
 	beforeWithM a (Empty k path) = OrdMap $ before (singleton k a) path
 	beforeWithM a (Full k path l _) = OrdMap $ before (insertMax k a l) path
-	afterM (Empty _ path) = OrdMap $ after tip path
-	afterM (Full _ path _ r) = OrdMap $ after r path
+	afterM (Empty _ path) = castMap $ guardNull $ after tip path
+	afterM (Full _ path _ r) = castMap $ guardNull $ after r path
 	afterWithM a (Empty k path) = OrdMap $ after (singleton k a) path
 	afterWithM a (Full k path _ r) = OrdMap $ after (insertMin k a r) path
 	searchMC (Ord k) (OrdMap m) = search k m
@@ -128,8 +129,8 @@ instance Ord k => TrieKey (Ordered k) where
 			extractHole (RightBin kx x l path) r
 		extractHole _ _ = mzero
 	
-	clearM (Empty _ path) = OrdMap $ rebuild tip path
-	clearM (Full _ path l r) = OrdMap $ rebuild (merge l r) path
+	clearM (Empty _ path) = castMap $ guardNull $ rebuild tip path
+	clearM (Full _ path l r) = castMap $ guardNull $ rebuild (merge l r) path
 	assignM x (Empty k path) = OrdMap $ rebuild (singleton k x) path
 	assignM x (Full k path l r) = OrdMap $ rebuild (join k x l r) path
 	
@@ -191,15 +192,17 @@ instance Functor (SNode k) where
     map _ = tip
 
 instance Ord k => Project (SNode k) where
-  mapMaybe f = mMaybe where
+  mapMaybe f = guardNull . mMaybe where
     mMaybe BIN(k a l r) = joinMaybe k (f a) (mMaybe l) (mMaybe r)
     mMaybe _ = tip
-  mapEither f = mEither where
+  mapEither f !t = let
     mEither BIN(k a l r) = (# joinMaybe k aL lL rL, joinMaybe k aR lR rR #)
       where !(# aL, aR #) = f a
 	    !(# lL, lR #) = mEither l
 	    !(# rL, rR #) = mEither r
     mEither _ = (# tip, tip #)
+    in case mEither t of
+	(# mL, mR #) -> (# guardNull mL, guardNull mR #)
 
 splitLookup :: Ord k => k -> SNode k (Elem a) -> (SNode k (Elem a) -> Maybe (Elem a) -> SNode k (Elem a) -> r) -> r
 splitLookup k t cont = search k t (split Nothing) (split . Just) where
@@ -207,7 +210,7 @@ splitLookup k t cont = search k t (split Nothing) (split . Just) where
   split v (Full _ path l r) = cont (before l path) v (after r path)
 
 instance Ord k => Subset (SNode k) where
-  t1 <=? t2 = immoralCast t1 `subMap` immoralCast t2 where
+  t1 <=? t2 = castMap t1 `subMap` castMap t2 where
     TIP `subMap` _	= True
     _ `subMap` TIP	= False
     BIN(kx x l r) `subMap` t = splitLookup kx t result
@@ -215,7 +218,7 @@ instance Ord k => Subset (SNode k) where
 	    result tl (Just y) tr	= x <=? y && l `subMap` tl && r `subMap` tr
 
 fromDistAscList :: (Eq k, Sized a) => Foldl (Stack k) k a (SNode k a)
-fromDistAscList = Foldl{zero = tip, ..} where
+fromDistAscList = Foldl{..} where
   incr !t (Yes t' stk) = No (incr (t' `glue` t) stk)
   incr !t (No stk) = Yes t stk
   incr !t End = Yes t End
@@ -233,9 +236,9 @@ fromDistAscList = Foldl{zero = tip, ..} where
 data Stack k a = No (Stack k a) | Yes !(SNode k a) (Stack k a) | End
 
 instance Ord k => SetOp (SNode k) where
-  union f = hedgeUnion f (const LT) (const GT)
-  diff f = hedgeDiff f (const LT) (const GT)
-  isect f m1 m2 = immoralCast m1 `intersection` m2 where
+  union f = guardNull .: hedgeUnion f (const LT) (const GT)
+  diff f = guardNull .: hedgeDiff f (const LT) (const GT)
+  isect f m1 m2 = guardNull $ castMap m1 `intersection` m2 where
     t1@BIN(_ _ _ _) `intersection` BIN(k2 x2 l2 r2) = splitLookup k2 t1 result where
       result tl found tr = joinMaybe k2 (found >>= \ (Elem x1') -> f x1' x2) (tl `intersection` l2) (tr `intersection` r2)
     _ `intersection` _ = tip

@@ -1,5 +1,5 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances, RecordWildCards #-}
-{-# LANGUAGE TemplateHaskell, TypeOperators, MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell, TypeOperators, MultiParamTypeClasses, GeneralizedNewtypeDeriving, StandaloneDeriving #-}
 {-# OPTIONS -funbox-strict-fields -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), WordStack, getWordMap, getHole) where
 
@@ -12,13 +12,13 @@ import Control.Monad.Unpack
 
 import Data.Bits
 import Data.Maybe hiding (mapMaybe)
+import Data.Functor.Immoral
 
 import GHC.Exts
 
 import Prelude hiding (lookup, null, map, foldl, foldr, foldl1, foldr1)
 
 #include "MachDeps.h"
-#define NIL SNode{node = Nil}
 #define TIP(args) SNode{node = (Tip args)}
 #define BIN(args) SNode{node = (Bin args)}
 
@@ -35,14 +35,13 @@ data Path a = Root
 
 data SNode a = SNode {sz :: !Size, node :: (Node a)}
 {-# ANN type SNode ForceSpecConstr #-}
-data Node a = Nil | Tip !Key a | Bin !Prefix !Mask !(SNode a) !(SNode a)
+data Node a = Tip !Key a | Bin !Prefix !Mask !(SNode a) !(SNode a)
 
 instance Sized (SNode a) where
   getSize# SNode{sz} = unbox sz
 
 instance Sized a => Sized (Node a) where
   getSize# t = unbox $ case t of
-    Nil		-> 0
     Tip _ a	-> getSize a
     Bin _ _ l r	-> getSize l + getSize r
 
@@ -83,7 +82,7 @@ instance Traversable (TrieMap Word) where
 instance Buildable (TrieMap Word) Word where
   type UStack (TrieMap Word) = SNode
   {-# INLINE uFold #-}
-  uFold = fmap WordMap . defaultUFold nil singleton (\ f k a -> insertWithC f k (getSize a) a)
+  uFold = fmap WordMap . defaultUFold singleton (\ f k a -> insertWithC f k (getSize a) a)
   type AStack (TrieMap Word) = WordStack
   {-# INLINE aFold #-}
   aFold = fmap WordMap . fromAscList
@@ -91,7 +90,7 @@ instance Buildable (TrieMap Word) Word where
   {-# INLINE daFold #-}
   daFold = aFold const
 
-#define SETOP(op) op f (WordMap m1) (WordMap m2) = WordMap (op f m1 m2)
+#define SETOP(op) op f (WordMap m1) (WordMap m2) = castMap (op f m1 m2)
 
 instance SetOp (TrieMap Word) where
   SETOP(union)
@@ -99,26 +98,25 @@ instance SetOp (TrieMap Word) where
   SETOP(diff)
 
 instance Project (TrieMap Word) where
-  mapMaybe f (WordMap m) = WordMap $ mapMaybe f m
-  mapEither f (WordMap m) = both WordMap (mapEither f) m
+  mapMaybe f (WordMap m) = castMap $ mapMaybe f m
+  mapEither f (WordMap m) = case mapEither f m of
+      (# mL, mR #) -> (# castMap mL, castMap mR #)
 
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where
 	newtype TrieMap Word a = WordMap {getWordMap :: SNode a}
         newtype Hole Word a = Hole {getHole :: WHole a}
-	emptyM = WordMap nil
 	singletonM k a = WordMap (singleton k a)
 	getSimpleM (WordMap (SNode _ n)) = case n of
-	  Nil		-> Null
 	  Tip _ a	-> Singleton a
-	  _		-> NonSimple
+	  Bin{}		-> NonSimple
 	sizeM (WordMap t) = getSize t
 	lookupMC k (WordMap m) = lookupC k m
 	
 	singleHoleM k = hole k Root
-	beforeM HOLE(_ path) = WordMap (before path)
+	beforeM HOLE(_ path) = castMap (before path)
 	beforeWithM a HOLE(k path) = WordMap (beforeWith (singleton k a) path)
-	afterM HOLE(_ path) = WordMap (after path)
+	afterM HOLE(_ path) = castMap (after path)
 	afterWithM a HOLE(k path) = WordMap (afterWith (singleton k a) path)
 
 	{-# INLINE searchMC #-}
@@ -126,17 +124,14 @@ instance TrieKey Word where
 	{-# INLINE indexM #-}
 	indexM (WordMap m) i = index i m
 	extractHoleM (WordMap m) = extractHole Root m where
-		extractHole _ (SNode _ Nil) = mzero
 		extractHole path TIP(kx x) = return (x, hole kx path)
 		extractHole path BIN(p m l r) =
 			extractHole (LeftBin p m path r) l `mplus`
 				extractHole (RightBin p m l path) r
 	{-# INLINE clearM #-}
-	clearM HOLE(_ path) = case clear path of
-	  (# sz#, node #) -> WordMap SNode{sz = I# sz#, node}
+	clearM HOLE(_ path) = castMap $ clear path
 	{-# INLINE assignM #-}
-	assignM v HOLE(kx path) = case assign (singleton kx v) path of
-	  (# sz#, node #) -> WordMap SNode{sz = I# sz#, node}
+	assignM v HOLE(kx path) = WordMap $ assign (singleton kx v) path
 
 	{-# INLINE unifyM #-}
 	unifyM k1 a1 k2 a2 = WordMap <$> unify k1 a1 k2 a2
@@ -165,7 +160,6 @@ insertWithC f !k !szA a !t = ins' t where
     TIP(kx x)
       | k == kx		-> out $ singleton kx (f x)
       | otherwise	-> out $ join k tip kx t
-    NIL			-> out tip
 
 index :: Int# -> SNode a -> (# Int#, a, Hole Word a #)
 index i !t = indexT i t Root where
@@ -174,7 +168,6 @@ index i !t = indexT i t Root where
 	  | i <# sl	= indexT i l (LeftBin p m path r)
 	  | otherwise	= indexT (i -# sl) r (RightBin p m l path)
 	  where !sl = getSize# l
-  indexT _ NIL _	= indexFail ()
 
 searchC :: Key -> SNode a -> (WHole a :~> r) -> (a -> WHole a :~> r) -> r
 searchC !k t notfound found = seek Root t where
@@ -187,34 +180,33 @@ searchC !k t notfound found = seek Root t where
   seek path t@TIP(ky y)
     | k == ky	= found y $~ WHole k path
     | otherwise	= notfound $~ WHole k (branchHole k ky path t)
-  seek path NIL = notfound $~ WHole k path
 
-before, after :: Path a -> SNode a
+before, after :: Path a -> Maybe (SNode a)
 beforeWith, afterWith :: SNode a -> Path a -> SNode a
 
-before Root			= nil
+before Root			= Nothing
 before (LeftBin _ _ path _)	= before path
-before (RightBin _ _ l path)	= beforeWith l path
+before (RightBin _ _ l path)	= Just $ beforeWith l path
 
 beforeWith !t Root			= t
 beforeWith !t (LeftBin _ _ path _)	= beforeWith t path
 beforeWith !t (RightBin p m l path)	= beforeWith (bin' p m l t) path
 
-after Root			= nil
+after Root			= Nothing
 after (RightBin _ _ _ path)	= after path
-after (LeftBin _ _ path r)	= afterWith r path
+after (LeftBin _ _ path r)	= Just $ afterWith r path
 
 afterWith !t Root			= t
 afterWith !t (RightBin _ _ _ path)	= afterWith t path
 afterWith !t (LeftBin p m path r)	= afterWith (bin' p m t r) path
 
-clear :: Path a -> (# Int#, Node a #)
-assign :: SNode a -> Path a -> (# Int#, Node a #)
-clear Root = (# 0#, Nil #)
-clear (LeftBin _ _ path r) = assign r path
-clear (RightBin _ _ l path) = assign l path
+clear :: Path a -> Maybe (SNode a)
+assign :: SNode a -> Path a -> SNode a
+clear Root = Nothing
+clear (LeftBin _ _ path r) = Just $ assign r path
+clear (RightBin _ _ l path) = Just $ assign l path
 
-assign SNode{sz = I# sz#, node} Root = (# sz#, node #)
+assign !t Root = t
 assign !t (LeftBin p m path r) = assign (bin' p m t r) path
 assign !t (RightBin p m l path) = assign (bin' p m l t) path
 
@@ -237,35 +229,30 @@ lookupC !k !t = Lookup $ \ no yes -> let
 singleton :: Sized a => Key -> a -> SNode a
 singleton k a = sNode (Tip k a)
 
-singletonMaybe :: Sized a => Key -> Maybe a -> SNode a
-singletonMaybe k = maybe nil (singleton k)
+singletonMaybe :: Sized a => Key -> Maybe a -> Maybe (SNode a)
+singletonMaybe k = fmap (singleton k)
 
 instance Functor SNode where
   fmap f = map where
     map SNode{sz, node} = SNode sz $ case node of
-      Nil		-> Nil
       Tip k x		-> Tip k (f x)
       Bin p m l r	-> Bin p m (map l) (map r)
 
 instance Foldable SNode where
   foldMap f = fold where
-    fold NIL = mempty
     fold TIP(_ x) = f x
     fold BIN(_ _ l r) = fold l `mappend` fold r
   
   foldr f = flip fold where
     fold BIN(_ _ l r) z = fold l (fold r z)
     fold TIP(_ x) z = f x z
-    fold NIL z = z
   
   foldl f = fold where
     fold z BIN(_ _ l r) = fold (fold z l) r
     fold z TIP(_ x) = f z x
-    fold z NIL = z
 
 instance Traversable SNode where
   traverse f = trav where
-    trav NIL	= pure nil
     trav SNode{sz, node = Tip kx x}
     		= SNode sz . Tip kx <$> f x
     trav SNode{sz, node = Bin p m l r}
@@ -280,33 +267,27 @@ instance Subset SNode where
       | otherwise	= (p1==p2) && l1 `subMap` l2 && r1 `subMap` r2
     BIN({}) `subMap` _		= False
     TIP(k x) `subMap` t2	= runLookup (lookupC k t2) False (x <?=)
-    NIL `subMap` _		= True
 
 instance SetOp SNode where
   union f = (\/) where
     n1@(SNode _ t1) \/ n2@(SNode _ t2) = case (t1, t2) of
-      (Nil, _)	-> n2
-      (_, Nil)	-> n1
       (Tip k x, _)	-> alter (maybe (Just x) (f x)) k n2
       (_, Tip k x)	-> alter (maybe (Just x) (`f` x)) k n1
       (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
 	| shorter m1 m2  -> union1
 	| shorter m2 m1  -> union2
 	| p1 == p2       -> bin p1 m1 (l1 \/ l2) (r1 \/ r2)
-	| otherwise      -> join p1 n1 p2 n2
+	| otherwise      -> Just $ join p1 n1 p2 n2
 	where
-	  union1  | nomatch p2 p1 m1  = join p1 n1 p2 n2
-		  | mask0 p2 m1       = bin p1 m1 (l1 \/ n2) r1
-		  | otherwise         = bin p1 m1 l1 (r1 \/ n2)
+	  union1  | nomatch p2 p1 m1  = Just $ join p1 n1 p2 n2
+		  | mask0 p2 m1       = bin p1 m1 (l1 \/ n2) (Just r1)
+		  | otherwise         = bin p1 m1 (Just l1) (r1 \/ n2)
 
-	  union2  | nomatch p1 p2 m2  = join p1 n1 p2 n2
-		  | mask0 p1 m2       = bin p2 m2 (n1 \/ l2) r2
-		  | otherwise         = bin p2 m2 l2 (n1 \/ r2)
+	  union2  | nomatch p1 p2 m2  = Just $ join p1 n1 p2 n2
+		  | mask0 p1 m2       = bin p2 m2 (n1 \/ l2) (Just r2)
+		  | otherwise         = bin p2 m2 (Just l2) (n1 \/ r2)
   isect f = (/\) where
     n1@(SNode _ t1) /\ n2@(SNode _ t2) = case (t1, t2) of
-      (Nil, _)	-> nil
-      (Tip{}, Nil)	-> nil
-      (Bin{}, Nil)	-> nil
       (Tip k x, _)	-> runLookup (lookupC k n2) nil (singletonMaybe k . f x)
       (_, Tip k y)	-> runLookup (lookupC k n1) nil (singletonMaybe k . flip f y)
       (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
@@ -324,8 +305,6 @@ instance SetOp SNode where
 			| otherwise         = n1 /\ r2
   diff f = (\\) where
     n1@(SNode _ t1) \\ n2@(SNode _ t2) = case (t1, t2) of
-      (Nil, _)	-> nil
-      (_, Nil)	-> n1
       (Tip k x, _)	-> runLookup (lookupC k n2) n1 (singletonMaybe k . f x)
       (_, Tip k y)	-> alter (>>= flip f y) k n1
       (Bin p1 m1 l1 r1, Bin p2 m2 l2 r2)
@@ -346,17 +325,22 @@ instance Project SNode where
   mapMaybe f = mMaybe where
     mMaybe BIN(p m l r) = bin p m (mMaybe l) (mMaybe r)
     mMaybe TIP(kx x) = singletonMaybe kx (f x)
-    mMaybe NIL = nil
   mapEither f = mEither where
     mEither BIN(p m l r) = (# bin p m l1 r1, bin p m l2 r2 #)
       where !(# l1, l2 #) = mEither l
 	    !(# r1, r2 #) = mEither r
-    mEither TIP(kx x) = both (singletonMaybe kx) f x
-    mEither NIL = (# nil, nil #)
+    mEither TIP(kx x) = case f x of
+      (# xL, xR #) -> (# singletonMaybe kx xL, singletonMaybe kx xR #)
 
 {-# INLINE alter #-}
-alter :: Sized a => (Maybe a -> Maybe a) -> Key -> SNode a -> SNode a
-alter f k t = getWordMap $ alterM f k (WordMap t)
+alter :: Sized a => (Maybe a -> Maybe a) -> Key -> SNode a -> Maybe (SNode a)
+alter f !k !t = searchC k t notfound found where
+  notfound = unpack $ \ hole -> case f Nothing of
+    Nothing	-> Just t
+    Just a	-> Just (assign (singleton k a) hole)
+  found a = unpack $ \ hole -> case f (Just a) of
+    Nothing	-> clear hole
+    Just a'	-> Just (assign (singleton k a) hole)
 
 mask0 :: Key -> Mask -> Bool
 mask0 i m
@@ -404,19 +388,17 @@ join p1 t1 p2 t2
     p = mask p1 m
     sz' = sz t1 + sz t2
 
-nil :: SNode a
-nil = SNode 0 Nil
+nil :: Maybe (SNode a)
+nil = Nothing
 
-bin :: Prefix -> Mask -> SNode a -> SNode a -> SNode a
-bin p m l@(SNode sl tl) r@(SNode sr tr) = case (tl, tr) of
-  (Nil, _)	-> r
-  (_, Nil)	-> l
-  _		-> SNode (sl + sr) (Bin p m l r)
+bin :: Prefix -> Mask -> Maybe (SNode a) -> Maybe (SNode a) -> Maybe (SNode a)
+bin p m tl tr = case (tl, tr) of
+  (Nothing, _)	-> tr
+  (_, Nothing)	-> tl
+  (Just (SNode sl l), Just (SNode sr r)) -> SNode (sl + sr) (Bin p m l r)
 
 bin' :: Prefix -> Mask -> SNode a -> SNode a -> SNode a
-bin' p m l@SNode{sz=sl} r@SNode{sz=sr} = assert (nonempty l && nonempty r) $ SNode (sl + sr) (Bin p m l r)
-  where	nonempty NIL = False
-  	nonempty _ = True
+bin' p m l@SNode{sz=sl} r@SNode{sz=sr} = SNode (sl + sr) (Bin p m l r)
 
 {-# INLINE unify #-}
 unify :: Sized a => Key -> a -> Key -> a -> Lookup r (SNode a)
@@ -430,7 +412,7 @@ unifier k' k a = Lookup $ \ no yes ->
 
 {-# INLINE fromAscList #-}
 fromAscList :: Sized a => (a -> a -> a) -> Foldl WordStack Key a (SNode a)
-fromAscList f = Foldl{zero = nil, ..} where
+fromAscList f = Foldl{..} where
   begin kx vx = WordStack kx vx Nada
 
   snoc (WordStack kx vx stk) kz vz
@@ -458,3 +440,5 @@ fromAscList f = Foldl{zero = nil, ..} where
 
 data WordStack a = WordStack !Key a (Stack a)
 data Stack a = Push !Prefix !(SNode a) !(Stack a) | Nada
+
+deriving instance ImmoralMap (SNode a) (TrieMap Word a)
