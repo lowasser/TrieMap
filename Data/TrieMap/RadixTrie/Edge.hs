@@ -169,7 +169,7 @@ unionEdge f = unionE where
       LT -> cEdge ks0 vK $ alterM g l tsK where
 	eL' = dropEdge (kLen + 1) eL; l = ls0 !$ kLen
 	g eK = union unionE eK (Just eL')
-      GT -> cEdge ks0 vK $ alterM g k tsL where
+      GT -> cEdge ls0 vL $ alterM g k tsL where
 	eK' = dropEdge (lLen + 1) eK; k = ks0 !$ lLen
 	g = union unionE (Just eK')
 
