@@ -9,6 +9,8 @@ import Data.TrieMap.TrieKey
 import Data.TrieMap.Sized
 import Data.TrieMap.Modifiers
 
+import Data.Functor.Immoral
+
 import Prelude hiding (lookup, foldr, foldl, foldr1, foldl1, map)
 import GHC.Exts
 
@@ -24,6 +26,8 @@ data Node k a =
   Tip
   | Bin k a !(SNode k a) !(SNode k a)
 data SNode k a = SNode{sz :: !Int, count :: !Int, node :: Node k a}
+
+deriving instance ImmoralMap (SNode k a) (TrieMap (Ordered k) a)
 
 #define TIP SNode{node=Tip}
 #define BIN(args) SNode{node=Bin args}
@@ -67,7 +71,7 @@ instance Foldable (TrieMap (Ordered k)) where
   foldl f z (OrdMap m) = foldl f z m
 
 instance Traversable (TrieMap (Ordered k)) where
-  traverse f (OrdMap m) = OrdMap <$> traverse f m
+  traverse f (OrdMap m) = castMap $ traverse f m
 
 instance Ord k => Buildable (TrieMap (Ordered k)) (Ordered k) where
   type UStack (TrieMap (Ordered k)) = TrieMap (Ordered k)
@@ -75,7 +79,7 @@ instance Ord k => Buildable (TrieMap (Ordered k)) (Ordered k) where
   type AStack (TrieMap (Ordered k)) = Distinct (Ordered k) (Stack k)
   aFold = combineFold daFold
   type DAStack (TrieMap (Ordered k)) = Stack k
-  daFold = OrdMap <$> mapFoldlKeys unOrd fromDistAscList
+  daFold = castMap $ mapFoldlKeys unOrd fromDistAscList
 
 #define SETOP(op) op f (OrdMap m1) (OrdMap m2) = OrdMap (op f m1 m2)
 instance Ord k => SetOp (TrieMap (Ordered k)) where

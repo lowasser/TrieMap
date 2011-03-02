@@ -1,12 +1,15 @@
 {-# LANGUAGE TupleSections, TypeFamilies, FlexibleInstances, RecordWildCards, CPP, FlexibleContexts, UnboxedTuples #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, GeneralizedNewtypeDeriving, StandaloneDeriving #-}
 module Data.TrieMap.ProdMap () where
 
 import Data.TrieMap.TrieKey
+import Data.Functor.Immoral
 
 import Prelude hiding (foldl, foldl1, foldr, foldr1)
 
 #define CONTEXT(cl) (TrieKey k1, TrieKey k2, cl (TrieMap k1), cl (TrieMap k2))
+
+deriving instance ImmoralMap (TrieMap k1 (TrieMap k2 a)) (TrieMap (k1, k2) a)
 
 instance CONTEXT(Functor) => Functor (TrieMap (k1, k2)) where
   fmap f (PMap m) = PMap (fmap (fmap f) m)
@@ -17,7 +20,7 @@ instance CONTEXT(Foldable) => Foldable (TrieMap (k1, k2)) where
   foldl f z (PMap m) = foldl (foldl f) z m
 
 instance CONTEXT(Traversable) => Traversable (TrieMap (k1, k2)) where
-  traverse f (PMap m) = PMap <$> traverse (traverse f) m
+  traverse f (PMap m) = castMap $ traverse (traverse f) m
 
 instance CONTEXT(Subset) => Subset (TrieMap (k1, k2)) where
   PMap m1 <=? PMap m2 = m1 <<=? m2
@@ -78,7 +81,7 @@ instance (TrieKey k1, TrieKey k2) => TrieKey (k1, k2) where
 	unifyM (k11, k12) a1 (k21, k22) a2 =
 	  let unify1 = unifyM k11 (singletonM k12 a1) k21 (singletonM k22 a2)
 	      unify2 = singletonM k11 <$> unifyM k12 a1 k22 a2
-	      in PMap <$> (unify1 `mplus` unify2)
+	      in castMap (unify1 `mplus` unify2)
 
 gNull :: TrieKey k => (x -> TrieMap k a) -> x -> Maybe (TrieMap k a)
 gNull = (guardNull .)

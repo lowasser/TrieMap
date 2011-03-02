@@ -1,5 +1,5 @@
 {-# LANGUAGE UnboxedTuples, BangPatterns, TypeFamilies, PatternGuards, MagicHash, CPP, NamedFieldPuns, FlexibleInstances, RecordWildCards #-}
-{-# LANGUAGE TemplateHaskell, TypeOperators, MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell, TypeOperators, MultiParamTypeClasses, StandaloneDeriving, GeneralizedNewtypeDeriving #-}
 {-# OPTIONS -funbox-strict-fields -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.WordMap (SNode, WHole, TrieMap(WordMap), Hole(Hole), WordStack, getWordMap, getHole) where
 
@@ -10,6 +10,7 @@ import Control.Exception (assert)
 import Control.Monad.Lookup
 import Control.Monad.Unpack
 
+import Data.Functor.Immoral
 import Data.Bits
 import Data.Maybe hiding (mapMaybe)
 
@@ -78,7 +79,7 @@ instance Foldable (TrieMap Word) where
   foldl1 f (WordMap m) = foldl1 f m
 
 instance Traversable (TrieMap Word) where
-  traverse f (WordMap m) = WordMap <$> traverse f m
+  traverse f (WordMap m) = castMap $ traverse f m
 
 instance Buildable (TrieMap Word) Word where
   type UStack (TrieMap Word) = SNode
@@ -139,13 +140,16 @@ instance TrieKey Word where
 	  (# sz#, node #) -> WordMap SNode{sz = I# sz#, node}
 
 	{-# INLINE unifyM #-}
-	unifyM k1 a1 k2 a2 = WordMap <$> unify k1 a1 k2 a2
+	unifyM k1 a1 k2 a2 = castMap $ unify k1 a1 k2 a2
 
 	{-# INLINE unifierM #-}
-	unifierM k' k a = Hole <$> unifier k' k a
+	unifierM k' k a = castMap $ unifier k' k a
 
 	{-# INLINE insertWithM #-}
 	insertWithM f k a (WordMap m) = WordMap (insertWithC f k (getSize a) a m)
+
+deriving instance ImmoralMap (SNode a) (TrieMap Word a)
+deriving instance ImmoralMap (WHole a) (Hole Word a)
 
 insertWithC :: Sized a => (a -> a) -> Key -> Int -> a -> SNode a -> SNode a
 insertWithC f !k !szA a !t = ins' t where

@@ -1,11 +1,12 @@
 {-# LANGUAGE BangPatterns, FlexibleContexts, TypeFamilies, FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances, CPP #-}
-{-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE UnboxedTuples, GeneralizedNewtypeDeriving, StandaloneDeriving #-}
 module Data.TrieMap.RadixTrie () where
 
 import Control.Monad.Unpack
 
 import Data.TrieMap.TrieKey
 
+import Data.Functor.Immoral
 import Data.Vector (Vector)
 import qualified Data.Vector.Primitive as P
 import Data.Word
@@ -25,9 +26,10 @@ instance VINSTANCE(Foldable) where
   foldr f z (Radix m) = foldl (foldr f) z m
   foldl f z (Radix m) = foldl (foldl f) z m
 
+deriving instance ImmoralMap (Maybe (Edge Vector k a)) (TrieMap (Vector k) a) 
+
 instance VINSTANCE(Traversable) where
-  traverse _ (Radix Nothing) = pure emptyM
-  traverse f (Radix (Just m)) = Radix . Just <$> traverse f m
+  traverse f (Radix m) = castMap $ traverse (traverse f) m
 
 instance VINSTANCE(Subset) where
   Radix m1 <=? Radix m2 = m1 <<=? m2
@@ -42,7 +44,7 @@ instance TrieKey k => Buildable (TrieMap (Vector k)) (Vector k) where
     done = Radix . Just}
   type AStack (TrieMap (Vector k)) = Stack Vector k
   {-# INLINE aFold #-}
-  aFold f = Radix <$> fromAscListEdge f
+  aFold f = castMap $ fromAscListEdge f
   type DAStack (TrieMap (Vector k)) = Stack Vector k
   {-# INLINE daFold #-}
   daFold = aFold const
@@ -99,6 +101,8 @@ type WordVec = P.Vector Word
 
 #define PINSTANCE(cl) cl (TrieMap (P.Vector Word))
 
+deriving instance ImmoralMap (Maybe (Edge P.Vector Word a)) (TrieMap (P.Vector Word) a)
+
 instance PINSTANCE(Functor) where
   fmap f (WRadix m) = WRadix (fmap f <$> m)
 
@@ -108,8 +112,7 @@ instance PINSTANCE(Foldable) where
   foldl f z (WRadix m) = foldl (foldl f) z m
 
 instance PINSTANCE(Traversable) where
-  traverse _ (WRadix Nothing) = pure emptyM
-  traverse f (WRadix (Just m)) = WRadix . Just <$> traverse f m
+  traverse f (WRadix m) = castMap $ traverse (traverse f) m
 
 instance PINSTANCE(Subset) where
   WRadix m1 <=? WRadix m2 = m1 <<=? m2

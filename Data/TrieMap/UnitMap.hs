@@ -1,10 +1,13 @@
-{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, MultiParamTypeClasses, UnboxedTuples #-}
+{-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, MultiParamTypeClasses, UnboxedTuples, GeneralizedNewtypeDeriving, StandaloneDeriving #-}
 module Data.TrieMap.UnitMap () where
 
 import Data.Maybe (fromMaybe)
 import Data.TrieMap.TrieKey
+import Data.Functor.Immoral
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1)
+
+deriving instance ImmoralMap (Maybe a) (TrieMap () a)
 
 instance Functor (TrieMap ()) where
   fmap f (Unit m) = Unit (f <$> m)
@@ -15,8 +18,7 @@ instance Foldable (TrieMap ()) where
   foldl f z (Unit m) = foldl f z m
 
 instance Traversable (TrieMap ()) where
-  traverse f (Unit (Just a)) = Unit . Just <$> f a
-  traverse _ _ = pure (Unit Nothing)
+  traverse f (Unit m) = castMap $ traverse f m
 
 instance Subset (TrieMap ()) where
   Unit m1 <=? Unit m2 = m1 <=? m2

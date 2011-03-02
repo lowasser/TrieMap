@@ -46,6 +46,7 @@ other-modules:
   Control.Monad.Ends,
   Control.Monad.Lookup,
   Data.Vector.Build,
+  Data.Functor.Immoral,
   Data.TrieMap.TrieKey,
   Data.TrieMap.Utils,
   Data.TrieMap.Sized,
