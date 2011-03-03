@@ -108,7 +108,7 @@ caseToClause Case{..} = Clause input (NormalB output) []
 
 {-# INLINE toRepListImpl #-}
 toRepListImpl :: (Repr a, Repr (Rep a)) => [a] -> RepList (Rep a)
-toRepListImpl xs = toRepList (map toRep xs)
+toRepListImpl = toRepList . map toRep
 
 outputRepr :: Cxt -> Type -> Representation -> ReprMonad Type
 outputRepr cxt ty Repr{..} = do
