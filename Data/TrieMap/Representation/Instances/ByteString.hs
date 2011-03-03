@@ -17,10 +17,9 @@ import Data.ByteString.Internal
 
 instance Repr ByteString where
   type Rep ByteString = RepStream Word8
-  toRep !str = inlinePerformIO $ withByteString str $ \ ptr len ->
-    return $! toRepStream (inlineIOStream (streamWord8Ptr ptr len))
+  toRep !str = inlinePerformIO $ withByteString str $ \ ptr len -> toRepStreamM (streamWord8Ptr ptr len)
   type RepStream ByteString = DRepStream ByteString
-  toRepStream = dToRepStream
+  toRepStreamM = dToRepStreamM
 
 {-# INLINE withByteString #-}
 withByteString :: ByteString -> (Ptr Word8 -> Int -> IO a) -> IO a

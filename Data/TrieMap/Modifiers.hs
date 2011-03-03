@@ -5,7 +5,7 @@
 module Data.TrieMap.Modifiers where
 
 import Data.TrieMap.Representation.Class
-import Data.Vector.Generic
+import Data.TrieMap.Utils
 
 -- | Denotes that maps on this type should be implemented with traditional binary search trees.
 newtype Ordered a = Ord {unOrd :: a} deriving (Eq, Ord)
@@ -14,7 +14,7 @@ instance Repr (Ordered k) where
   type Rep (Ordered k) = Ordered k
   toRep = id
   type RepStream (Ordered k) = DRepStream (Ordered k)
-  toRepStream = unstream
+  toRepStreamM = unstreamM
 
 -- | Denotes that maps on this type should be treated as reversed.  For instance, @'Rep' 'Int'@ might be
 -- implemented as @'Either' ('Rev' Word) Word@, to handle negative numbers properly.
@@ -59,4 +59,4 @@ instance Repr k => Repr (Key k) where
 	type Rep (Key k) = Rep k
 	type RepStream (Key k) = RepStream k
 	toRep (Key k) = toRep k
-	toRepStream ks = toRepStream (fmap getKey ks)
+	toRepStreamM ks = toRepStreamM (fmap getKey ks)

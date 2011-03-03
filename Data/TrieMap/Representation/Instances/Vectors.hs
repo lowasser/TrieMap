@@ -15,7 +15,7 @@ import Data.TrieMap.Representation.Class
   {-# INLINE toRep #-};			\
   toRep xs = toRepStream (stream xs);	\
   type RepStream ((vec) k) = DRepStream ((vec) k);\
-  toRepStream = dToRepStream
+  toRepStreamM = dToRepStreamM
 
 instance Repr k => Repr (V.Vector k) where
   VEC_REP_INST(V.Vector)

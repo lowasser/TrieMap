@@ -3,11 +3,11 @@ module Data.TrieMap.Representation.Instances.Basic () where
 
 import Data.TrieMap.Representation.TH
 import Data.TrieMap.Representation.Class
+import Data.TrieMap.Utils
 
 import Data.Word
 import Data.Vector.Primitive (Vector)
-import Data.Vector.Generic (unstream)
-import Data.Vector.Fusion.Stream (length)
+import Data.Vector.Fusion.Stream.Monadic (length)
 
 import Language.Haskell.TH
 import Prelude hiding (length)
@@ -24,10 +24,10 @@ instance Repr Word where
   type Rep Word = Word
   toRep = id
   type RepStream Word = Vector Word
-  toRepStream = unstream
+  toRepStreamM strm = unstreamM strm
 
 instance Repr () where
   type Rep () = ()
   toRep _ = ()
   type RepStream () = Word
-  toRepStream = fromIntegral . length
+  toRepStreamM strm = fmap fromIntegral (length strm)

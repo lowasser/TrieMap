@@ -13,8 +13,6 @@ import Data.Char
 import Data.Bits
 
 import Data.Vector.Primitive
-import Data.Vector.Generic (unstream)
-import Data.Vector.Fusion.Util
 import Data.Vector.Fusion.Stream.Size
 import Data.Vector.Fusion.Stream.Monadic (Stream(..), Step(..))
 
@@ -28,16 +26,16 @@ instance Repr Char where
 	type Rep Char = Word
 	type RepStream Char = RepStream Word
 	toRep = fromIntegral . ord
-	{-# INLINE toRepStream #-}
-	toRepStream xs = toRepStream (fmap toRep xs)
+	{-# INLINE toRepStreamM #-}
+	toRepStreamM xs = toRepStreamM (fmap toRep xs)
 
 #define WREPR(wTy) \
 instance Repr wTy where { \
 	type Rep wTy = Word; \
 	toRep = fromIntegral; \
 	type RepStream wTy = (Vector Word, Word);\
-	{-# INLINE toRepStream #-};\
-	toRepStream xs = wStreamToRep xs}
+	{-# INLINE toRepStreamM #-};\
+	toRepStreamM xs = wStreamToRep xs}
 
 WDOC(Word8)
 WREPR(Word8)
@@ -54,8 +52,8 @@ instance Repr Word64 where
 		where	pre = fromIntegral (w `shiftR` 32) :: Word32
 			suf = fromIntegral w :: Word32
 	type RepStream Word64 = RepStream Word32
-	{-# INLINE toRepStream #-}
-	toRepStream xs = toRepStream (split64Stream xs)
+	{-# INLINE toRepStreamM #-}
+	toRepStreamM xs = toRepStreamM (split64Stream xs)
 
 data Word64S s = S0 s | S1 !Word32 s
 
@@ -87,8 +85,8 @@ instance Repr iTy where { \
 	type Rep iTy = Rep wTy; \
 	toRep x = toRep ((i2w :: iTy -> wTy) x); \
 	type RepStream iTy = RepStream wTy; \
-	{-# INLINE toRepStream #-};	\
-	toRepStream xs = toRepStream (fmap (i2w :: iTy -> wTy) xs)}
+	{-# INLINE toRepStreamM #-};	\
+	toRepStreamM xs = toRepStreamM (fmap (i2w :: iTy -> wTy) xs)}
 
 IREPR(Int8,Word8)
 IREPR(Int16,Word16)
@@ -102,8 +100,8 @@ instance Repr Bool where
   toRep False = Left ()
   toRep True = Right ()
   type RepStream Bool = (Vector Word, Word)
-  {-# INLINE toRepStream #-}
-  toRepStream xs = wStreamToRep (fmap BBool xs)
+  {-# INLINE toRepStreamM #-}
+  toRepStreamM xs = wStreamToRep (fmap BBool xs)
 
 -- | We embed IntN into WordN in an order-preserving fashion.
 {-# INLINE i2w #-}
@@ -114,8 +112,10 @@ data PackState s = PackState !Word !Int s | Last !Int | End
 {-# ANN type PackState ForceSpecConstr #-}
 
 {-# INLINE wStreamToRep #-}
-wStreamToRep :: (Bits w, Integral w) => Stream Id w -> (Vector Word, Word)
-wStreamToRep xs = let !ys = unstream (packStream xs) in (unsafeInit ys, unsafeLast ys)
+wStreamToRep :: (Bits w, Integral w) => Stream IO w -> IO (Vector Word, Word)
+wStreamToRep xs = do
+  !ys <- unstreamM (packStream xs)
+  return (unsafeInit ys, unsafeLast ys)
 
 {-# INLINE [1] packStream #-}
 packStream :: forall m w . (Bits w, Integral w, Monad m) => Stream m w -> Stream m Word

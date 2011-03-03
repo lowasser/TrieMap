@@ -23,7 +23,7 @@ import Data.TrieMap.Representation.TH
 
 #define DefStream(ty) \
   type RepStream (ty) = DRepStream (ty); \
-  toRepStream = dToRepStream
+  toRepStreamM = dToRepStreamM
 
 instance Repr a => Repr (S.Set a) where
 	type Rep (S.Set a) = V.Vector (Rep a)

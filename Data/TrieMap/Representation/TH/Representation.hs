@@ -24,7 +24,7 @@ import Control.Monad
 import Data.Word
 import Data.Maybe
 import qualified Data.Vector as V
-import Data.Vector.Fusion.Stream (Stream)
+import Data.Vector.Fusion.Stream (MStream)
 
 import Language.Haskell.TH.Syntax
 
@@ -108,17 +108,17 @@ caseToClause :: Case -> Clause
 caseToClause Case{..} = Clause input (NormalB output) []
 
 {-# INLINE toRepStreamImpl #-}
-toRepStreamImpl :: (Repr a, Repr (Rep a)) => Stream a -> RepStream (Rep a)
-toRepStreamImpl = toRepStream . fmap toRep
+toRepStreamImpl :: (Repr a, Repr (Rep a)) => MStream IO a -> IO (RepStream (Rep a))
+toRepStreamImpl = toRepStreamM . fmap toRep
 
 outputRepr :: Cxt -> Type -> Representation -> ReprMonad Type
 outputRepr cxt ty Repr{..} = do
   forceDef <- forceDefaultListRep
   let listReps = if forceDef then
 	[TySynInstD ''RepStream [ty] (ConT ''DRepStream `AppT` ty),
-	ValD (VarP 'toRepStream) (NormalB (VarE 'dToRepStream)) []]
+	ValD (VarP 'toRepStreamM) (NormalB (VarE 'dToRepStreamM)) []]
 	else [TySynInstD ''RepStream [ty] (ConT ''RepStream `AppT` reprType),
-	  ValD (VarP 'toRepStream) (NormalB (VarE 'toRepStreamImpl)) []]
+	  ValD (VarP 'toRepStreamM) (NormalB (VarE 'toRepStreamImpl)) []]
   outputInstance ty reprType
     [InstanceD cxt (ConT ''Repr `AppT` ty)
       ([TySynInstD ''Rep [ty] reprType,

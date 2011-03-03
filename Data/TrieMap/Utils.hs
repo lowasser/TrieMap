@@ -8,6 +8,7 @@ import qualified Data.Foldable
 
 import Data.Vector.Generic
 import Data.Vector.Generic.Mutable
+import Data.Vector.Fusion.Stream (MStream)
 
 import GHC.Exts
 
@@ -20,6 +21,10 @@ toVectorN :: Vector v a => (forall b . (a -> b -> b) -> b -> f -> b) -> (f -> In
 toVectorN fold size xs = create $ do
 	!mv <- unsafeNew (size xs)
 	fold (\ x m i# -> unsafeWrite mv (I# i#) x >> m (i# +# 1#)) (\ _ -> return mv) xs 0#
+
+{-# INLINE unstreamM #-}
+unstreamM :: Vector v a => MStream IO a -> IO (v a)
+unstreamM strm = munstream strm >>= unsafeFreeze
 
 {-# INLINE toVectorF #-}
 toVectorF :: (Vector v b, Data.Foldable.Foldable f) => (a -> b) -> (f a -> Int) -> f a -> v b
