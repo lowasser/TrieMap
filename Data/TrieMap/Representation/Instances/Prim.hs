@@ -117,7 +117,7 @@ data PackState s = PackState !Word !Int s | Last !Int | End
 wStreamToRep :: (Bits w, Integral w) => Stream Id w -> (Vector Word, Word)
 wStreamToRep xs = let !ys = unstream (packStream xs) in (unsafeInit ys, unsafeLast ys)
 
-{-# INLINE packStream #-}
+{-# INLINE [1] packStream #-}
 packStream :: forall m w . (Bits w, Integral w, Monad m) => Stream m w -> Stream m Word
 packStream (Stream step s0 size) = Stream step' s0' size'
   where	!ratio = wordSize `quoPow` bitSize (0 :: w)
