@@ -1,31 +1,21 @@
 {-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, BangPatterns, ScopedTypeVariables, UndecidableInstances, FlexibleContexts #-}
 {-# OPTIONS -funbox-strict-fields #-}
-module Data.TrieMap.Representation.Instances.Vectors (i2w) where
-
-import Control.Monad.Primitive
-import Data.Primitive.Types
+module Data.TrieMap.Representation.Instances.Vectors () where
 
 import Data.Word
 import Data.Int
-import Data.Bits
 
-import Foreign.Storable (Storable)
-
-import Data.Vector.Generic (convert, stream, unstream)
-import qualified Data.Vector.Generic as G
+import Data.Vector.Generic (stream)
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as S
 import qualified Data.Vector.Primitive as P
 import qualified Data.Vector.Unboxed as U
 
-import Data.Vector.Fusion.Stream.Monadic
-import Data.Vector.Fusion.Stream.Size
-
-import Data.TrieMap.Utils
 import Data.TrieMap.Representation.Class
+import Data.TrieMap.Representation.Instances.Prim ()
+import Data.TrieMap.Representation.Instances.Foreign ()
 
-import Prelude hiding (length)
-import GHC.Exts
+import Foreign.C.Types
 
 #include "MachDeps.h"
 
@@ -33,163 +23,81 @@ import GHC.Exts
   type RepStream (ty) = DRepStream (ty); \
   toRepStream = dToRepStream
 
-instance Repr a => Repr (V.Vector a) where
-	type Rep (V.Vector a) = V.Vector (Rep a)
-	toRep = V.map toRep
-	DefStream(V.Vector a)
+#define VEC_INSTANCE(vec, ty)	\
+instance Repr (vec ty) where {	\
+  type Rep (vec ty) = RepStream ty;	\
+  {-# INLINE toRep #-};			\
+  toRep xs = toRepStream (stream xs);	\
+  DefStream(vec ty)}
 
-instance Repr (P.Vector Word) where
-	type Rep (P.Vector Word) = P.Vector Word
-	toRep = id
-	DefStream(P.Vector Word)
+#define SPEC_INSTANCE(vec, ty) {-# SPECIALIZE instance Repr ((vec) (ty)) #-}
+#define SPEC_INT_INSTANCES(vec) \
+SPEC_INSTANCE(vec,Int);		\
+SPEC_INSTANCE(vec,Int8);	\
+SPEC_INSTANCE(vec,Int16);	\
+SPEC_INSTANCE(vec,Int32);	\
+SPEC_INSTANCE(vec,Int64)
 
-{-# INLINE unsafeCastPrim #-}
-unsafeCastPrim :: (Prim a, Prim b) => (Int -> Int) -> P.Vector a -> P.Vector b
-unsafeCastPrim f xs = unsafeInlineST $ do
-  P.MVector off n arr <- P.unsafeThaw xs
-  let n' = f n
-  P.unsafeFreeze (P.MVector off n' arr)
+#define SPEC_WORD_INSTANCES(vec) \
+SPEC_INSTANCE(vec,Word);	\
+SPEC_INSTANCE(vec,Word8);	\
+SPEC_INSTANCE(vec,Word16);	\
+SPEC_INSTANCE(vec,Word32);	\
+SPEC_INSTANCE(vec,Word64)
 
-wordSize :: Int
-wordSize = bitSize (0 :: Word)
+#define SPEC_PRIM_INSTANCES(vec) \
+SPEC_INT_INSTANCES(vec);	\
+SPEC_WORD_INSTANCES(vec);	\
+SPEC_INSTANCE(vec,Char);	\
+SPEC_INSTANCE(vec,Double);	\
+SPEC_INSTANCE(vec,Float)
 
-#define VEC_WORD_INST(vec,wTy)			\
-  instance Repr (vec wTy) where {		\
-	type Rep (vec wTy) = Rep (P.Vector wTy);	\
-	{-# INLINE toRep #-}; \
-	toRep xs = toHangingVector xs;\
-	DefStream(vec wTy)}
-#define HANGINSTANCE(wTy)			\
-    instance Repr (P.Vector wTy) where {	\
-    	type Rep (P.Vector wTy) = (P.Vector Word, Word);\
-    	{-# INLINE toRep #-};			\
-    	toRep xs = toHangingVector xs;		\
-    	DefStream(P.Vector wTy) };		\
-    VEC_WORD_INST(S.Vector,wTy);		\
-    VEC_WORD_INST(U.Vector,wTy)
+#define SPEC_UNBOX_INSTANCES(vec) \
+SPEC_PRIM_INSTANCES(vec);	\
+SPEC_INSTANCE(vec,Bool);	\
+SPEC_INSTANCE(vec,())
 
-{-# INLINE toHangingVector #-}
-toHangingVector :: (G.Vector v w, Bits w, Integral w, Storable w) => v w -> (P.Vector Word, Word)
-toHangingVector xs = let !ys = unstream (packStream (stream xs)) in (P.unsafeInit ys, P.unsafeLast ys)
+#define SPEC_C_INSTANCES(vec) \
+SPEC_INSTANCE(vec,CChar);	\
+SPEC_INSTANCE(vec,CSChar);	\
+SPEC_INSTANCE(vec,CUChar);	\
+SPEC_INSTANCE(vec,CShort);	\
+SPEC_INSTANCE(vec,CUShort);	\
+SPEC_INSTANCE(vec,CInt);	\
+SPEC_INSTANCE(vec,CUInt);	\
+SPEC_INSTANCE(vec,CLong);	\
+SPEC_INSTANCE(vec,CULong);	\
+SPEC_INSTANCE(vec,CLLong);	\
+SPEC_INSTANCE(vec,CULLong);	\
+SPEC_INSTANCE(vec,CFloat);	\
+SPEC_INSTANCE(vec,CDouble)
 
--- | @'Rep' ('P.Vector' 'Word8') = 'P.Vector' 'Word'@, by packing multiple 'Word8's into each 'Word' for space efficiency.
-HANGINSTANCE(Word8)
--- | @'Rep' ('P.Vector' 'Word16') = 'P.Vector' 'Word'@, by packing multiple 'Word16's into each 'Word' for space efficiency.
-HANGINSTANCE(Word16)
-#if WORD_SIZE_IN_BITS == 32
-instance Repr (P.Vector Word32) where
-	type Rep (P.Vector Word32) = P.Vector Word
-	toRep xs = unsafeCastPrim id xs
-	DefStream (P.Vector Word32)
-instance Repr (U.Vector Word32) where
-	type Rep (U.Vector Word32) = P.Vector Word
-	toRep xs = unsafeCastPrim id (convert xs)
-	DefStream (U.Vector Word32)
-instance Repr (S.Vector Word32) where
-	type Rep (S.Vector Word32) = P.Vector Word
-	toRep xs = unsafeCastPrim id (convert xs)
-	DefStream (S.Vector Word32)
-#elif WORD_SIZE_IN_BITS > 32
-HANGINSTANCE(Word32)
-#endif
-
-#if WORD_SIZE_IN_BITS == 32
--- | @'Rep' ('P.Vector' 'Word64') = 'P.Vector' 'Word'@, by viewing each 'Word64' as two 'Word's.
-#else
--- | @'Rep' ('P.Vector' 'Word64') = 'P.Vector' 'Word'@
-#endif
-instance Repr (P.Vector Word64) where
-	type Rep (P.Vector Word64) = P.Vector Word
-	toRep xs = unsafeCastPrim (ratio *) xs
-		where !wordBits = bitSize (0 :: Word); ratio = quoPow 64 wordBits
-	DefStream(P.Vector Word64)
-
-#define VEC_INT_INST(vec,iTy,wTy)		\
-  instance Repr (vec iTy) where {		\
-  	type Rep (vec iTy) = Rep (P.Vector wTy);	\
-  	toRep xs = (toRep :: P.Vector wTy -> Rep (P.Vector wTy)) (convert (G.map (i2w :: iTy -> wTy) xs)); \
-  	DefStream(vec iTy)}
-#define VEC_INT_INSTANCES(iTy,wTy)	\
-	VEC_INT_INST(P.Vector,iTy,wTy); \
-	VEC_INT_INST(S.Vector,iTy,wTy); \
-	VEC_INT_INST(U.Vector,iTy,wTy)
-
-VEC_INT_INSTANCES(Int8, Word8)
-VEC_INT_INSTANCES(Int16, Word16)
-VEC_INT_INSTANCES(Int32, Word32)
-VEC_INT_INSTANCES(Int64, Word64)
-VEC_INT_INSTANCES(Int, Word)
-
-#define VEC_ENUM_INST(ty, vec)				\
-  instance Repr (vec ty) where {			\
-  	type Rep (vec ty) = P.Vector Word;		\
-  	{-# INLINE toRep #-};				\
-  	toRep xs = convert (G.map (fromIntegral . fromEnum) xs);\
-  	DefStream(vec ty)}
-#define VEC_ENUM_INSTANCES(ty)	\
-	VEC_ENUM_INST(ty,P.Vector);	\
-	VEC_ENUM_INST(ty,S.Vector);	\
-	VEC_ENUM_INST(ty,U.Vector)
-
--- | @'Rep' ('P.Vector' 'Char') = 'P.Vector' 'Word'@
-VEC_ENUM_INSTANCES(Char)
-
--- | We embed IntN into WordN, but we have to be careful about overflow.
-{-# INLINE [1] i2w #-}
-i2w :: forall i w . (Integral i, Bounded i, Bits w, Bits i, Integral w) => i -> w
-i2w !i = fromIntegral i `xor` fromIntegral (minBound :: i)
-
-data PackState s = PackState !Word !Int s | Last !Int | End
-{-# ANN type PackState ForceSpecConstr #-}
-
-{-# INLINE packStream #-}
-packStream :: forall m w . (Bits w, Integral w, Storable w, Monad m) => Stream m w -> Stream m Word
-packStream (Stream step s0 size) = Stream step' s0' size'
-  where	!ratio = wordSize `quoPow` bitSize (0 :: w)
-	size' = 1 + case size of
-	  Exact n	-> Exact $ (n + ratio - 1) `quoPow` ratio
-	  Max n		-> Max $ (n + ratio - 1) `quoPow` ratio
-	  Unknown	-> Unknown
-	s0' = PackState 0 ratio s0
-	step' End = return Done
-	step' (Last i) = return $ Yield (fromIntegral i) End
-	step' (PackState w 0 s) = return $ Yield w (PackState 0 ratio s)
-	step' (PackState w i s) = do
-	  s' <- step s
-	  case s' of
-	    Done  | i == ratio	-> return $ Skip (Last 0)
-		  | otherwise	-> return $ Yield (w .<<. (i * bitSize (0 :: w))) (Last (ratio - i))
-	    Skip s'		-> return $ Skip (PackState w i s')
-	    Yield ww s'		-> return $ Skip (PackState ((w .<<. bitSize (0 :: w)) .|. fromIntegral ww) (i-1) s')
-
-instance Repr (U.Vector Bool) where
-  type Rep (U.Vector Bool) = (P.Vector Word, Word)
+instance Repr k => Repr (V.Vector k) where
+  SPEC_UNBOX_INSTANCES(V.Vector)
+  type Rep (V.Vector k) = RepStream k
   {-# INLINE toRep #-}
-  toRep xs = boolVecToRep xs
-  DefStream(U.Vector Bool)
+  toRep xs = toRepStream (stream xs)
+  DefStream(V.Vector k)
 
-{-# INLINE boolVecToRep #-}
-boolVecToRep :: G.Vector v Bool => v Bool -> (P.Vector Word, Word)
-boolVecToRep xs = let !ys = unstream (packBoolStream (stream xs)) in (P.unsafeInit ys, P.unsafeLast ys)
+instance (U.Unbox k, Repr k) => Repr (U.Vector k) where
+  SPEC_UNBOX_INSTANCES(U.Vector)
+  type Rep (U.Vector k) = RepStream k
+  {-# INLINE toRep #-}
+  toRep xs = toRepStream (stream xs)
+  DefStream(U.Vector k)
 
-{-# INLINE packBoolStream #-}
-packBoolStream :: Monad m => Stream m Bool -> Stream m Word
-packBoolStream (Stream step s0 size) = Stream step' s0' size'
-  where	!ratio = wordSize
-	size' = 1 + case size of
-	  Exact n	-> Exact $ (n + ratio - 1) `quoPow` ratio
-	  Max n		-> Max $ (n + ratio - 1) `quoPow` ratio
-	  Unknown	-> Unknown
-	s0' = PackState 0 ratio s0
-	toW False = 0
-	toW True = 1
-	step' End = return Done
-	step' (Last i) = return $ Yield (fromIntegral i) End
-	step' (PackState w 0 s) = return $ Yield w (PackState 0 ratio s)
-	step' (PackState w i s) = do
-	  s' <- step s
-	  case s' of
-	    Done  | i == ratio	-> return $ Skip (Last 0)
-		  | otherwise	-> return $ Yield (w .<<. i) (Last (ratio - i))
-	    Skip s'		-> return $ Skip (PackState w i s')
-	    Yield ww s'		-> return $ Skip (PackState ((w .<<. 1) .|. toW ww) (i-1) s')
+instance (P.Prim k, Repr k) => Repr (P.Vector k) where
+  SPEC_PRIM_INSTANCES(P.Vector)
+  type Rep (P.Vector k) = RepStream k
+  {-# INLINE toRep #-}
+  toRep xs = toRepStream (stream xs)
+  DefStream(P.Vector k)
+
+instance (S.Storable k, Repr k) => Repr (S.Vector k) where
+  SPEC_PRIM_INSTANCES(S.Vector)
+  SPEC_INSTANCE(S.Vector,Bool)
+  SPEC_C_INSTANCES(S.Vector)
+  type Rep (S.Vector k) = RepStream k
+  {-# INLINE toRep #-}
+  toRep xs = toRepStream (stream xs)
+  DefStream(S.Vector k)

@@ -5,7 +5,7 @@ import Data.TrieMap.Representation.TH
 import Data.TrieMap.Representation.Class
 
 import Data.Word
-import Data.Vector.Primitive (Vector, fromList)
+import Data.Vector.Primitive (Vector)
 import Data.Vector.Generic (unstream)
 import Data.Vector.Fusion.Stream (length)
 
