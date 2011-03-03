@@ -61,7 +61,11 @@ data Word64S s = S0 s | S1 !Word32 s
 
 {-# INLINE split64Stream #-}
 split64Stream :: Monad m => Stream m Word64 -> Stream m Word32
-split64Stream (Stream step s0 size) = Stream step' (S0 s0) (2 * size) where
+split64Stream (Stream step s0 size) = Stream step' (S0 s0) size' where
+  size' = case size of
+    Max n -> Max (2 * n)
+    Exact n -> Exact (2 * n)
+    Unknown -> Unknown
   step' (S1 w32 s) = return (Yield w32 (S0 s))
   step' (S0 s) = do
     st <- step s
