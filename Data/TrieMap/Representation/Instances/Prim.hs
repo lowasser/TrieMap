@@ -1,8 +1,10 @@
-{-# LANGUAGE ScopedTypeVariables, BangPatterns, TypeFamilies, UndecidableInstances, CPP #-}
+{-# LANGUAGE ScopedTypeVariables, BangPatterns, TypeFamilies, UndecidableInstances, CPP, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Data.TrieMap.Representation.Instances.Prim () where
 
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Representation.Instances.Basic ()
+import Data.TrieMap.Representation.Instances.Prim.Bool
 import Data.TrieMap.Utils
 
 import Data.Word
@@ -97,7 +99,7 @@ instance Repr Bool where
   toRep True = Right ()
   type RepStream Bool = (Vector Word, Word)
   {-# INLINE toRepStream #-}
-  toRepStream xs = boolStreamToRep xs
+  toRepStream xs = wStreamToRep (fmap BBool xs)
 
 -- | We embed IntN into WordN in an order-preserving fashion.
 {-# INLINE i2w #-}
@@ -130,32 +132,6 @@ packStream (Stream step s0 size) = Stream step' s0' size'
 		  | otherwise	-> return $ Yield (w .<<. (i * bitSize (0 :: w))) (Last (ratio - i))
 	    Skip s'		-> return $ Skip (PackState w i s')
 	    Yield ww s'		-> return $ Skip (PackState ((w .<<. bitSize (0 :: w)) .|. fromIntegral ww) (i-1) s')
-
-{-# INLINE boolStreamToRep #-}
-boolStreamToRep :: Stream Id Bool -> (Vector Word, Word)
-boolStreamToRep xs = let !ys = unstream (packBoolStream xs) in (unsafeInit ys, unsafeLast ys)
-
-{-# INLINE packBoolStream #-}
-packBoolStream :: Monad m => Stream m Bool -> Stream m Word
-packBoolStream (Stream step s0 size) = Stream step' s0' size'
-  where	!ratio = wordSize
-	size' = 1 + case size of
-	  Exact n	-> Exact $ (n + ratio - 1) `quoPow` ratio
-	  Max n		-> Max $ (n + ratio - 1) `quoPow` ratio
-	  Unknown	-> Unknown
-	s0' = PackState 0 ratio s0
-	toW False = 0
-	toW True = 1
-	step' End = return Done
-	step' (Last i) = return $ Yield (fromIntegral i) End
-	step' (PackState w 0 s) = return $ Yield w (PackState 0 ratio s)
-	step' (PackState w i s) = do
-	  s' <- step s
-	  case s' of
-	    Done  | i == ratio	-> return $ Skip (Last 0)
-		  | otherwise	-> return $ Yield (w .<<. i) (Last (ratio - i))
-	    Skip s'		-> return $ Skip (PackState w i s')
-	    Yield ww s'		-> return $ Skip (PackState ((w .<<. 1) .|. toW ww) (i-1) s')
 
 wordSize :: Int
 wordSize = bitSize (0 :: Word)

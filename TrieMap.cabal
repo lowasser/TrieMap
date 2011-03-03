@@ -64,6 +64,7 @@ other-modules:
   Data.TrieMap.Representation.Instances,
   Data.TrieMap.Representation.Instances.Basic,
   Data.TrieMap.Representation.Instances.Prim,
+  Data.TrieMap.Representation.Instances.Prim.Bool,
   Data.TrieMap.Representation.Instances.Foreign,
   Data.TrieMap.Representation.Instances.Vectors,
   Data.TrieMap.Representation.Instances.ByteString
