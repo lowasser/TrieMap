@@ -24,6 +24,7 @@ import Control.Monad
 import Data.Word
 import Data.Maybe
 import qualified Data.Vector as V
+import Data.Vector.Fusion.Stream (Stream)
 
 import Language.Haskell.TH.Syntax
 
@@ -106,18 +107,18 @@ ordRepr ty = do
 caseToClause :: Case -> Clause
 caseToClause Case{..} = Clause input (NormalB output) []
 
-{-# INLINE toRepListImpl #-}
-toRepListImpl :: (Repr a, Repr (Rep a)) => [a] -> RepList (Rep a)
-toRepListImpl = toRepList . map toRep
+{-# INLINE toRepStreamImpl #-}
+toRepStreamImpl :: (Repr a, Repr (Rep a)) => Stream a -> RepStream (Rep a)
+toRepStreamImpl = toRepStream . fmap toRep
 
 outputRepr :: Cxt -> Type -> Representation -> ReprMonad Type
 outputRepr cxt ty Repr{..} = do
   forceDef <- forceDefaultListRep
   let listReps = if forceDef then
-	[TySynInstD ''RepList [ty] (ConT ''DRepList `AppT` ty),
-	ValD (VarP 'toRepList) (NormalB (VarE 'dToRepList)) []]
-	else [TySynInstD ''RepList [ty] (ConT ''RepList `AppT` reprType),
-	  ValD (VarP 'toRepList) (NormalB (VarE 'toRepListImpl)) []]
+	[TySynInstD ''RepStream [ty] (ConT ''DRepStream `AppT` ty),
+	ValD (VarP 'toRepStream) (NormalB (VarE 'dToRepStream)) []]
+	else [TySynInstD ''RepStream [ty] (ConT ''RepStream `AppT` reprType),
+	  ValD (VarP 'toRepStream) (NormalB (VarE 'toRepStreamImpl)) []]
   outputInstance ty reprType
     [InstanceD cxt (ConT ''Repr `AppT` ty)
       ([TySynInstD ''Rep [ty] reprType,

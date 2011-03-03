@@ -21,25 +21,25 @@ import Data.TrieMap.Representation.Instances.Vectors ()
 import Data.TrieMap.Representation.Instances.Foreign ()
 import Data.TrieMap.Representation.TH
 
-#define DefList(ty) \
-  type RepList (ty) = DRepList (ty); \
-  toRepList = dToRepList
+#define DefStream(ty) \
+  type RepStream (ty) = DRepStream (ty); \
+  toRepStream = dToRepStream
 
 instance Repr a => Repr (S.Set a) where
 	type Rep (S.Set a) = V.Vector (Rep a)
 	toRep s = toVectorN (\ f -> S.fold (f . toRep)) S.size s
-	DefList(S.Set a)
+	DefStream(S.Set a)
 
 instance (Repr k, Repr a) => Repr (M.Map k a) where
 	type Rep (M.Map k a) = V.Vector (Rep k, Rep a)
 	toRep m = toVectorN (\ f -> M.foldrWithKey (\ k a -> f (toRep k, toRep a)))
 			M.size m
-	DefList(M.Map k a)
+	DefStream(M.Map k a)
 
 instance Repr a => Repr (Seq.Seq a) where
 	type Rep (Seq.Seq a) = V.Vector (Rep a)
 	toRep = toVectorF toRep Seq.length
-	DefList(Seq.Seq a)
+	DefStream(Seq.Seq a)
 
 genRepr ''Tree
 genRepr ''Ratio
@@ -49,7 +49,7 @@ instance Repr Integer where
 	toRep x
 	  | x < 0	= let bs = unroll (-x); n = fromIntegral (P.length bs) in Left (Rev (n, bs))
 	  | otherwise	= let bs = unroll x; n = fromIntegral (P.length bs) in Right (n, bs)
-	DefList(Integer)
+	DefStream(Integer)
 
 unroll :: Integer -> P.Vector Word
 unroll x = P.reverse (P.unfoldr split x)

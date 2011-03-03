@@ -12,6 +12,7 @@ import Data.Char
 import Data.Bits
 import Data.Vector.Primitive
 import qualified Data.Vector.Unboxed as U
+import Data.Vector.Generic (unstream)
 import Prelude hiding (map)
 
 #define WDOC(ty) {-| @'Rep' 'ty' = 'Word'@ -}
@@ -19,16 +20,17 @@ import Prelude hiding (map)
 WDOC(Char)
 instance Repr Char where
 	type Rep Char = Word
-	type RepList Char = Vector Word
+	type RepStream Char = Vector Word
 	toRep = fromIntegral . ord
-	toRepList xs = toRep (fromList xs)
+	toRepStream xs = toRepStream (fmap toRep xs)
 
 #define WREPR(wTy) \
 instance Repr wTy where { \
 	type Rep wTy = Word; \
 	toRep = fromIntegral; \
-	type RepList wTy = Rep (Vector wTy);\
-	toRepList xs = toRep (fromList xs)}
+	type RepStream wTy = Rep (Vector wTy);\
+	{-# INLINE toRepStream #-};\
+	toRepStream xs = toRep (unstream xs :: Vector wTy)}
 
 WDOC(Word8)
 WREPR(Word8)
@@ -44,8 +46,8 @@ instance Repr Word64 where
 	toRep w = (toRep pre, toRep suf)
 		where	pre = fromIntegral (w `shiftR` 32) :: Word32
 			suf = fromIntegral w :: Word32
-	type RepList Word64 = Vector Word
-	toRepList xs = toRep (fromList xs)
+	type RepStream Word64 = Vector Word
+	toRepStream xs = toRep (unstream xs :: Vector Word64)
 #else
 WDOC(Word64)
 WREPR(Word64)
@@ -55,8 +57,8 @@ WREPR(Word64)
 instance Repr iTy where { \
 	type Rep iTy = Rep wTy; \
 	toRep = toRep . (i2w :: iTy -> wTy); \
-	type RepList iTy = Rep (Vector wTy); \
-	toRepList xs = toRep (fromList xs)}
+	type RepStream iTy = Rep (Vector wTy); \
+	toRepStream xs = toRep (unstream xs :: Vector iTy)}
 
 IREPR(Int8,Word8)
 IREPR(Int16,Word16)
@@ -69,5 +71,5 @@ instance Repr Bool where
   type Rep Bool = Either () ()
   toRep False = Left ()
   toRep True = Right ()
-  type RepList Bool = (Vector Word, Word)
-  toRepList xs = toRep (U.fromList xs)
+  type RepStream Bool = (Vector Word, Word)
+  toRepStream xs = toRep (unstream xs :: U.Vector Bool)

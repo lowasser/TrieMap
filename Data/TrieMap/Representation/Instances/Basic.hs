@@ -3,12 +3,14 @@ module Data.TrieMap.Representation.Instances.Basic () where
 
 import Data.TrieMap.Representation.TH
 import Data.TrieMap.Representation.Class
-import Data.TrieMap.Modifiers
 
 import Data.Word
 import Data.Vector.Primitive (Vector, fromList)
+import Data.Vector.Generic (unstream)
+import Data.Vector.Fusion.Stream (length)
 
 import Language.Haskell.TH
+import Prelude hiding (length)
 
 $(fmap concat $ mapM (genBaseRepr . tupleTypeName) [2..10])
 
@@ -21,17 +23,11 @@ genRepr ''Ordering
 instance Repr Word where
   type Rep Word = Word
   toRep = id
-  type RepList Word = Vector Word
-  toRepList = fromList
+  type RepStream Word = Vector Word
+  toRepStream = unstream
 
 instance Repr () where
   type Rep () = ()
   toRep _ = ()
-  type RepList () = Word
-  toRepList = fromIntegral . length
-
-instance Repr (Ordered k) where
-  type Rep (Ordered k) = Ordered k
-  toRep = id
-  type RepList (Ordered k) = DRepList (Ordered k)
-  toRepList = dToRepList
+  type RepStream () = Word
+  toRepStream = fromIntegral . length

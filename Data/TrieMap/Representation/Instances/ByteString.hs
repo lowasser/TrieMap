@@ -26,8 +26,8 @@ import Prelude hiding (foldr)
 instance Repr ByteString where
 	type Rep ByteString = (Vector Word, Word)
 	toRep !bs = (bsToRep bs, fromIntegral (B.length bs))
-	type RepList ByteString = DRepList ByteString
-	toRepList = dToRepList
+	type RepStream ByteString = DRepStream ByteString
+	toRepStream = dToRepStream
 
 bsToRep :: ByteString -> Vector Word
 bsToRep (PS fp off n) = if n <= 0 then empty else inlinePerformIO $ withForeignPtr fp $ \ p0 -> 

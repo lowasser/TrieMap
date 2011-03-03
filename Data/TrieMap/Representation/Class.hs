@@ -1,7 +1,9 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.TrieMap.Representation.Class where
 
-import Data.Vector
+import Data.Vector (Vector)
+import Data.Vector.Fusion.Stream
+import Data.Vector.Generic (unstream)
 
 -- | The @Repr@ type class denotes that a type can be decomposed to a representation
 -- built out of pieces for which the 'TrieKey' class defines a generalized trie structure.
@@ -15,20 +17,20 @@ import Data.Vector
 -- allowing a type to be used in its own 'Repr' definition when wrapped in a 'Key' modifier.
 class Repr a where
   type Rep a
-  type RepList a
+  type RepStream a
   toRep :: a -> Rep a
-  toRepList :: [a] -> RepList a
+  toRepStream :: Stream a -> RepStream a
 
 -- | A default implementation of @'RepList' a@.
-type DRepList a = Vector (Rep a)
+type DRepStream a = Vector (Rep a)
 
 -- | A default implementation of 'toRepList'.
-dToRepList :: Repr a => [a] -> DRepList a
-dToRepList = fromList . Prelude.map toRep
+dToRepStream :: Repr a => Stream a -> DRepStream a
+dToRepStream strm = unstream (fmap toRep strm)
 
 -- | Uses the 'RepList' instance of @a@.  (This allows for efficient and automatic implementations of e.g. @Rep String@.)
 instance Repr a => Repr [a] where
-  type Rep [a] = RepList a
-  type RepList [a] = Vector (RepList a)
-  toRep = toRepList
-  toRepList = dToRepList
+  type Rep [a] = RepStream a
+  type RepStream [a] = Vector (RepStream a)
+  toRep xs = toRepStream (fromList xs)
+  toRepStream = dToRepStream
