@@ -17,8 +17,30 @@ license-file:	     LICENSE
 author:              Louis Wasserman
 maintainer:          wasserman.louis@gmail.com
 build-type:	     Simple
-extra-source-files:  Tests.hs
-
+extra-source-files:
+  Data/TrieMap/Tests.hs
+  Data/TrieMap/Arbitrary.hs
+  Data/TrieMap/TrieKey/Tests.hs
+  Data/TrieMap/TrieKey/Buildable/Tests.hs
+  Data/TrieMap/TrieKey/Projection/Tests.hs
+  Data/TrieMap/TrieKey/SetOp/Tests.hs
+  Data/TrieMap/TrieKey/Subset/Tests.hs
+  Data/TrieMap/TrieKey/Tests/Utils.hs
+  Data/TrieMap/OrdMap/Tests.hs
+  Data/TrieMap/ProdMap/Tests.hs
+  Data/TrieMap/RadixTrie/Tests.hs
+  Data/TrieMap/ReverseMap/Tests.hs
+  Data/TrieMap/UnionMap/Tests.hs
+  Data/TrieMap/UnitMap/Tests.hs
+  Data/TrieMap/WordMap/Tests.hs
+  Data/TrieMap/Representation/Tests.hs
+  Data/TrieMap/Representation/Instances/Tests.hs
+  Data/TrieMap/Representation/Instances/Prim/Tests.hs
+  Data/TrieMap/Representation/Instances/Foreign/Tests.hs
+  Data/TrieMap/Representation/Instances/ByteString/Tests.hs
+  Data/TrieMap/Representation/Instances/Vectors/Tests.hs
+  Data/TrieMap/Representation/TH/Tests.hs
+  
 source-repository head
   type:              git
   location:          git@github.com:lowasser/TrieMap.git
@@ -44,7 +66,7 @@ exposed-modules:
   Data.TrieMap.Modifiers
 other-modules:
   Control.Monad.Ends,
-  Control.Monad.Lookup,
+  Control.Monad.Option,
   Data.Vector.Build,
   Data.Functor.Immoral,
   Data.TrieMap.TrieKey,
