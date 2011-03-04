@@ -24,19 +24,18 @@ testSize test _ = testQuery (test ++ "/TrieKey/Size")
   (sizeM :: TMap k Int -> Int) M.size
 
 testIndex :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
-testIndex test _ = printTestCase (test ++ "/TrieKey/Index") $ \ (NonNegative i) (xs :: [(k, Int)]) ->
+testIndex test _ = printTestCase (test ++ "/TrieKey/Index") $ \ (NonNegative i) (NonEmpty (xs :: [(k, Int)])) ->
   let tm = fromModel xs :: TMap k Int; m = fromModel xs; i' = i `rem` M.size m in
   case indexM' tm i' of
     (_, Assoc k1 a1, hole) -> let m = fromModel xs in case (M.elemAt i' m, M.deleteAt i' m) of
       ((k2, a2), m') -> k1 == k2 && a1 == a2 && toModel (clearM hole) == toModel m'
 
 testAlter :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
-testAlter test _ = property $ \ (k :: k) -> testOp (test ++ "/TrieKey/Alter")
-  (alterM f k) (M.alter g k)
-  where	g Nothing = Just 42
-	g (Just a) = if odd a then Just (a * a) else Nothing
-	f Nothing = Nothing
-	f (Just (Assoc k a)) = fmap (Assoc k) (g (Just a))
+testAlter test _ = property $ \ (k :: k) r0 -> let
+  g Nothing = r0
+  g (Just a) = if odd a then Just (a * a) else Nothing
+  f = fmap (Assoc k) . g . fmap getValue
+  in testOp (test ++ "/TrieKey/Alter") (alterM f k) (M.alter g k)
 
 testLookup :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testLookup test _ = property $ \ (k :: k) -> testQuery (test ++ "/TrieKey/Lookup")
