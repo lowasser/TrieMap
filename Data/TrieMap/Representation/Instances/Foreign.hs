@@ -15,13 +15,8 @@ genRepr ''CInt
 genRepr ''CUInt
 genRepr ''CLong
 genRepr ''CULong
-genRepr ''CPtrdiff
-genRepr ''CSize
 genRepr ''CWchar
-genRepr ''CSigAtomic
 genRepr ''CLLong
 genRepr ''CULLong
-genRepr ''CClock
-genRepr ''CTime
 genRepr ''CFloat
 genRepr ''CDouble
