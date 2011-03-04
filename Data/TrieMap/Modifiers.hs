@@ -8,7 +8,7 @@ import Data.TrieMap.Representation.Class
 import Data.TrieMap.Utils
 
 -- | Denotes that maps on this type should be implemented with traditional binary search trees.
-newtype Ordered a = Ord {unOrd :: a} deriving (Eq, Ord)
+newtype Ordered a = Ord {unOrd :: a} deriving (Eq, Ord, Show)
 
 instance Repr (Ordered k) where
   type Rep (Ordered k) = Ordered k
@@ -18,7 +18,7 @@ instance Repr (Ordered k) where
 
 -- | Denotes that maps on this type should be treated as reversed.  For instance, @'Rep' 'Int'@ might be
 -- implemented as @'Either' ('Rev' Word) Word@, to handle negative numbers properly.
-newtype Rev k = Rev {getRev :: k} deriving (Eq)
+newtype Rev k = Rev {getRev :: k} deriving (Eq, Show)
 instance Ord k => Ord (Rev k) where
 	compare (Rev a) (Rev b) = compare b a
 	Rev a <  Rev b	= b < a
