@@ -2,7 +2,6 @@
 module Data.TrieMap.TrieKey.Subset.Tests where
 
 import Data.TrieMap.TrieKey
-import Data.TrieMap.TrieKey.Subset
 
 import qualified Data.Map as M
 

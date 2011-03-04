@@ -3,7 +3,6 @@ module Data.TrieMap.TrieKey.Projection.Tests (tests) where
 
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
-import Data.TrieMap.TrieKey.Projection
 import qualified Data.Map as M
 
 import Data.TrieMap.TrieKey.Tests.Utils

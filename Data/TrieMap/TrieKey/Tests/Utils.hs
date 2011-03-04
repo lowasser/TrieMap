@@ -6,8 +6,6 @@ import Data.TrieMap.TrieKey
 import qualified Data.Map as M
 import qualified Data.Foldable as Fold
 
-import Data.TrieMap.TrieKey.Buildable
-
 import Test.QuickCheck
 
 type TMap k a = TrieMap k (Assoc k a)

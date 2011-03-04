@@ -3,7 +3,7 @@ module Data.TrieMap.Representation.Instances.Prim.Tests where
 
 import Data.TrieMap.Representation.Tests
 import Data.TrieMap.Representation.Class
-import Data.TrieMap.Representation.Instances.Prim
+import Data.TrieMap.Representation.Instances.Prim ()
 
 import Data.Int
 import Data.Word

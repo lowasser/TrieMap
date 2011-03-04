@@ -1,7 +1,7 @@
 {-# LANGUAGE StandaloneDeriving, GeneralizedNewtypeDeriving #-}
 module Data.TrieMap.OrdMap.Tests where
 
-import Data.TrieMap.OrdMap
+import Data.TrieMap.OrdMap ()
 import Data.TrieMap.Modifiers
 
 import qualified Data.TrieMap.TrieKey.Tests as TrieKeyTests

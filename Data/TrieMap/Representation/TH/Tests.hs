@@ -5,8 +5,9 @@ import Control.Applicative
 
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Representation.TH
-import Data.TrieMap.Representation.Instances
+import Data.TrieMap.Representation.Instances ()
 import Data.TrieMap.Representation.Tests
+import Data.TrieMap.Arbitrary ()
 
 import Data.Int
 import Data.ByteString

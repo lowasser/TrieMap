@@ -1,7 +1,7 @@
 module Data.TrieMap.UnionMap.Tests where
 
-import Data.TrieMap.UnionMap
-import Data.TrieMap.WordMap
+import Data.TrieMap.UnionMap ()
+import Data.TrieMap.WordMap ()
 
 import Data.Word
 

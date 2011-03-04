@@ -1,7 +1,7 @@
 module Data.TrieMap.ProdMap.Tests where
 
-import Data.TrieMap.ProdMap
-import Data.TrieMap.WordMap
+import Data.TrieMap.ProdMap ()
+import Data.TrieMap.WordMap ()
 
 import Data.Word
 

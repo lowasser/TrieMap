@@ -1,8 +1,8 @@
 {-# LANGUAGE StandaloneDeriving, GeneralizedNewtypeDeriving #-}
 module Data.TrieMap.ReverseMap.Tests where
 
-import Data.TrieMap.ReverseMap
-import Data.TrieMap.WordMap
+import Data.TrieMap.ReverseMap ()
+import Data.TrieMap.WordMap ()
 import Data.TrieMap.Modifiers
 
 import Data.Word

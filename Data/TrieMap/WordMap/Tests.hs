@@ -1,6 +1,6 @@
 module Data.TrieMap.WordMap.Tests where
 
-import Data.TrieMap.WordMap
+import Data.TrieMap.WordMap ()
 
 import Data.Word
 

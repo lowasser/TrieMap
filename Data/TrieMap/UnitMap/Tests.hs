@@ -1,6 +1,6 @@
 module Data.TrieMap.UnitMap.Tests where
 
-import Data.TrieMap.UnitMap
+import Data.TrieMap.UnitMap ()
 
 import qualified Data.TrieMap.TrieKey.Tests as TrieKeyTests
 import Test.QuickCheck

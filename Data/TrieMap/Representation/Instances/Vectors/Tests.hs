@@ -2,9 +2,10 @@
 module Data.TrieMap.Representation.Instances.Vectors.Tests where
 
 import Data.TrieMap.Representation.Class
-import Data.TrieMap.Representation.Instances.Vectors
-import Data.TrieMap.Representation.Instances.Prim
+import Data.TrieMap.Representation.Instances.Vectors ()
+import Data.TrieMap.Representation.Instances.Prim ()
 import Data.TrieMap.Representation.Tests
+import Data.TrieMap.Arbitrary ()
 
 import Data.Vector (Vector)
 import Data.Int

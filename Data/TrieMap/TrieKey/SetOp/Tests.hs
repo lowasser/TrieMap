@@ -2,8 +2,6 @@
 module Data.TrieMap.TrieKey.SetOp.Tests (tests) where
 
 import Data.TrieMap.TrieKey
-import Data.TrieMap.TrieKey.SetOp
-import Data.TrieMap.Sized
 
 import qualified Data.Map as M
 

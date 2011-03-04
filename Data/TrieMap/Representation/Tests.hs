@@ -2,12 +2,7 @@
 module Data.TrieMap.Representation.Tests where
 
 import Data.TrieMap.Representation.Class
-import Data.TrieMap.Arbitrary
 import Test.QuickCheck
-
-import Data.Vector
-import Data.ByteString
-import Data.String
 
 type ToRep a = a -> Rep a
 

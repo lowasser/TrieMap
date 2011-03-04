@@ -103,7 +103,7 @@ Benchlog.eventlog : Benchlog
 	./Benchlog +RTS $(RTS_OPTS) -ls -RTS $(TRIEBENCH_OPTS)
 
 Tests : fast
-	$(GHC_BIN) $(FAST_GHC_OPTS) Tests -o Tests -main-is Tests.main
+	$(GHC_BIN) $(FAST_GHC_OPTS) Data.TrieMap.Tests -o Tests -main-is Data.TrieMap.Tests
 
 TestsP : fast debug
 	$(GHC_BIN) $(DEBUG_GHC_OPTS) Tests -o TestsP -main-is Tests.main

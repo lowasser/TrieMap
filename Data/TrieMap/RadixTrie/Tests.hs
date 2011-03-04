@@ -1,9 +1,9 @@
 module Data.TrieMap.RadixTrie.Tests (tests) where
 
-import Data.TrieMap.RadixTrie
-import Data.TrieMap.ProdMap
-import Data.TrieMap.WordMap
-import Data.TrieMap.Arbitrary
+import Data.TrieMap.RadixTrie ()
+import Data.TrieMap.ProdMap ()
+import Data.TrieMap.WordMap ()
+import Data.TrieMap.Arbitrary ()
 
 import Data.Word
 import qualified Data.Vector as V

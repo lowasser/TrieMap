@@ -3,7 +3,6 @@ module Data.TrieMap.TrieKey.Buildable.Tests (tests) where
 
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
-import Data.TrieMap.TrieKey.Buildable
 
 import qualified Data.Map as M
 

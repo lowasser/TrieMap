@@ -2,7 +2,7 @@
 module Data.TrieMap.Representation.Instances.Foreign.Tests where
 
 import Data.TrieMap.Representation.Class
-import Data.TrieMap.Representation.Instances.Foreign
+import Data.TrieMap.Representation.Instances.Foreign ()
 import Data.TrieMap.Representation.Tests
 
 import Foreign.C.Types

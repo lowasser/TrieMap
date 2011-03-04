@@ -2,7 +2,6 @@
 module Data.TrieMap.TrieKey.Tests (tests) where
 
 import Control.Monad.Option
-import Control.Monad.Ends
 
 import Data.TrieMap.Sized
 import Data.TrieMap.TrieKey
