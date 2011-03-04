@@ -172,6 +172,10 @@ elemsM m = build (\ f z -> foldr f z m)
 indexFail :: a
 indexFail = error "Error: index out of bounds"
 
+indexM' :: (TrieKey k, Sized a) => TrieMap k a -> Int -> (Int, a, Hole k a)
+indexM' m (I# i#) =  case indexM m i# of
+  (# i'#, a, hole #) -> (I# i'#, a, hole)
+
 {-# RULES
   "extractHoleM/First" [0] extractHoleM = firstHoleM;
   "extractHoleM/Last" [0] extractHoleM = lastHoleM;
