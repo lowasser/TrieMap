@@ -93,11 +93,31 @@ testSplit test _ = printTestCase (test ++ "/TrieKey/SplitLookup") $ \ k (xs :: [
 	printTestCase "Less" $ expect (toModel lM) (toModel lT),
 	printTestCase "Greater" $ expect (toModel rM) (toModel rT)]
 
+testBeforeWith :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
+testBeforeWith test _ = printTestCase (test ++ "/TrieKey/BeforeWith") $ \ k a0 xs -> let a = Assoc k a0 in
+  let hole = searchMC k (fromModel xs :: TMap k Int) id (const id) in
+    toModel (insertWithM id k a (beforeM hole)) == toModel (beforeWithM a hole)
+
+testAfterWith :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
+testAfterWith test _ = printTestCase (test ++ "/TrieKey/AfterWith") $ \ k a0 xs -> let a = Assoc k a0 in
+  let hole = searchMC k (fromModel xs :: TMap k Int) id (const id) in
+    toModel (insertWithM id k a (afterM hole)) == toModel (afterWithM a hole)
+
+testSimple :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
+testSimple test _ = testQuery (test ++ "/TrieKey/Simple")
+  (\ (m :: TMap k Int) -> do
+      Assoc k a <- getSimpleM m
+      return (k, a))
+  (\ m -> case M.assocs m of
+      [] -> Null
+      [(k, a)] -> Singleton (k, a)
+      _	-> NonSimple)
+
 expect :: (Eq a, Show a) => a -> a -> Property
 expect expected actual = printTestCase ("Expected: " ++ show expected ++ "\nActual: " ++ show actual) (expected == actual)
 
 tests :: (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 tests test k = conjoin [t test k | t <- 
   [SubsetTests.tests, BuildTests.tests, SetOpTests.tests, ProjTests.tests, testSearchAssignClear, testSplit,
-    testSearchLookup, testLookup, testAlter, testSize, testExtractHole, testIndex, testInsertWith,
-    testFoldr, testFoldl, testFoldMap]]
+    testSearchLookup, testLookup, testAlter, testSize, testExtractHole, testIndex, testInsertWith, testBeforeWith,
+    testAfterWith, testSimple, testFoldr, testFoldl, testFoldMap]]

@@ -17,4 +17,4 @@ tests = conjoin [ReprInst.tests, ReprTH.tests, WordMapTests.tests, OrdMapTests.t
   UnionMapTests.tests, ProdMapTests.tests, ReverseMapTests.tests, RadixTrieTests.tests]
 
 main :: IO ()
-main = quickCheck tests
+main = quickCheckWith stdArgs{maxSize = 50} tests
