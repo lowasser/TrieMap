@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.TrieMap.Representation.Class where
 
+import Control.Monad.ST
 import Control.Monad.Primitive
 
 import Data.Vector (Vector)
@@ -21,17 +22,18 @@ class Repr a where
   type Rep a
   type RepStream a
   toRep :: a -> Rep a
-  toRepStreamM :: MStream IO a -> IO (RepStream a)
+  toRepStreamM :: MStream (ST s) a -> ST s (RepStream a)
 
 -- | A default implementation of @'RepList' a@.
 type DRepStream a = Vector (Rep a)
 
 {-# INLINE toRepStream #-}
 toRepStream :: Repr a => Stream a -> RepStream a
-toRepStream strm = unsafeInlineIO (toRepStreamM (liftStream strm))
+toRepStream strm = unsafeInlineST (toRepStreamM (liftStream strm))
 
+{-# INLINE dToRepStreamM #-}
 -- | A default implementation of 'toRepList'.
-dToRepStreamM :: Repr a => MStream IO a -> IO (DRepStream a)
+dToRepStreamM :: Repr a => MStream (ST s) a -> ST s (DRepStream a)
 dToRepStreamM strm = unstreamM (fmap toRep strm)
 
 -- | Uses the 'RepList' instance of @a@.  (This allows for efficient and automatic implementations of e.g. @Rep String@.)

@@ -20,6 +20,7 @@ module Data.TrieMap.Representation.TH.Representation (
 
 import Control.Exception (assert)
 import Control.Monad
+import Control.Monad.ST
 
 import Data.Word
 import Data.Maybe
@@ -108,7 +109,7 @@ caseToClause :: Case -> Clause
 caseToClause Case{..} = Clause input (NormalB output) []
 
 {-# INLINE toRepStreamImpl #-}
-toRepStreamImpl :: (Repr a, Repr (Rep a)) => MStream IO a -> IO (RepStream (Rep a))
+toRepStreamImpl :: (Repr a, Repr (Rep a)) => MStream (ST s) a -> ST s (RepStream (Rep a))
 toRepStreamImpl = toRepStreamM . fmap toRep
 
 outputRepr :: Cxt -> Type -> Representation -> ReprMonad Type

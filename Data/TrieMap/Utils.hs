@@ -2,6 +2,7 @@
 module Data.TrieMap.Utils where
 
 import Control.Monad.Unpack
+import Control.Monad.Primitive
 
 import Data.Bits
 import qualified Data.Foldable
@@ -23,7 +24,7 @@ toVectorN fold size xs = create $ do
 	fold (\ x m i# -> unsafeWrite mv (I# i#) x >> m (i# +# 1#)) (\ _ -> return mv) xs 0#
 
 {-# INLINE unstreamM #-}
-unstreamM :: Vector v a => MStream IO a -> IO (v a)
+unstreamM :: (Vector v a, PrimMonad m) => MStream m a -> m (v a)
 unstreamM strm = munstream strm >>= unsafeFreeze
 
 {-# INLINE toVectorF #-}

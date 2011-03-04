@@ -2,6 +2,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Data.TrieMap.Representation.Instances.Prim () where
 
+import Control.Monad.Primitive
+
 import Data.TrieMap.Representation.Class
 import Data.TrieMap.Representation.Instances.Basic ()
 import Data.TrieMap.Representation.Instances.Prim.Bool
@@ -112,7 +114,7 @@ data PackState s = PackState !Word !Int s | Last !Int | End
 {-# ANN type PackState ForceSpecConstr #-}
 
 {-# INLINE wStreamToRep #-}
-wStreamToRep :: (Bits w, Integral w) => Stream IO w -> IO (Vector Word, Word)
+wStreamToRep :: (Bits w, Integral w, PrimMonad m) => Stream m w -> m (Vector Word, Word)
 wStreamToRep xs = do
   !ys <- unstreamM (packStream xs)
   return (unsafeInit ys, unsafeLast ys)
