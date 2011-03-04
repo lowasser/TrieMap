@@ -178,8 +178,8 @@ instance Traversable (SNode k) where
   traverse f = trav where
     trav TIP = pure tip
     trav SNode{node = Bin k a l r, ..} =
-      let done a' l' r' = SNode sz count (Bin k a' l' r') in
-	done <$> f a <*> trav l <*> trav r
+      let done l' a' r' = SNode sz count (Bin k a' l' r') in
+	done <$> trav l <*> f a <*> trav r
 
 instance Foldable (SNode k) where
   foldMap _ TIP = mempty

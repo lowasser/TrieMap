@@ -10,6 +10,6 @@ import Test.QuickCheck
 
 tests :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 tests test _ = printTestCase (test ++ "/Subset") $ \ x1 x2 ->
-  ((fromModel x1 :: TMap k Int) <<=? fromModel x2) ==
-    M.isSubmapOfBy (<=) (fromModel x1) (fromModel x2)
-  where ?le = (<=)
+  ((fromModel x1 :: TMap k Int) <<=? (fromModel x2 :: TMap k Int)) ==
+    M.isSubmapOfBy ?le (fromModel x1) (fromModel x2)
+  where ?le = \ _ _ -> True

@@ -1,6 +1,7 @@
 
 PLOT_FILE := bench.png
-.PHONY : opt bench clean install prof test debug benchprof threadscope $(PLOT_FILE) BenchmarkP.prof intbench
+.PHONY : opt bench clean install prof test debug benchprof threadscope $(PLOT_FILE) BenchmarkP.prof intbench Tests TestsHPC TestsP
+.PHONY : Benchmark BenchmarkP TrieBench Benchlog
 
 GHC_BIN := ghc-7.0.1
 FAST_DIR := out/fast
@@ -105,6 +106,16 @@ Benchlog.eventlog : Benchlog
 Tests : fast
 	$(GHC_BIN) $(FAST_GHC_OPTS) Data.TrieMap.Tests -o Tests -main-is Data.TrieMap.Tests
 
+hpc : TestsHPC.tix
+	hpc markup --destdir=hpc TestsHPC.tix
+
+TestsHPC.tix : TestsHPC
+	./TestsHPC
+
+TestsHPC :
+	$(GHC_BIN) $(FAST_GHC_OPTS) -fhpc Data.TrieMap.Tests -o TestsHPC -main-is Data.TrieMap.Tests
+	rm -f TestsHPC.tix
+
 TestsP : fast debug
 	$(GHC_BIN) $(DEBUG_GHC_OPTS) Tests -o TestsP -main-is Tests.main
 
@@ -130,3 +141,5 @@ clean:
 	rm -f SetBench TrieBench BenchmarkP Tests
 	rm -f bench-SetBench.csv bench-TrieBench.csv bench.csv bench.png
 	rm -f *.o *.hi
+	rm -rf hpc/
+	rm -f TestsHPC.tix

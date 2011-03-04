@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, DeriveFunctor #-}
 module Data.TrieMap.TrieKey.Tests (tests) where
 
 import Control.Monad.Option
@@ -116,8 +116,35 @@ testSimple test _ = testQuery (test ++ "/TrieKey/Simple")
 expect :: (Eq a, Show a) => a -> a -> Property
 expect expected actual = printTestCase ("Expected: " ++ show expected ++ "\nActual: " ++ show actual) (expected == actual)
 
+testMap :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
+testMap test _ = testOp (test ++ "/Functor")
+  (fmap (fmap sq) :: TOp k Int) (fmap sq)
+  where sq :: Int -> Int
+	sq x = x * x
+
+newtype IndexedApp a = IndexedApp {runIA :: Int -> (Int, a)} deriving (Functor)
+
+instance Applicative IndexedApp where
+  pure a = IndexedApp $ \ i -> (i, a)
+  f <*> k = IndexedApp $ \ i -> case runIA f i of
+    (i', ff) -> case runIA k i' of
+      (i'', kk) -> (i'', ff kk)
+
+incr :: IndexedApp Int
+incr = IndexedApp $ \ i -> (i+1,i)
+
+testTraverse :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
+testTraverse test _ = testOp (test ++ "/Traversable")
+  (\ (m :: TMap k Int) -> snd $ runIA (traverse (traverse (const incr) :: Assoc k Int -> IndexedApp (Assoc k Int)) m) 0)
+  (\ m -> snd $ runIA (traverse (const incr) m) 0)
+
+testSingle :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
+testSingle test _ = printTestCase (test ++ "/Single") $ \ (k :: k) (a0 :: Int) -> let a = Assoc k a0 in
+  expect (toModel (singletonM k a)) (toModel (assignM a (singleHoleM k))) .&&.
+  expect (toModel (singletonM k a)) (toModel (runFoldl (uFold const) [(k, a)] :: TMap k Int))
+
 tests :: (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 tests test k = conjoin [t test k | t <- 
   [SubsetTests.tests, BuildTests.tests, SetOpTests.tests, ProjTests.tests, testSearchAssignClear, testSplit,
     testSearchLookup, testLookup, testAlter, testSize, testExtractHole, testIndex, testInsertWith, testBeforeWith,
-    testAfterWith, testSimple, testFoldr, testFoldl, testFoldMap]]
+    testAfterWith, testSimple, testFoldr, testFoldl, testFoldMap, testMap, testTraverse, testSingle]]
