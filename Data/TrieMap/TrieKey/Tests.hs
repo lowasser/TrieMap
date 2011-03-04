@@ -16,6 +16,7 @@ import qualified Data.TrieMap.TrieKey.SetOp.Tests as SetOpTests
 import qualified Data.TrieMap.TrieKey.Projection.Tests as ProjTests
 
 import Test.QuickCheck
+import Test.QuickCheck.Function
 import Prelude hiding (foldr, foldl)
 
 testSize :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
@@ -77,8 +78,26 @@ testFoldMap test _ = testQuery (test ++ "/Foldable/Foldl")
   (\ (tm :: TMap k Int) -> foldMap (\ (Assoc k a) -> [(k, a)]) tm)
   M.assocs
 
+testInsertWith :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
+testInsertWith test _ = property $ \ (k :: k) (fun :: Fun (Int, Int) Int) (a :: Int) -> testOp (test ++ "/TrieKey/InsertWith")
+  (insertWithM (\ (Assoc _ b) -> Assoc k $ apply fun (a, b)) k (Assoc k a) :: TOp k Int)
+  (M.insertWith (curry $ apply fun) k a)
+
+testSplit :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
+testSplit test _ = printTestCase (test ++ "/TrieKey/SplitLookup") $ \ k (xs :: [(k, Int)]) ->
+  case M.splitLookup k (fromModel xs) of
+    (lM, xM, rM) -> case searchMC k (fromModel xs :: TMap k Int) (\ hole -> (beforeM hole, Nothing, afterM hole))
+	(\ (Assoc _ a) hole -> (beforeM hole, Just a, afterM hole)) of
+      (lT, xT, rT) -> conjoin [
+	printTestCase "Exact" $ expect xM xT,
+	printTestCase "Less" $ expect (toModel lM) (toModel lT),
+	printTestCase "Greater" $ expect (toModel rM) (toModel rT)]
+
+expect :: (Eq a, Show a) => a -> a -> Property
+expect expected actual = printTestCase ("Expected: " ++ show expected ++ "\nActual: " ++ show actual) (expected == actual)
+
 tests :: (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 tests test k = conjoin [t test k | t <- 
-  [SubsetTests.tests, BuildTests.tests, SetOpTests.tests, ProjTests.tests, testSearchAssignClear,
-    testSearchLookup, testLookup, testAlter, testSize, testExtractHole, testIndex,
+  [SubsetTests.tests, BuildTests.tests, SetOpTests.tests, ProjTests.tests, testSearchAssignClear, testSplit,
+    testSearchLookup, testLookup, testAlter, testSize, testExtractHole, testIndex, testInsertWith,
     testFoldr, testFoldl, testFoldMap]]

@@ -225,9 +225,9 @@ instance (Eq k, Label v k) => Subset (Edge v k) where
       (TrieKey k, Sized a) => Maybe a -> V(EdgeLoc) a -> V(MEdge) a,
       Sized a => Maybe a -> U(EdgeLoc) a -> U(MEdge) a #-}
 beforeEdge, afterEdge :: (Label v k, Sized a) => Maybe a -> EdgeLoc v k a -> MEdge v k a
-beforeEdge v LOC(ks ts path) = case cEdge ks v ts of
+beforeEdge v LOC(ks _ path) = case v of
   Nothing	-> before path
-  Just e	-> Just $ beforeWith e path
+  Just v	-> Just $ beforeWith (singletonEdge ks v) path
   where	before DEEP(path ks v tHole) = case cEdge ks v (beforeM tHole) of
 	    Nothing	-> before path
 	    Just e	-> Just $ beforeWith e path
