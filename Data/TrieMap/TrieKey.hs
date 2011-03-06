@@ -16,6 +16,7 @@ module Data.TrieMap.TrieKey (
   module Data.TrieMap.TrieKey.Zippable,
   module Data.TrieMap.TrieKey.Splittable,
   module Data.TrieMap.TrieKey.Indexable,
+  module Data.TrieMap.TrieKey.Alternatable,
   MonadPlus(..),
   Monoid(..),
   guard) where
@@ -30,6 +31,7 @@ import Data.TrieMap.TrieKey.Searchable
 import Data.TrieMap.TrieKey.Zippable
 import Data.TrieMap.TrieKey.Splittable
 import Data.TrieMap.TrieKey.Indexable
+import Data.TrieMap.TrieKey.Alternatable
 
 import Control.Applicative hiding (empty)
 import Control.Monad
