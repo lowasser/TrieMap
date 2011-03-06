@@ -1,7 +1,6 @@
 {-# LANGUAGE TypeFamilies, FlexibleInstances, CPP, MultiParamTypeClasses, UnboxedTuples, GeneralizedNewtypeDeriving, StandaloneDeriving #-}
 module Data.TrieMap.UnitMap () where
 
-import Data.Maybe (fromMaybe)
 import Data.TrieMap.TrieKey
 import Data.Functor.Immoral
 
@@ -76,10 +75,10 @@ instance Indexable (TrieMap ()) where
 
 -- | @'TrieMap' () a@ is implemented as @'Maybe' a@.
 instance TrieKey () where
-	getSimpleM (Unit m) = maybe Null Singleton m
-	sizeM (Unit m) = getSize m
-	unifierM _ _ _ = mzero
-	unifyM _ _ _ _ = mzero
+  getSimpleM (Unit m) = maybe Null Singleton m
+  sizeM (Unit m) = getSize m
+  unifierM _ _ _ = mzero
+  unifyM _ _ _ _ = mzero
 
 single :: a -> TrieMap () a
 single = Unit . Just
