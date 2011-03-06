@@ -19,6 +19,7 @@ import Data.TrieMap.WordMap.Subset ()
 import Data.TrieMap.WordMap.SetOp ()
 import Data.TrieMap.WordMap.Traversable ()
 import Data.TrieMap.WordMap.Buildable ()
+import Data.TrieMap.WordMap.Alternatable ()
 
 -- | @'TrieMap' 'Word' a@ is based on "Data.IntMap".
 instance TrieKey Word where

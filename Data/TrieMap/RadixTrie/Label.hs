@@ -1,4 +1,4 @@
-{-# LANGUAGE MagicHash, TypeFamilies, MultiParamTypeClasses, FlexibleInstances, BangPatterns, CPP, ViewPatterns #-}
+{-# LANGUAGE MagicHash, TypeFamilies, MultiParamTypeClasses, FlexibleInstances, BangPatterns, CPP, ViewPatterns, TypeSynonymInstances #-}
 {-# OPTIONS -funbox-strict-fields #-}
 module Data.TrieMap.RadixTrie.Label where
 
@@ -7,10 +7,12 @@ import Control.Monad.Trans.Reader
 
 import Data.TrieMap.TrieKey
 import Data.TrieMap.RadixTrie.Slice
-import Data.TrieMap.WordMap
+import Data.TrieMap.WordMap.Base hiding (Root, Path)
+import Data.TrieMap.WordMap.Buildable
+import Data.TrieMap.WordMap ()
 
 import Data.Word
-import Data.Vector.Generic
+import Data.Vector.Generic hiding (empty)
 import qualified Data.Vector as V
 import qualified Data.Vector.Primitive as P
 
@@ -19,10 +21,11 @@ import Prelude hiding (length)
 #define V(ty) (ty (V.Vector) (k))
 #define U(ty) (ty (P.Vector) Word)
 
+type EdgeLoc v k = Zipper (Edge v k)
+
 class (Unpackable (v k), Vector v k, TrieKey k) => Label v k where
   data Edge v k :: * -> *
   data Path v k :: * -> *
-  data EdgeLoc v k :: * -> *
   data Stack v k :: * -> *
   edge :: Sized a => v k -> Maybe a -> Branch v k a -> Edge v k a
   edge' :: Int -> v k -> Maybe a -> Branch v k a -> Edge v k a
@@ -55,6 +58,7 @@ instance Label v k => Sized (Edge v k a) where
   {-# SPECIALIZE instance Sized (U(Edge) a) #-}
   getSize# e = getSize# (eView e)
 
+data instance Zipper (Edge V.Vector k) a = VLoc !(V()) (V(Branch) a) (V(Path) a)
 instance TrieKey k => Label V.Vector k where
   data Edge V.Vector k a =
     VEdge !Int !(V()) (V(Branch) a)
@@ -63,7 +67,6 @@ instance TrieKey k => Label V.Vector k where
     VRoot
     | VDeep (V(Path) a) !(V()) (V(BHole) a)
     | VDeepX (V(Path) a) !(V()) a (V(BHole) a)
-  data EdgeLoc V.Vector k a = VLoc !(V()) (V(Branch) a) (V(Path) a)
   data Stack V.Vector k a =
     VStackAZ !(V()) a (DAMStack k (V(Edge) a)) k (V(Stack) a)
     | VStackA !(V()) a k (V(Stack) a)
@@ -111,6 +114,7 @@ instance TrieKey k => Unpackable (V(EdgeLoc) a) where
     runVLocRT func `runUnpackedReaderT` ks `runReaderT` ts `runReaderT` path
   unpackedReaderT func = VLocRT $ unpackedReaderT $ \ ks -> ReaderT $ \ ts -> ReaderT $ \ path -> func (VLoc ks ts path)
 
+data instance Zipper (Edge P.Vector Word) a = SLoc !(U()) !(SNode (U(Edge) a)) (U(Path) a)
 instance Label P.Vector Word where
   data Edge P.Vector Word a =
     SEdge !(U()) !(SNode (U(Edge) a))
@@ -119,8 +123,6 @@ instance Label P.Vector Word where
     SRoot
     | SDeep (U(Path) a) !(U()) !(WHole (U(Edge) a))
     | SDeepX (U(Path) a) !(U()) a !(WHole (U(Edge) a))
-  data EdgeLoc P.Vector Word a =
-    SLoc !(U()) !(SNode (U(Edge) a)) (U(Path) a)
   data Stack P.Vector Word a =
     PStackAZ !(U()) a !(WordStack (U(Edge) a)) !Word (U(Stack) a)
     | PStackA !(U()) a !Word (U(Stack) a)
@@ -170,13 +172,13 @@ instance Unpackable (U(EdgeLoc) a) where
     (TrieKey k, Sized a) => V() -> a -> V(Edge) a,
     Sized a => U() -> a -> U(Edge) a #-}
 singletonEdge :: (Label v k, Sized a) => v k -> a -> Edge v k a
-singletonEdge !ks a = edge' (getSize a) ks (Just a) emptyM
+singletonEdge !ks a = edge' (getSize a) ks (Just a) empty
 
 {-# SPECIALIZE singleLoc :: 
     TrieKey k => V() -> V(EdgeLoc) a,
     U() -> U(EdgeLoc) a #-}
 singleLoc :: Label v k => v k -> EdgeLoc v k a
-singleLoc ks = loc ks emptyM root
+singleLoc ks = loc ks empty root
 
 {-# SPECIALIZE getSimpleEdge ::
     TrieKey k => V(Edge) a -> Simple a,

@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns, TypeSynonymInstances #-}
+{-# LANGUAGE NamedFieldPuns, TypeSynonymInstances, FlexibleInstances #-}
 module Data.TrieMap.OrdMap.Alternatable () where
 
 import Data.TrieMap.OrdMap.Base
@@ -10,3 +10,8 @@ instance Alternatable (SNode k) where
       Bin kx x l r ->
 	alt (LeftBin kx x path l) r `mplus` return (x, Full kx path l r) `mplus`
 	  alt (RightBin kx x l path) r
+
+instance Alternatable (TrieMap (Ordered k)) where
+  alternate (OrdMap m) = do
+    (a, hole) <- alternate m
+    return (a, Hole hole)

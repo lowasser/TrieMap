@@ -66,9 +66,10 @@ instance Unpackable (Zipper SNode a) where
     runZRT func `runUnpackedReaderT` k `runReaderT` path
   unpackedReaderT func = ZRT $ unpackedReaderT $ \ k -> ReaderT $ \ path -> func (WHole k path)
 
-newtype instance TrieMap Word a = WordMap (SNode a)
+newtype instance TrieMap Word a = WordMap {getWordMap :: SNode a}
+type WHole = Zipper SNode
 data instance Zipper SNode a = WHole !Key (Path a)
-newtype instance Zipper (TrieMap Word) a = Hole (Zipper SNode a)
+newtype instance Zipper (TrieMap Word) a = Hole {getHole :: Zipper SNode a}
 
 mask0 :: Key -> Mask -> Bool
 mask0 i m

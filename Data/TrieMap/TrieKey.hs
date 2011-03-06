@@ -86,6 +86,7 @@ class (Ord k,
 	SetOp (TrieMap k),
 	Project (TrieMap k),
 	Zippable (TrieMap k),
+	Alternatable (TrieMap k),
 	Searchable (TrieMap k) k,
 	Splittable (TrieMap k),
 	Indexable (TrieMap k)) => TrieKey k where

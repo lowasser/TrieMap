@@ -10,6 +10,7 @@ import Data.TrieMap.UnionMap.Splittable ()
 import Data.TrieMap.UnionMap.Searchable ()
 import Data.TrieMap.UnionMap.Indexable ()
 import Data.TrieMap.UnionMap.Buildable ()
+import Data.TrieMap.UnionMap.Alternatable ()
 
 -- | @'TrieMap' ('Either' k1 k2) a@ is essentially a @(TrieMap k1 a, TrieMap k2 a)@, but
 -- specialized for the cases where one or both maps are empty.

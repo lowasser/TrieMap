@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns, UnboxedTuples, MagicHash, NamedFieldPuns, RecordWildCards, FlexibleInstances, MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-module Data.TrieMap.WordMap.Buildable () where
+module Data.TrieMap.WordMap.Buildable (WordStack) where
 
 import Data.TrieMap.TrieKey
 

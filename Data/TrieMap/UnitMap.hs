@@ -69,6 +69,10 @@ instance Splittable (TrieMap ()) where
   beforeWith = assign
   afterWith = assign
 
+instance Alternatable (TrieMap ()) where
+  alternate (Unit (Just a)) = return (a, One)
+  alternate _ = mzero
+
 instance Indexable (TrieMap ()) where
   index i (Unit (Just a)) = (# i, a, One #)
   index _ _ = indexFail ()

@@ -74,6 +74,11 @@ instance TKey k => Searchable (TrieMap (Key k)) (Key k) where
   insertWith f k a KMAP(m) = keyMap (insertWith f (keyRep k) a m)
   alter f k KMAP(m) = keyMap (alter f (keyRep k) m)
 
+instance CONTEXT(Alternatable) => Alternatable (TrieMap (Key k)) where
+  alternate KMAP(m) = do
+    (a, hole) <- alternate m
+    return (a, KeyHole hole)
+
 data instance TrieMap (Key k) a = KeyMap {sz :: !Int, tMap :: !(TrieMap (Rep k) a)}
 newtype instance Zipper (TrieMap (Key k)) a = KeyHole (Hole (Rep k) a)
 
