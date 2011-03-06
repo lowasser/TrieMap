@@ -36,7 +36,6 @@ import Data.TrieMap.TrieKey.Alternatable
 import Control.Applicative hiding (empty)
 import Control.Monad
 import Control.Monad.Option
-import Control.Monad.Ends
 
 import Data.Monoid (Monoid(..))
 import Data.Foldable

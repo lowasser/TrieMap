@@ -1,13 +1,8 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.TrieMap.TrieKey.Zippable where
 
-import Control.Monad
-import Control.Monad.Ends
-
 import Data.TrieMap.TrieKey.Subset
 import Data.TrieMap.Sized
-
-import GHC.Exts
 
 data family Zipper (f :: * -> *) :: * -> *
 
