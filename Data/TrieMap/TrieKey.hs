@@ -12,7 +12,10 @@ module Data.TrieMap.TrieKey (
   module Data.TrieMap.TrieKey.Buildable,
   module Data.TrieMap.TrieKey.SetOp,
   module Data.TrieMap.TrieKey.Projection,
-  module Data.TrieMap.TrieKey.Search,
+  module Data.TrieMap.TrieKey.Searchable,
+  module Data.TrieMap.TrieKey.Zippable,
+  module Data.TrieMap.TrieKey.Splittable,
+  module Data.TrieMap.TrieKey.Indexable,
   MonadPlus(..),
   Monoid(..),
   guard) where
@@ -23,7 +26,10 @@ import Data.TrieMap.TrieKey.Subset
 import Data.TrieMap.TrieKey.Buildable
 import Data.TrieMap.TrieKey.SetOp
 import Data.TrieMap.TrieKey.Projection
-import Data.TrieMap.TrieKey.Search
+import Data.TrieMap.TrieKey.Searchable
+import Data.TrieMap.TrieKey.Zippable
+import Data.TrieMap.TrieKey.Splittable
+import Data.TrieMap.TrieKey.Indexable
 
 import Control.Applicative hiding (empty)
 import Control.Monad
@@ -67,6 +73,9 @@ onThird :: (d -> e) -> (a -> (# Int, c, d #)) -> a -> (# Int, c, e #)
 onThird g f a = case f a of
 	(# b, c, d #) -> (# b, c, g d #)
 
+data family TrieMap k :: * -> *
+type Hole k = Zipper (TrieMap k)
+
 -- | A @TrieKey k@ instance implies that @k@ is a standardized representation for which a
 -- generalized trie structure can be derived.
 class (Ord k,
@@ -74,53 +83,25 @@ class (Ord k,
 	Subset (TrieMap k),
 	Traversable (TrieMap k),
 	SetOp (TrieMap k),
-	Project (TrieMap k)) => TrieKey k where
-  data TrieMap k :: * -> *
-  emptyM :: TrieMap k a
-  singletonM :: Sized a => k -> a -> TrieMap k a
+	Project (TrieMap k),
+	Zippable (TrieMap k),
+	Searchable (TrieMap k) k,
+	Splittable (TrieMap k),
+	Indexable (TrieMap k)) => TrieKey k where
   getSimpleM :: TrieMap k a -> Simple a
   sizeM# :: Sized a => TrieMap k a -> Int#
   sizeM :: Sized a => TrieMap k a -> Int
-  lookupMC :: k -> TrieMap k a -> Option a
   
-  data Hole k :: * -> *
-  singleHoleM :: k -> Hole k a
-  beforeM, afterM :: Sized a => Hole k a -> TrieMap k a
-  beforeWithM, afterWithM :: Sized a => a -> Hole k a -> TrieMap k a
-  searchMC :: k -> TrieMap k a -> SearchCont (Hole k a) a r
-  indexM :: Sized a => TrieMap k a -> Int# -> (# Int#, a, Hole k a #)
-
   -- By combining rewrite rules and these NOINLINE pragmas, we automatically derive
   -- specializations of functions for every instance of TrieKey.
-  extractHoleM :: (Functor m, MonadPlus m) => Sized a => TrieMap k a -> m (a, Hole k a)
-  {-# NOINLINE firstHoleM #-}
-  {-# NOINLINE lastHoleM #-}
   {-# NOINLINE sizeM# #-}
   sizeM# m = unbox (inline sizeM m)
-  firstHoleM :: Sized a => TrieMap k a -> First (a, Hole k a)
-  firstHoleM m = inline extractHoleM m
-  lastHoleM :: Sized a => TrieMap k a -> Last (a, Hole k a)
-  lastHoleM m = inline extractHoleM m
   
-  insertWithM :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> TrieMap k a -> TrieMap k a
-  insertWithM f k a m = inline searchMC k m (assignM a) (assignM . f)
-  alterM :: (TrieKey k, Sized a) => (Maybe a -> Maybe a) -> k -> TrieMap k a -> TrieMap k a
-  {-# INLINE alterM #-}
-  alterM f k m = searchMC k m nomatch match where
-    nomatch hole = case f Nothing of
-      Nothing	-> m
-      Just a'	-> assignM a' hole
-    match a hole = case f (Just a) of
-      Nothing	-> clearM hole
-      Just a'	-> assignM a' hole
-  
-  assignM :: Sized a => a -> Hole k a -> TrieMap k a
-  clearM :: Sized a => Hole k a -> TrieMap k a
   unifierM :: Sized a => k -> k -> a -> Option (Hole k a)
   unifyM :: Sized a => k -> a -> k -> a -> Option (TrieMap k a)
   
-  unifierM k' k a = option $ \ no yes -> searchMC k' (singletonM k a) yes (\ _ _ -> no)
-  unifyM k1 a1 k2 a2 = assignM a1 <$> unifierM k1 k2 a2
+  unifierM k' k a = option $ \ no yes -> search k' (singleton k a) yes (\ _ _ -> no)
+  unifyM k1 a1 k2 a2 = assign a1 <$> unifierM k1 k2 a2
 
 instance (TrieKey k, Sized a) => Sized (TrieMap k a) where
 	getSize# = sizeM#
@@ -136,10 +117,6 @@ foldl1Empty = error "Error: cannot call foldl1 on an empty map"
 foldr1Empty :: a
 foldr1Empty = error "Error: cannot call foldr1 on an empty map"
 
-{-# INLINE fillHoleM #-}
-fillHoleM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
-fillHoleM = maybe clearM assignM
-
 {-# INLINE mappendM #-}
 mappendM :: Monoid m => Maybe m -> Maybe m -> m
 Nothing `mappendM` Nothing = mempty
@@ -147,39 +124,6 @@ Nothing `mappendM` Just m = m
 Just m `mappendM` Nothing = m
 Just m1 `mappendM` Just m2 = m1 `mappend` m2
 
-insertWithM' :: (TrieKey k, Sized a) => (a -> a) -> k -> a -> Maybe (TrieMap k a) -> TrieMap k a
-insertWithM' f k a = maybe (singletonM k a) (insertWithM f k a)
-
-{-# INLINE beforeMM #-}
-beforeMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
-beforeMM = maybe beforeM beforeWithM
-
-{-# INLINE afterMM #-}
-afterMM :: (TrieKey k, Sized a) => Maybe a -> Hole k a -> TrieMap k a
-afterMM = maybe afterM afterWithM
-
-clearM' :: (TrieKey k, Sized a) => Hole k a -> Maybe (TrieMap k a)
-clearM' hole = guardNull (clearM hole)
-
-{-# INLINE searchMC' #-}
-searchMC' :: TrieKey k => k -> Maybe (TrieMap k a) -> (Hole k a -> r) -> (a -> Hole k a -> r) -> r
-searchMC' k Nothing f _ = f (singleHoleM k)
-searchMC' k (Just m) f g = searchMC k m f g
-
-elemsM :: TrieKey k => TrieMap k a -> [a]
-elemsM m = build (\ f z -> foldr f z m)
-
-indexFail :: a
-indexFail = error "Error: index out of bounds"
-
-indexM' :: (TrieKey k, Sized a) => TrieMap k a -> Int -> (Int, a, Hole k a)
-indexM' m (I# i#) =  case indexM m i# of
-  (# i'#, a, hole #) -> (I# i'#, a, hole)
-
 {-# RULES
-  "extractHoleM/First" [0] extractHoleM = firstHoleM;
-  "extractHoleM/Last" [0] extractHoleM = lastHoleM;
   "sizeM" [0] forall m . sizeM m = I# (sizeM# m);
-  "getSimpleM/emptyM" getSimpleM emptyM = Null;
-  "getSimpleM/singletonM" forall k a . getSimpleM (singletonM k a) = Singleton a;
   #-}
