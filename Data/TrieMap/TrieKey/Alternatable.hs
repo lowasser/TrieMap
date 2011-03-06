@@ -7,7 +7,7 @@ import Data.TrieMap.TrieKey.Zippable
 
 import GHC.Exts
 
-class Zippable f => Alternatable f where
+class Alternatable f where
   alternate :: MonadPlus m => f a -> m (a, Zipper f a)
 
   firstHole :: f a -> First (a, Zipper f a)

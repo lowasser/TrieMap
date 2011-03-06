@@ -6,7 +6,7 @@ import Data.TrieMap.Sized
 
 import GHC.Exts
 
-class Zippable f => Indexable f where
+class Indexable f where
   index :: Sized a => Int# -> f a -> (# Int#, a, Zipper f a #)
 
 index' :: (Indexable f, Sized a) => Int -> f a -> (Int, a, Zipper f a)

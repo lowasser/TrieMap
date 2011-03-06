@@ -4,7 +4,7 @@ import Data.TrieMap.TrieKey.Zippable
 import Data.TrieMap.TrieKey.Subset
 import Data.TrieMap.Sized
 
-class Zippable f => Splittable f where
+class Splittable f where
   before, after :: Sized a => Zipper f a -> f a
   beforeWith, afterWith :: Sized a => a -> Zipper f a -> f a
 
