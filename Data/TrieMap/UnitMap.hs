@@ -7,6 +7,9 @@ import Data.Functor.Immoral
 
 import Prelude hiding (foldr, foldl, foldr1, foldl1)
 
+data instance Zipper (TrieMap ()) a = One
+newtype instance TrieMap () a = Unit (Maybe a)
+
 deriving instance ImmoralMap (Maybe a) (TrieMap () a)
 
 instance Functor (TrieMap ()) where
@@ -26,7 +29,7 @@ instance Subset (TrieMap ()) where
 instance Buildable (TrieMap ()) () where
   type UStack (TrieMap ()) = Elem
   uFold f = Foldl{
-    zero = emptyM,
+    zero = empty,
     begin = const Elem,
     snoc = \ (Elem a) _ a' -> Elem (f a' a),
     done = \ (Elem a) -> single a}
@@ -34,7 +37,7 @@ instance Buildable (TrieMap ()) () where
   aFold = uFold
   type DAStack (TrieMap ()) = TrieMap ()
   daFold =  Foldl{
-    zero = emptyM,
+    zero = empty,
     begin = const single,
     snoc = error "Error: duplicate keys",
     done = id}
@@ -48,41 +51,35 @@ instance SetOp (TrieMap ()) where
 instance Project (TrieMap ()) where
   mapMaybe f (Unit m) = Unit (mapMaybe f m)
   mapEither f (Unit m) = both Unit (mapEither f) m
+  
+instance Zippable (TrieMap ()) where
+  empty = Unit Nothing
+  
+  assign a _ = single a
+  clear _ = empty
+
+instance Searchable (TrieMap ()) () where
+  search _ (Unit m) nomatch match = maybe nomatch match m One
+  singleZip _ = One
+  insertWith f _ a (Unit m) = single (maybe a f m)
+  alter f _ (Unit m) = Unit (f m)
+
+instance Splittable (TrieMap ()) where
+  before = clear
+  after = clear
+  beforeWith = assign
+  afterWith = assign
+
+instance Indexable (TrieMap ()) where
+  index i (Unit (Just a)) = (# i, a, One #)
+  index _ _ = indexFail ()
 
 -- | @'TrieMap' () a@ is implemented as @'Maybe' a@.
 instance TrieKey () where
-	newtype TrieMap () a = Unit (Maybe a)
-	data Hole () a = Hole
-	
-	emptyM = Unit Nothing
-	singletonM _ = single
 	getSimpleM (Unit m) = maybe Null Singleton m
 	sizeM (Unit m) = getSize m
-	lookupMC _ (Unit (Just a)) = return a
-	lookupMC _ _ = mzero
-	
-	insertWithM f _ a (Unit m) = Unit (Just (maybe a f m))
-	
-	singleHoleM _ = Hole
-	beforeM _ = emptyM
-	afterM _ = emptyM
-	beforeWithM a _ = single a
-	afterWithM a _ = single a
-	
-	searchMC _ (Unit (Just v)) _ g = g v Hole
-	searchMC _ _ f _ = f Hole
-
-	indexM (Unit v) i = 
-	  (# i, fromMaybe indexFail v, Hole #)
-	
 	unifierM _ _ _ = mzero
 	unifyM _ _ _ _ = mzero
-	
-	extractHoleM (Unit (Just v)) = return (v, Hole)
-	extractHoleM _ = mzero
-	
-	clearM _ = emptyM
-	assignM v _ = single v
 
 single :: a -> TrieMap () a
 single = Unit . Just
