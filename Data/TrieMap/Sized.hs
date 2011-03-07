@@ -13,7 +13,7 @@ import GHC.Exts
 class Sized a where
   getSize# :: a -> Int#
 
-data Assoc k a = Assoc {getK :: k, getValue :: a} deriving (Eq, Functor, Foldable, Traversable)
+data Assoc k a = Assoc {getK :: k, getValue :: a} deriving (Eq, Show, Functor, Foldable, Traversable)
 
 newtype Elem a = Elem {getElem :: a} deriving (Functor, Foldable, Traversable, ImmoralMap a)
 
