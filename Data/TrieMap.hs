@@ -139,20 +139,25 @@ module Data.TrieMap (
 	maxViewWithKey
 	) where
 
+import Control.Applicative (Applicative(..), (<$>))
 import Control.Monad
 import Control.Monad.Ends
 import Control.Monad.Option
 
 import Data.TrieMap.Class
-import Data.TrieMap.Class.Instances()
-import Data.TrieMap.TrieKey hiding (union, isect, diff, mapMaybe, mapEither)
-import qualified Data.TrieMap.TrieKey.Projection as Proj
-import qualified Data.TrieMap.TrieKey.SetOp as Set
+import Data.TrieMap.Class.Instances ()
+import Data.TrieMap.TrieKey (Hole, (<=?), FromList, Foldl(..), Buildable(..))
+import Data.TrieMap.Sized
+import Data.TrieMap.TrieKey.Subset (Nullable(..))
+import Data.TrieMap.Utils
+import qualified Data.TrieMap.TrieKey as TK
 import Data.TrieMap.Representation
 import Data.TrieMap.Representation.Instances ()
 
 import qualified Data.Foldable as F
 import Data.Maybe hiding (mapMaybe)
+import Data.Monoid (Monoid(..))
+import Data.Traversable
 
 import Data.Vector.Build
 import qualified Data.Vector.Generic as G
@@ -188,12 +193,12 @@ data TLocation k a = TLoc k (Hole (Rep k) (Assoc k a))
 {-# INLINE empty #-}
 -- | /O(1)/. The empty map.
 empty :: TKey k => TMap k a
-empty = TMap emptyM
+empty = TMap TK.empty
 
 -- | /O(1)/. A map with a single element.
 {-# INLINE singleton #-}
 singleton :: TKey k => k -> a -> TMap k a
-singleton k a = TMap (singletonM (toRep k) (Assoc k a))
+singleton k a = TMap (TK.singleton (toRep k) (Assoc k a))
 
 -- | /O(1)/. Is the map empty?
 {-# INLINE null #-}
@@ -205,7 +210,7 @@ null (TMap m) = isNull m
 -- The function will return the corresponding value as @('Just' value)@, or 'Nothing' if the key isn't in the map.
 {-# INLINE lookup #-}
 lookup :: TKey k => k -> TMap k a -> Maybe a
-lookup k (TMap m) = liftOption (getValue <$> lookupMC (toRep k) m)
+lookup k (TMap m) = liftOption (getValue <$> TK.lookup (toRep k) m)
 
 -- | The expression @('findWithDefault' def k map)@ returns the value at key @k@ or returns default value @def@
 -- when the key is not in the map.
@@ -223,11 +228,8 @@ m ! k = fromMaybe (error "Element not found") (lookup k m)
 -- @'lookup' k ('alter' f k m) = f ('lookup' k m)@.
 {-# INLINE alter #-}
 alter :: TKey k => (Maybe a -> Maybe a) -> k -> TMap k a -> TMap k a
-alter f k (TMap m) = TMap $ searchMC (toRep k) m nomatch match where
-  nomatch hole = case f Nothing of
-      Nothing	-> m
-      Just a'	-> assignM (Assoc k a') hole
-  match (Assoc _ a) hole = fillHoleM (Assoc k <$> f (Just a)) hole
+alter f k (TMap m) = TMap $ TK.alter g (toRep k) m where
+  g a = Assoc k <$> f (getValue <$> a)
 
 -- | Insert a new key and value in the map.
 -- If the key is already present in the map, the associated value is
@@ -268,7 +270,7 @@ insertWith = insertWithKey . const
 {-# INLINE insertWithKey #-}
 insertWithKey :: TKey k => (k -> a -> a -> a) -> k -> a -> TMap k a -> TMap k a
 insertWithKey f k a (TMap m) =
-  TMap (insertWithM (\ (Assoc _ a0) -> Assoc k (f k a a0)) (toRep k) (Assoc k a) m)
+  TMap (TK.insertWith (\ (Assoc _ a0) -> Assoc k (f k a a0)) (toRep k) (Assoc k a) m)
 
 -- | Combines insert operation with old value retrieval.
 -- The expression (@'insertLookupWithKey' f k x map@)
@@ -464,7 +466,7 @@ unionMaybeWith = unionMaybeWithKey . const
 -- > unionWithKey f (fromList [(5, "a"), (3, "b")]) (fromList [(5, "A"), (7, "C")]) == fromList [(3, "b"), (5, "5:a|A"), (7, "C")]
 {-# INLINEABLE unionMaybeWithKey #-}
 unionMaybeWithKey :: TKey k => (k -> a -> a -> Maybe a) -> TMap k a -> TMap k a -> TMap k a
-unionMaybeWithKey f (TMap m1) (TMap m2) = TMap (Set.union f' m1 m2) where
+unionMaybeWithKey f (TMap m1) (TMap m2) = TMap (TK.union f' m1 m2) where
 	f' (Assoc k a) (Assoc _ b) = Assoc k <$> f k a b
 
 -- | 'symmetricDifference' is equivalent to @'unionMaybeWith' (\ _ _ -> Nothing)@.
@@ -507,7 +509,7 @@ intersectionMaybeWith = intersectionMaybeWithKey . const
 -- @'mapMaybe' 'id' ('intersectionWithKey' f m1 m2)@.
 {-# INLINEABLE intersectionMaybeWithKey #-}
 intersectionMaybeWithKey :: TKey k => (k -> a -> b -> Maybe c) -> TMap k a -> TMap k b -> TMap k c
-intersectionMaybeWithKey f (TMap m1) (TMap m2) = TMap (Set.isect f' m1 m2) where
+intersectionMaybeWithKey f (TMap m1) (TMap m2) = TMap (TK.isect f' m1 m2) where
 	f' (Assoc k a) (Assoc _ b) = Assoc k <$> f k a b
 
 -- | Difference of two maps. 
@@ -548,7 +550,7 @@ differenceWith = differenceWithKey . const
 -- >     == singleton 3 "3:b|B"
 {-# INLINEABLE differenceWithKey #-}
 differenceWithKey :: TKey k => (k -> a -> b -> Maybe a) -> TMap k a -> TMap k b -> TMap k a
-differenceWithKey f (TMap m1) (TMap m2) = TMap (Set.diff f' m1 m2) where
+differenceWithKey f (TMap m1) (TMap m2) = TMap (TK.diff f' m1 m2) where
 	f' (Assoc k a) (Assoc _ b) = Assoc k <$> f k a b
 
 -- | Retrieves the value associated with minimal key of the
@@ -621,7 +623,7 @@ updateMax = updateMaxWithKey . const
 {-# INLINE updateHelper #-}
 updateHelper :: (TKey k, Functor m, MonadPlus m) =>
   (k -> a -> Maybe a) -> TMap k a -> m (Maybe (Assoc k a), Hole (Rep k) (Assoc k a))
-updateHelper f (TMap m) = fmap (\ (Assoc k a, loc) -> (Assoc k <$> f k a, loc)) (extractHoleM m)
+updateHelper f (TMap m) = fmap (\ (Assoc k a, loc) -> (Assoc k <$> f k a, loc)) (TK.alternate m)
 
 -- | Update the value at the minimal key.
 --
@@ -631,7 +633,7 @@ updateHelper f (TMap m) = fmap (\ (Assoc k a, loc) -> (Assoc k <$> f k a, loc)) 
 updateMinWithKey :: TKey k => (k -> a -> Maybe a) -> TMap k a -> TMap k a
 updateMinWithKey f m = fromMaybe m $ do
 	(a, loc) <- getFirst $ updateHelper f m
-	return (TMap (afterMM a loc))
+	return (TMap (TK.afterM a loc))
 
 -- | Update the value at the maximal key.
 --
@@ -641,7 +643,7 @@ updateMinWithKey f m = fromMaybe m $ do
 updateMaxWithKey :: TKey k => (k -> a -> Maybe a) -> TMap k a -> TMap k a
 updateMaxWithKey f m = fromMaybe m $ do
 	(a, loc) <- getLast $ updateHelper f m
-	return (TMap (beforeMM a loc))
+	return (TMap (TK.beforeM a loc))
 
 -- | Delete and find the minimal element.
 --
@@ -695,7 +697,7 @@ elems m = build (\ c n -> foldrWithKey (\ _ a -> c a) n m)
 -- Return all elements of the map in the ascending order of their keys.
 -- Does not currently fuse.
 elemsVector :: (TKey k, G.Vector v a) => TMap k a -> v a
-elemsVector (TMap m) = toVectorMapN (sizeM m) (\ (Assoc _ a) -> a) m
+elemsVector (TMap m) = toVectorMapN (TK.sizeM m) (\ (Assoc _ a) -> a) m
 
 -- | Return all keys of the map in ascending order.
 --
@@ -708,7 +710,7 @@ keys m = build (\ c n -> foldrWithKey (\ k _ -> c k) n m)
 -- | Return all keys of the map in ascending order.
 -- Does not currently fuse.
 keysVector :: (TKey k, G.Vector v k) => TMap k a -> v k
-keysVector (TMap m) = toVectorMapN (sizeM m) (\ (Assoc k _) -> k) m
+keysVector (TMap m) = toVectorMapN (TK.sizeM m) (\ (Assoc k _) -> k) m
 
 -- | Return all key\/value pairs in the map in ascending key order.
 --
@@ -722,7 +724,7 @@ assocs m = build (\ c n -> foldrWithKey (curry c) n m)
 -- | Return all key\/value pairs in the map in ascending key order.
 -- Does not currently fuse.
 assocsVector :: (TKey k, G.Vector v (k, a)) => TMap k a -> v (k, a)
-assocsVector (TMap m) = toVectorMapN (sizeM m) (\ (Assoc k a) -> (k, a)) m
+assocsVector (TMap m) = toVectorMapN (TK.sizeM m) (\ (Assoc k a) -> (k, a)) m
 
 -- | Map values and separate the 'Left' and 'Right' results.
 --
@@ -746,7 +748,7 @@ mapEither = mapEitherWithKey . const
 -- >     == (empty, fromList [(1,"x"), (3,"b"), (5,"a"), (7,"z")])
 {-# INLINEABLE mapEitherWithKey #-}
 mapEitherWithKey :: TKey k => (k -> a -> Either b c) -> TMap k a -> (TMap k b, TMap k c)
-mapEitherWithKey f (TMap m) = case Proj.mapEither f' m of
+mapEitherWithKey f (TMap m) = case TK.mapEither f' m of
 	(# mL, mR #) -> (TMap mL, TMap mR) 
 	where	f' (Assoc k a) = case f k a of
 			Left b	-> (# Just (Assoc k b), Nothing #)
@@ -766,7 +768,7 @@ mapMaybe = mapMaybeWithKey . const
 -- > mapMaybeWithKey f (fromList [(5,"a"), (3,"b")]) == singleton 3 "key : 3"
 {-# INLINEABLE mapMaybeWithKey #-}
 mapMaybeWithKey :: TKey k => (k -> a -> Maybe b) -> TMap k a -> TMap k b
-mapMaybeWithKey f (TMap m) = TMap (Proj.mapMaybe (\ (Assoc k a) -> Assoc k <$> f k a) m)
+mapMaybeWithKey f (TMap m) = TMap (TK.mapMaybe (\ (Assoc k a) -> Assoc k <$> f k a) m)
 
 -- | Partition the map according to a predicate. The first
 -- map contains all elements that satisfy the predicate, the second all
@@ -1018,20 +1020,20 @@ key (TLoc k _) = k
 -- | @'before' loc@ is the submap with keys less than @'key' loc@.
 {-# INLINE before #-}
 before :: TKey k => TLocation k a -> TMap k a
-before (TLoc _ hole) = TMap (beforeM hole)
+before (TLoc _ hole) = TMap (TK.before hole)
 
 -- | @'after' loc@ is the submap with keys greater than @'key' loc@.
 {-# INLINE after #-}
 after :: TKey k => TLocation k a -> TMap k a
-after (TLoc _ hole) = TMap (afterM hole)
+after (TLoc _ hole) = TMap (TK.after hole)
 
 -- | @'beforeWith' a loc@ is equivalent to @'insert' ('key' loc) a ('before' loc)@.
 beforeWith :: TKey k => a -> TLocation k a -> TMap k a
-beforeWith a (TLoc k hole) = TMap (beforeWithM (Assoc k a) hole)
+beforeWith a (TLoc k hole) = TMap (TK.beforeWith (Assoc k a) hole)
 
 -- | @'afterWith' a loc@ is equivalent to @'insert' ('key' loc) a ('after' loc)@.
 afterWith :: TKey k => a -> TLocation k a -> TMap k a
-afterWith a (TLoc k hole) = TMap (afterWithM (Assoc k a) hole)
+afterWith a (TLoc k hole) = TMap (TK.afterWith (Assoc k a) hole)
 
 -- | Search the map for the given key, returning the
 -- corresponding value (if any) and an updatable location for that key.
@@ -1047,7 +1049,7 @@ afterWith a (TLoc k hole) = TMap (afterWithM (Assoc k a) hole)
 -- @'lookup' k m == 'fst' ('search' k m)@
 {-# INLINE search #-}
 search :: TKey k => k -> TMap k a -> (Maybe a, TLocation k a)
-search k (TMap m) = searchMC (toRep k) m nomatch match where
+search k (TMap m) = TK.search (toRep k) m nomatch match where
   nomatch hole = (Nothing, TLoc k hole)
   match (Assoc k a) hole = (Just a, TLoc k hole)
 
@@ -1065,12 +1067,12 @@ search k (TMap m) = searchMC (toRep k) m nomatch match where
 -- @'elemAt' i m == let (v, loc) = 'index' i m in ('key' loc, v)@
 {-# INLINEABLE index #-}
 index :: TKey k => Int -> TMap k a -> (a, TLocation k a)
-index i (TMap m) = case indexM m (unbox i) of
+index i (TMap m) = case TK.index (unbox i) m of
   (# _, Assoc k a, hole #) -> (a, TLoc k hole)
 
 {-# INLINE extract #-}
 extract :: (TKey k, Functor m, MonadPlus m) => TMap k a -> m (a, TLocation k a)
-extract (TMap m) = fmap (\ (Assoc k a, hole) -> (a, TLoc k hole)) (extractHoleM m)
+extract (TMap m) = fmap (\ (Assoc k a, hole) -> (a, TLoc k hole)) (TK.alternate m)
 
 -- | /O(log n)/. Return the value and an updatable location for the
 -- least key in the map, or 'Nothing' if the map is empty.
@@ -1110,14 +1112,14 @@ maxLocation = getLast . extract
 -- @'assign' v loc == 'before' loc `union` 'singleton' ('key' loc) v `union` 'after' loc@
 {-# INLINE assign #-}
 assign :: TKey k => a -> TLocation k a -> TMap k a
-assign a (TLoc k hole) = TMap (assignM (Assoc k a) hole)
+assign a (TLoc k hole) = TMap (TK.assign (Assoc k a) hole)
 
 -- | Return a map obtained by erasing the location.
 --
 -- @'clear' loc == 'before' loc `union` 'after' loc@
 {-# INLINE clear #-}
 clear :: TKey k => TLocation k a -> TMap k a
-clear (TLoc _ hole) = TMap (clearM hole)
+clear (TLoc _ hole) = TMap (TK.clear hole)
 
 {-# INLINE fillHole #-}
 fillHole :: TKey k => Maybe a -> TLocation k a -> TMap k a
