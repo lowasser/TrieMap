@@ -24,6 +24,7 @@ instance Repr Word where
   type Rep Word = Word
   toRep = id
   type RepStream Word = Vector Word
+  {-# INLINE toRepStreamM #-}
   toRepStreamM strm = unstreamM strm
 
 instance Repr () where
