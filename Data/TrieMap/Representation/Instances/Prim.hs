@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables, BangPatterns, TypeFamilies, UndecidableInstances, CPP, GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS -funbox-strict-fields #-}
-module Data.TrieMap.Representation.Instances.Prim () where
+module Data.TrieMap.Representation.Instances.Prim (i2w) where
 
 import Control.Monad.Primitive
 
@@ -131,19 +131,14 @@ packStream (Stream step s0 size) = Stream step' s0' size' where
   ratio = wordSize `quoPow` wSize
   
   s0' = Start s0
-  size' = 1 + case size of
-    Exact n -> Exact ((ratio - 1 + n) `quoPow` ratio)
-    Max n -> Max ((ratio - 1 + n) `quoPow` ratio)
+  size' = 2 + case size of
+    Exact n -> Exact (( n) `quoPow` ratio)
+    Max n -> Max ((n) `quoPow` ratio)
     Unknown -> Unknown
   
   step' Stop = return Done
   step' (End i) = return (Yield (fromIntegral i) Stop)
-  step' (Start s) = do
-    st <- step s
-    case st of
-      Done	-> return $ Skip (End ratio)
-      Skip s'	-> return $ Skip (Start s')
-      Yield ww s' -> return $ Skip (Normal 1 (fromIntegral ww) s')
+  step' (Start s) = return (Skip (Normal 0 0 s))
   step' (Normal i w s)
     | i < ratio	= do
 	st <- step s
