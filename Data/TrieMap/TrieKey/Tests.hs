@@ -112,9 +112,6 @@ testSimple test _ = testQuery (test ++ "/TrieKey/Simple")
       [(k, a)] -> Singleton (k, a)
       _	-> NonSimple)
 
-expect :: (Eq a, Show a) => a -> a -> Property
-expect expected actual = printTestCase ("Expected: " ++ show expected ++ "\nActual: " ++ show actual) (expected == actual)
-
 testMap :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testMap test _ = testOp (test ++ "/Functor")
   (fmap (fmap sq) :: TOp k Int) (fmap sq)

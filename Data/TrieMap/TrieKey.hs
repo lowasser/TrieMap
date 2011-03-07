@@ -50,7 +50,7 @@ type UMStack k = UStack (TrieMap k)
 type AMStack k = AStack (TrieMap k)
 type DAMStack k = DAStack (TrieMap k)
 
-data Simple a = Null | Singleton a | NonSimple deriving (Eq)
+data Simple a = Null | Singleton a | NonSimple deriving (Eq, Show)
 
 instance Monad Simple where
 	return = Singleton

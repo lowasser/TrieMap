@@ -26,10 +26,13 @@ instance Ord k => Model (M.Map k a) [(k, a)] where
   toModel m = M.assocs m
   fromModel xs = M.fromList xs
 
-testQuery :: (TrieKey k, Arbitrary k, Show k, Eq r) => 
+expect :: (Eq a, Show a) => a -> a -> Property
+expect expected actual = printTestCase ("Expected: " ++ show expected ++ "\nActual: " ++ show actual) (expected == actual)
+
+testQuery :: (TrieKey k, Arbitrary k, Show k, Show r, Eq r) => 
   String -> TQuery k Int r -> MQuery k Int r -> Property
 testQuery test queryTrie queryMap = printTestCase test $ \ xs ->
-  queryTrie (fromModel xs) == queryMap (fromModel xs)
+  expect (queryMap (fromModel xs)) (queryTrie (fromModel xs))
 
 testOp :: (TrieKey k, Arbitrary k, Show k) =>
   String -> TOp k Int -> MOp k Int -> Property
