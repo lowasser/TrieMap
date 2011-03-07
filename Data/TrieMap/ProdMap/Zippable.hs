@@ -10,6 +10,7 @@ instance (Zippable (TrieMap k1), TrieKey k2, Zippable (TrieMap k2)) => Zippable 
   assign a (PHole h1 h2) = PMap (assign (assign a h2) h1)
 
 instance (Alternatable (TrieMap k1), Alternatable (TrieMap k2)) => Alternatable (TrieMap (k1, k2)) where
+  {-# INLINE alternate #-}
   alternate (PMap m) = do
     (m', h1) <- alternate m
     (a, h2) <- alternate m'

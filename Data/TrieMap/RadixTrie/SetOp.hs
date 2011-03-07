@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP, BangPatterns, ViewPatterns, FlexibleInstances #-}
+
 module Data.TrieMap.RadixTrie.SetOp () where
 
 import Control.Monad.Option

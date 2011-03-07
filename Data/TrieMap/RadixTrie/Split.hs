@@ -1,4 +1,7 @@
 {-# LANGUAGE CPP, FlexibleInstances, BangPatterns, ViewPatterns #-}
+#if __GLASGOW_HASKELL__ >= 700
+{-# OPTIONS -fllvm #-}
+#endif
 module Data.TrieMap.RadixTrie.Split () where
 
 import Data.TrieMap.RadixTrie.Base

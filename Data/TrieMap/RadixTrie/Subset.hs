@@ -1,4 +1,7 @@
 {-# LANGUAGE CPP, BangPatterns, ViewPatterns, FlexibleInstances #-}
+#if __GLASGOW_HASKELL__ >= 700
+{-# OPTIONS -fllvm #-}
+#endif
 module Data.TrieMap.RadixTrie.Subset () where
 
 import Control.Monad

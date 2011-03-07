@@ -1,5 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables, BangPatterns, TypeFamilies, UndecidableInstances, CPP, GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+#if __GLASGOW_HASKELL__ >= 700
+{-# OPTIONS -fllvm #-}
+#endif
 module Data.TrieMap.Representation.Instances.Prim () where
 
 import Control.Monad.Primitive

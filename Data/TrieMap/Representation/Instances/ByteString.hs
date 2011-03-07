@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances, TypeFamilies, BangPatterns #-}
+
 module Data.TrieMap.Representation.Instances.ByteString () where
 
 import Control.Monad.Primitive

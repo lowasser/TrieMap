@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell, TypeFamilies, UndecidableInstances #-}
+
 module Data.TrieMap.Representation.Instances.Foreign () where
 
 import Foreign.C.Types

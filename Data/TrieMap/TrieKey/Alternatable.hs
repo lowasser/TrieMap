@@ -19,6 +19,6 @@ class Alternatable f where
   lastHole m = inline alternate m
 
 {-# RULES
-  "alternate/First" alternate = firstHole;
-  "alternate/Last" alternate = lastHole;
+  "alternate/First" forall m . alternate m = firstHole m;
+  "alternate/Last" forall m . alternate m = lastHole m;
   #-}

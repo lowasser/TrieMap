@@ -1,4 +1,7 @@
 {-# LANGUAGE CPP, MagicHash, UnboxedTuples, FlexibleInstances, BangPatterns #-}
+#if __GLASGOW_HASKELL__ >= 700
+{-# OPTIONS -fllvm #-}
+#endif
 module Data.TrieMap.RadixTrie.Index () where
 
 import Data.TrieMap.RadixTrie.Base

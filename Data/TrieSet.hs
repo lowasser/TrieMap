@@ -159,9 +159,9 @@ split a s = case splitMember a s of
 -- | Performs a 'split' but also returns whether the pivot
 -- element was found in the original set.
 splitMember :: TKey a => a -> TSet a -> (TSet a, Bool, TSet a)
-splitMember a (TSet s) = search (toRep a) s nomatch match where
-  nomatch hole = (TSet (before hole), False, TSet (after hole))
-  match _ hole = (TSet (before hole), True, TSet (after hole))
+splitMember a (TSet s) = case splitLookup (toRep a) s of
+  (sL, Nothing, sR) -> (TSet sL, False, TSet sR)
+  (sL, Just{}, sR) -> (TSet sL, True, TSet sR)
 
 -- |
 -- @'map' f s@ is the set obtained by applying @f@ to each element of @s@.

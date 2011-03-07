@@ -1,4 +1,7 @@
 {-# LANGUAGE CPP, BangPatterns, ViewPatterns, UnboxedTuples, FlexibleInstances #-}
+#if __GLASGOW_HASKELL__ >= 700
+{-# OPTIONS -fllvm #-}
+#endif
 module Data.TrieMap.RadixTrie.Project () where
 
 import Data.TrieMap.RadixTrie.Base

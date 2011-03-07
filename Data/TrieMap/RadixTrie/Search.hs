@@ -1,5 +1,8 @@
 {-# LANGUAGE CPP, BangPatterns, ViewPatterns, FlexibleInstances, TypeOperators, FlexibleContexts, TypeSynonymInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+#if __GLASGOW_HASKELL__ >= 700
+{-# OPTIONS -fllvm #-}
+#endif
 module Data.TrieMap.RadixTrie.Search (insertEdge) where
 
 import Control.Monad.Unpack
