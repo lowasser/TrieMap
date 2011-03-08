@@ -160,5 +160,5 @@ packStream (Stream step s0 size) = Stream step' s0' size' where
 	case st of
 	  Skip s' -> return $ Skip (Normal i w s')
 	  Yield ww s' -> return $ Skip (Normal (i+1) ((w .<<. wSize) .|. fromIntegral ww) s')
-	  Done  -> return $ Skip (Normal (i+1) (w .<<. wSize) s)
+	  Done  -> return $ Yield (w .<<. (wSize * (ratio - i))) (End i)
     | otherwise = return (Yield w (Start s))
