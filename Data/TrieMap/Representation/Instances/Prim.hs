@@ -22,7 +22,7 @@ import Data.Vector.Fusion.Stream.Size
 import Data.Vector.Fusion.Stream.Monadic (Stream(..), Step(..))
 
 import Prelude hiding (map)
-import GHC.Exts
+-- import GHC.Exts
 
 #define WDOC(ty) {-| @'Rep' 'ty' = 'Word'@ -}
 
@@ -113,34 +113,39 @@ instance Repr Bool where
 i2w :: forall i w . (Integral i, Bounded i, Bits w, Integral w) => i -> w
 i2w !i = fromIntegral i `xor` fromIntegral (minBound :: i)
 
-data PackState s = PackState !Word !Int s | Last !Int | End
-{-# ANN type PackState ForceSpecConstr #-}
-
 {-# INLINE wStreamToRep #-}
 wStreamToRep :: (Bits w, Integral w, PrimMonad m) => Stream m w -> m (Vector Word, Word)
 wStreamToRep xs = do
   !ys <- unstreamM (packStream xs)
   return (unsafeInit ys, unsafeLast ys)
 
-{-# INLINE [1] packStream #-}
-packStream :: forall m w . (Bits w, Integral w, Monad m) => Stream m w -> Stream m Word
-packStream (Stream step s0 size) = Stream step' s0' size'
-  where	!ratio = wordSize `quoPow` bitSize (0 :: w)
-	size' = 1 + case size of
-	  Exact n	-> Exact $ (n + ratio - 1) `quoPow` ratio
-	  Max n		-> Max $ (n + ratio - 1) `quoPow` ratio
-	  Unknown	-> Unknown
-	s0' = PackState 0 ratio s0
-	step' End = return Done
-	step' (Last i) = return $ Yield (fromIntegral i) End
-	step' (PackState w 0 s) = return $ Yield w (PackState 0 ratio s)
-	step' (PackState w i s) = do
-	  s' <- step s
-	  case s' of
-	    Done  | i == ratio	-> return $ Skip (Last ratio)
-		  | otherwise	-> return $ Yield (w .<<. (i * bitSize (0 :: w))) (Last (ratio - i))
-	    Skip s'		-> return $ Skip (PackState w i s')
-	    Yield ww s'		-> return $ Skip (PackState ((w .<<. bitSize (0 :: w)) .|. fromIntegral ww) (i-1) s')
-
 wordSize :: Int
 wordSize = bitSize (0 :: Word)
+
+data State s =
+  Normal !Int !Word s | Start s | End !Int | Stop
+
+{-# INLINE packStream #-}
+packStream :: forall m w . (Bits w, Integral w, Monad m) => Stream m w -> Stream m Word
+packStream (Stream step s0 size) = Stream step' s0' size' where
+  wSize = bitSize (0 :: w)
+  
+  ratio = wordSize `quoPow` wSize
+  
+  s0' = Start s0
+  size' = 2 + case size of
+    Exact n -> Exact (( n) `quoPow` ratio)
+    Max n -> Max ((n) `quoPow` ratio)
+    Unknown -> Unknown
+  
+  step' Stop = return Done
+  step' (End i) = return (Yield (fromIntegral i) Stop)
+  step' (Start s) = return (Skip (Normal 0 0 s))
+  step' (Normal i w s)
+    | i < ratio	= do
+	st <- step s
+	case st of
+	  Skip s'	-> return $ Skip (Normal i w s')
+	  Yield ww s'	-> return $ Skip (Normal (i+1) ((w .<<. wSize) .|. fromIntegral ww) s')
+	  Done		-> return $ Yield (w .<<. ((ratio - i) * wSize)) (End i)
+    | otherwise	= return (Yield w (Start s))

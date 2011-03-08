@@ -9,4 +9,4 @@ import Data.ByteString
 import Test.QuickCheck
 
 tests :: Property
-tests = testRepr (toRep :: ToRep ByteString)
+tests = printTestCase "ByteString" $ testRepr (toRep :: ToRep ByteString)
