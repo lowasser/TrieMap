@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables, BangPatterns, TypeFamilies, UndecidableInstances, CPP, GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS -funbox-strict-fields #-}
 #if __GLASGOW_HASKELL__ >= 700
 {-# OPTIONS -fllvm #-}
 #endif
@@ -122,8 +123,8 @@ wStreamToRep xs = do
 wordSize :: Int
 wordSize = bitSize (0 :: Word)
 
-data State s =
-  Normal !Int !Word s | Start s | End !Int | Stop
+data State s = Start !s |
+  Normal !Int !Word !s | End !Int | Stop
 
 {-# INLINE packStream #-}
 packStream :: forall m w . (Bits w, Integral w, Monad m) => Stream m w -> Stream m Word
@@ -140,12 +141,19 @@ packStream (Stream step s0 size) = Stream step' s0' size' where
   
   step' Stop = return Done
   step' (End i) = return (Yield (fromIntegral i) Stop)
-  step' (Start s) = return (Skip (Normal 0 0 s))
-  step' (Normal i w s)
-    | i < ratio	= do
-	st <- step s
-	case st of
-	  Skip s'	-> return $ Skip (Normal i w s')
-	  Yield ww s'	-> return $ Skip (Normal (i+1) ((w .<<. wSize) .|. fromIntegral ww) s')
-	  Done		-> return $ Yield (w .<<. ((ratio - i) * wSize)) (End i)
-    | otherwise	= return (Yield w (Start s))
+  step' (Start s) = do
+    st <- step s
+    case st of
+      Skip s' -> return $ Skip $ Start s'
+      Done -> return (Yield (fromIntegral ratio) Stop)
+      Yield ww s' -> return $ Skip (Normal 1 (fromIntegral ww) s')
+  step' (Normal i w s) = do
+    st <- step s
+    case st of
+      Skip s'
+	| i < ratio	-> return $ Skip (Normal i w s')
+	| otherwise	-> return $ Yield w (Start s')
+      Yield ww s'
+	| i < ratio	-> return $ Skip (Normal (i+1) ((w .<<. wSize) .|. fromIntegral ww) s')
+	| otherwise	-> return $ Yield w (Normal 1 (fromIntegral ww) s')
+      Done  -> return $ Yield (w .<<. ((ratio - i) * wSize)) (End i)
