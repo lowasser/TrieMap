@@ -9,7 +9,7 @@ module Data.TrieMap.Representation.Instances.Prim () where
 import Control.Monad.Primitive
 
 import Data.TrieMap.Representation.Class
-import Data.TrieMap.Representation.Instances.Basic ()
+-- import Data.TrieMap.Representation.Instances.Basic ()
 import Data.TrieMap.Representation.Instances.Prim.Bool
 import Data.TrieMap.Utils
 
@@ -24,6 +24,13 @@ import Data.Vector.Fusion.Stream.Monadic (Stream(..), Step(..))
 
 import Prelude hiding (map)
 -- import GHC.Exts
+
+instance Repr Word where
+  type Rep Word = Word
+  toRep = id
+  type RepStream Word = Vector Word
+  {-# INLINE toRepStreamM #-}
+  toRepStreamM strm = unstreamM strm
 
 #define WDOC(ty) {-| @'Rep' 'ty' = 'Word'@ -}
 
@@ -147,13 +154,11 @@ packStream (Stream step s0 size) = Stream step' s0' size' where
       Skip s' -> return $ Skip $ Start s'
       Done -> return (Yield (fromIntegral ratio) Stop)
       Yield ww s' -> return $ Skip (Normal 1 (fromIntegral ww) s')
-  step' (Normal i w s) = do
-    st <- step s
-    case st of
-      Skip s'
-	| i < ratio	-> return $ Skip (Normal i w s')
-	| otherwise	-> return $ Yield w (Start s')
-      Yield ww s'
-	| i < ratio	-> return $ Skip (Normal (i+1) ((w .<<. wSize) .|. fromIntegral ww) s')
-	| otherwise	-> return $ Yield w (Normal 1 (fromIntegral ww) s')
-      Done  -> return $ Yield (w .<<. ((ratio - i) * wSize)) (End i)
+  step' (Normal i w s)
+    | i < ratio =  do
+	st <- step s
+	case st of
+	  Skip s' -> return $ Skip (Normal i w s')
+	  Yield ww s' -> return $ Skip (Normal (i+1) ((w .<<. wSize) .|. fromIntegral ww) s')
+	  Done  -> return $ Skip (Normal (i+1) (w .<<. wSize) s)
+    | otherwise = return (Yield w (Start s))

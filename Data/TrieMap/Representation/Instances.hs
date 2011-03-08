@@ -43,6 +43,7 @@ instance Repr a => Repr (Seq.Seq a) where
 
 genRepr ''Tree
 genRepr ''Ratio
+genRepr ''Ordering
 
 instance Repr Integer where
 	type Rep Integer = Either (Rev (Word, P.Vector Word)) (Word, P.Vector Word)
