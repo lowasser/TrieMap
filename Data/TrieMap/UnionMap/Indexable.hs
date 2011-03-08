@@ -1,4 +1,4 @@
-{-# LANGUAGE UnboxedTuples, MagicHash, FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE UnboxedTuples, MagicHash, FlexibleInstances, FlexibleContexts, PatternGuards #-}
 module Data.TrieMap.UnionMap.Indexable () where
 
 import Data.TrieMap.UnionMap.Base

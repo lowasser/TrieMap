@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP, BangPatterns, ViewPatterns, FlexibleInstances, TypeOperators, FlexibleContexts, TypeSynonymInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, PatternGuards #-}
 #if __GLASGOW_HASKELL__ >= 700
 {-# OPTIONS -fllvm #-}
 #endif

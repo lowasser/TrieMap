@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, PatternGuards #-}
 module Data.TrieMap.UnionMap.SetOp () where
 
 import Data.TrieMap.UnionMap.Base
