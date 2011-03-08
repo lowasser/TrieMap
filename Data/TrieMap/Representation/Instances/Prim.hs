@@ -1,12 +1,15 @@
 {-# LANGUAGE ScopedTypeVariables, BangPatterns, TypeFamilies, UndecidableInstances, CPP, GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS -funbox-strict-fields #-}
-module Data.TrieMap.Representation.Instances.Prim (i2w) where
+#if __GLASGOW_HASKELL__ >= 700
+{-# OPTIONS -fllvm #-}
+#endif
+module Data.TrieMap.Representation.Instances.Prim () where
 
 import Control.Monad.Primitive
 
 import Data.TrieMap.Representation.Class
-import Data.TrieMap.Representation.Instances.Basic ()
+-- import Data.TrieMap.Representation.Instances.Basic ()
 import Data.TrieMap.Representation.Instances.Prim.Bool
 import Data.TrieMap.Utils
 
@@ -21,6 +24,13 @@ import Data.Vector.Fusion.Stream.Monadic (Stream(..), Step(..))
 
 import Prelude hiding (map)
 -- import GHC.Exts
+
+instance Repr Word where
+  type Rep Word = Word
+  toRep = id
+  type RepStream Word = Vector Word
+  {-# INLINE toRepStreamM #-}
+  toRepStreamM strm = unstreamM strm
 
 #define WDOC(ty) {-| @'Rep' 'ty' = 'Word'@ -}
 
@@ -120,8 +130,8 @@ wStreamToRep xs = do
 wordSize :: Int
 wordSize = bitSize (0 :: Word)
 
-data State s =
-  Normal !Int !Word s | Start s | End !Int | Stop
+data State s = Start !s |
+  Normal !Int !Word !s | End !Int | Stop
 
 {-# INLINE packStream #-}
 packStream :: forall m w . (Bits w, Integral w, Monad m) => Stream m w -> Stream m Word
@@ -138,9 +148,14 @@ packStream (Stream step s0 size) = Stream step' s0' size' where
   
   step' Stop = return Done
   step' (End i) = return (Yield (fromIntegral i) Stop)
-  step' (Start s) = return (Skip (Normal 0 0 s))
+  step' (Start s) = do
+    st <- step s
+    case st of
+      Skip s' -> return $ Skip $ Start s'
+      Done -> return (Yield (fromIntegral ratio) Stop)
+      Yield ww s' -> return $ Skip (Normal 1 (fromIntegral ww) s')
   step' (Normal i w s)
-    | i < ratio	= do
+    | i < ratio =  do
 	st <- step s
 	case st of
 	  Skip s'	-> return $ Skip (Normal i w s')

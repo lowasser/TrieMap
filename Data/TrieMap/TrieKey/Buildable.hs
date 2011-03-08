@@ -9,6 +9,8 @@ module Data.TrieMap.TrieKey.Buildable (
   combineFold) where
 
 import Data.TrieMap.Sized
+import Data.TrieMap.TrieKey.Searchable
+import Data.TrieMap.TrieKey.Zippable
 
 class Buildable f k | f -> k where
   type UStack f :: * -> *
@@ -41,12 +43,11 @@ mapFoldlKeys :: (k -> k') -> Foldl stack k' a result -> Foldl stack k a result
 mapFoldlKeys f Foldl{..} = Foldl{snoc = \ z k a -> snoc z (f k) a, begin = begin . f, ..}
 
 {-# INLINE defaultUFold #-}
-defaultUFold :: f a -> (k -> a -> f a) -> ((a -> a) -> k -> a -> f a -> f a) -> 
-  (a -> a -> a) -> Foldl f k a (f a)
-defaultUFold empty single insert f = Foldl{
+defaultUFold :: (Searchable f k, Sized a) => (a -> a -> a) -> Foldl f k a (f a)
+defaultUFold f = Foldl{
   zero = empty,
-  begin = single,
-  snoc = \ m k a -> insert (f a) k a m,
+  begin = singleton,
+  snoc = \ m k a -> insertWith (f a) k a m,
   done = id}
 
 data Distinct k z a = Begin k a | Dist k a (z a)

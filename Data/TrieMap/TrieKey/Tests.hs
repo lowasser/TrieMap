@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, DeriveFunctor #-}
+{-# LANGUAGE ScopedTypeVariables, DeriveFunctor, ViewPatterns #-}
 module Data.TrieMap.TrieKey.Tests (tests) where
 
 import Control.Monad.Option
@@ -17,7 +17,7 @@ import qualified Data.TrieMap.TrieKey.Projection.Tests as ProjTests
 
 import Test.QuickCheck
 import Test.QuickCheck.Function
-import Prelude hiding (foldr, foldl)
+import Prelude hiding (foldr, foldl, lookup)
 
 testSize :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testSize test _ = testQuery (test ++ "/TrieKey/Size")
@@ -26,28 +26,28 @@ testSize test _ = testQuery (test ++ "/TrieKey/Size")
 testIndex :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testIndex test _ = printTestCase (test ++ "/TrieKey/Index") $ \ (NonNegative i) (NonEmpty (xs :: [(k, Int)])) ->
   let tm = fromModel xs :: TMap k Int; m = fromModel xs; i' = i `rem` M.size m in
-  case indexM' tm i' of
+  case index' i' tm of
     (_, Assoc k1 a1, hole) -> let m = fromModel xs in case (M.elemAt i' m, M.deleteAt i' m) of
-      ((k2, a2), m') -> k1 == k2 && a1 == a2 && toModel (clearM hole) == toModel m'
+      ((k2, a2), m') -> k1 == k2 && a1 == a2 && toModel (clear hole) == toModel m'
 
 testAlter :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testAlter test _ = property $ \ (k :: k) r0 -> let
   g Nothing = r0
   g (Just a) = if odd a then Just (a * a) else Nothing
   f = fmap (Assoc k) . g . fmap getValue
-  in testOp (test ++ "/TrieKey/Alter") (alterM f k) (M.alter g k)
+  in testOp (test ++ "/TrieKey/Alter") (alter f k) (M.alter g k)
 
 testLookup :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testLookup test _ = property $ \ (k :: k) -> testQuery (test ++ "/TrieKey/Lookup")
-  (fmap getValue . liftOption . lookupMC k) (M.lookup k)
+  (fmap getValue . liftOption . lookup k) (M.lookup k)
 
 testSearchLookup :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testSearchLookup test _ = printTestCase (test ++ "/TrieKey/Search-Lookup") $ \ k (xs :: [(k, Int)]) -> 
-  let m = fromModel xs :: TMap k Int in liftOption (lookupMC k m) == searchMC k m (const Nothing) (const . Just)
+  let m = fromModel xs :: TMap k Int in liftOption (lookup k m) == search k m (const Nothing) (const . Just)
 
 testSearchAssignClear :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testSearchAssignClear test _ = printTestCase (test ++ "/TrieKey/Search-Assign-Clear") $ \ k (xs :: [(k, Int)]) ->
-  toModel (searchMC k (fromModel xs :: TMap k Int) clearM assignM) == toModel (fromModel xs :: TMap k Int)
+  toModel (search k (fromModel xs :: TMap k Int) clear assign) == toModel (fromModel xs :: TMap k Int)
 
 testExtractHole :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testExtractHole test _ = testQuery (test ++ "/TrieKey/ExtractHole")
@@ -55,8 +55,8 @@ testExtractHole test _ = testQuery (test ++ "/TrieKey/ExtractHole")
 
 extractHoleTMap :: TrieKey k => TMap k a -> [(k, a, [(k, a)])]
 extractHoleTMap m = do
-  (Assoc k a, hole) <- extractHoleM m
-  return (k, a, toModel (clearM hole))
+  (Assoc k a, hole) <- alternate m
+  return (k, a, toModel (clear hole))
 
 extractHoleList :: [(k, a)] -> [(k, a, [(k, a)])]
 extractHoleList [] = []
@@ -80,28 +80,27 @@ testFoldMap test _ = testQuery (test ++ "/Foldable/Foldl")
 
 testInsertWith :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testInsertWith test _ = property $ \ (k :: k) (fun :: Fun (Int, Int) Int) (a :: Int) -> testOp (test ++ "/TrieKey/InsertWith")
-  (insertWithM (\ (Assoc _ b) -> Assoc k $ apply fun (a, b)) k (Assoc k a) :: TOp k Int)
+  (insertWith (\ (Assoc _ b) -> Assoc k $ apply fun (a, b)) k (Assoc k a) :: TOp k Int)
   (M.insertWith (curry $ apply fun) k a)
 
 testSplit :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testSplit test _ = printTestCase (test ++ "/TrieKey/SplitLookup") $ \ k (xs :: [(k, Int)]) ->
   case M.splitLookup k (fromModel xs) of
-    (lM, xM, rM) -> case searchMC k (fromModel xs :: TMap k Int) (\ hole -> (beforeM hole, Nothing, afterM hole))
-	(\ (Assoc _ a) hole -> (beforeM hole, Just a, afterM hole)) of
-      (lT, xT, rT) -> conjoin [
+    (lM, xM, rM) -> case splitLookup k (fromModel xs :: TMap k Int) of
+      (lT, fmap getValue -> xT, rT) -> conjoin [
 	printTestCase "Exact" $ expect xM xT,
 	printTestCase "Less" $ expect (toModel lM) (toModel lT),
 	printTestCase "Greater" $ expect (toModel rM) (toModel rT)]
 
 testBeforeWith :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testBeforeWith test _ = printTestCase (test ++ "/TrieKey/BeforeWith") $ \ k a0 xs -> let a = Assoc k a0 in
-  let hole = searchMC k (fromModel xs :: TMap k Int) id (const id) in
-    toModel (insertWithM id k a (beforeM hole)) == toModel (beforeWithM a hole)
+  let hole = search k (fromModel xs :: TMap k Int) id (const id) in
+    toModel (insertWith id k a (before hole)) == toModel (beforeWith a hole)
 
 testAfterWith :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testAfterWith test _ = printTestCase (test ++ "/TrieKey/AfterWith") $ \ k a0 xs -> let a = Assoc k a0 in
-  let hole = searchMC k (fromModel xs :: TMap k Int) id (const id) in
-    toModel (insertWithM id k a (afterM hole)) == toModel (afterWithM a hole)
+  let hole = search k (fromModel xs :: TMap k Int) id (const id) in
+    toModel (insertWith id k a (after hole)) == toModel (afterWith a hole)
 
 testSimple :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testSimple test _ = testQuery (test ++ "/TrieKey/Simple")
@@ -112,9 +111,6 @@ testSimple test _ = testQuery (test ++ "/TrieKey/Simple")
       [] -> Null
       [(k, a)] -> Singleton (k, a)
       _	-> NonSimple)
-
-expect :: (Eq a, Show a) => a -> a -> Property
-expect expected actual = printTestCase ("Expected: " ++ show expected ++ "\nActual: " ++ show actual) (expected == actual)
 
 testMap :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testMap test _ = testOp (test ++ "/Functor")
@@ -140,8 +136,8 @@ testTraverse test _ = testOp (test ++ "/Traversable")
 
 testSingle :: forall k . (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 testSingle test _ = printTestCase (test ++ "/Single") $ \ (k :: k) (a0 :: Int) -> let a = Assoc k a0 in
-  expect (toModel (singletonM k a)) (toModel (assignM a (singleHoleM k))) .&&.
-  expect (toModel (singletonM k a)) (toModel (runFoldl (uFold const) [(k, a)] :: TMap k Int))
+  expect (toModel (singleton k a :: TMap k Int)) (toModel (assign a (singleZip k) :: TMap k Int)) .&&.
+  expect (toModel (singleton k a :: TMap k Int)) (toModel (runFoldl (uFold const) [(k, a)] :: TMap k Int))
 
 tests :: (TrieKey k, Arbitrary k, Show k) => String -> k -> Property
 tests test k = conjoin [t test k | t <- 

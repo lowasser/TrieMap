@@ -1,18 +1,21 @@
-{-# LANGUAGE MagicHash, DeriveFunctor, DeriveFoldable, DeriveTraversable, ImplicitParams #-}
+{-# LANGUAGE MagicHash, DeriveFunctor, DeriveFoldable, DeriveTraversable, ImplicitParams, GeneralizedNewtypeDeriving #-}
 
 module Data.TrieMap.Sized where
 
 import Data.TrieMap.TrieKey.Subset
+
 import Data.Foldable
 import Data.Traversable
+import Data.Functor.Immoral
+
 import GHC.Exts
 
 class Sized a where
   getSize# :: a -> Int#
 
-data Assoc k a = Assoc {getK :: k, getValue :: a} deriving (Eq, Functor, Foldable, Traversable)
+data Assoc k a = Assoc {getK :: k, getValue :: a} deriving (Eq, Show, Functor, Foldable, Traversable)
 
-newtype Elem a = Elem {getElem :: a} deriving (Functor, Foldable, Traversable)
+newtype Elem a = Elem {getElem :: a} deriving (Functor, Foldable, Traversable, ImmoralMap a)
 
 instance Subset Elem where
   Elem a <=? Elem b = ?le a b

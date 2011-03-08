@@ -35,11 +35,8 @@ import GHC.Exts
       APSPECV(Word32),
       APSPECV(Word64),
       APSPECV(Char),
-      APSPECV(Float),
-      APSPECV(Double),
       USPECV(Bool),
-      SSPECV(Bool),
-      USPECV(())
+      SSPECV(Bool)
  #-}
 directToRep :: (Repr a, Vector v a) => v a -> RepStream a
 directToRep xs = toRepStream (stream xs)

@@ -9,21 +9,12 @@ import qualified Data.Monoid as M
 import Data.TrieMap.TrieKey
 import Data.TrieMap.Modifiers
 
-import Prelude hiding (foldr, foldl, foldr1, foldl1)
+import Data.TrieMap.ReverseMap.Dual
+
+import Prelude hiding (foldr, foldl, foldr1, foldl1, lookup)
 import GHC.Exts
 
-newtype DualPlus m a = DualPlus {runDualPlus :: m a} deriving (Functor, Monad)
-newtype Dual f a = Dual {runDual :: f a} deriving (Functor)
-
-instance Applicative f => Applicative (Dual f) where
-  pure a = Dual (pure a)
-  Dual f <*> Dual x = Dual (x <**> f)
-
-instance MonadPlus m => MonadPlus (DualPlus m) where
-  mzero = DualPlus mzero
-  DualPlus m `mplus` DualPlus k = DualPlus (k `mplus` m)
-
-#define INSTANCE(cl) (TrieKey k, cl (TrieMap k)) => cl (TrieMap (Rev k))
+#define INSTANCE(cl) (cl (TrieMap k)) => cl (TrieMap (Rev k))
 
 instance INSTANCE(Functor) where
   fmap f (RevMap m) = RevMap (f <$> m)
@@ -58,38 +49,47 @@ instance INSTANCE(Project) where
   mapMaybe f (RevMap m) = RevMap $ mapMaybe f m
   mapEither f (RevMap m) = both RevMap (mapEither f) m
 
+newtype instance TrieMap (Rev k) a = RevMap (TrieMap k a)
+newtype instance Zipper (TrieMap (Rev k)) a = RHole (Hole k a)
+
+instance INSTANCE(Zippable) where
+  empty = RevMap empty
+  clear (RHole hole) = RevMap (clear hole)
+  assign a (RHole hole) = RevMap (assign a hole)
+
+instance INSTANCE(Alternatable) where
+  alternate (RevMap m) = do
+    (a, hole) <- runDualPlus (alternate m)
+    return (a, RHole hole)
+  firstHole (RevMap m) = First (fmap RHole <$> getLast (lastHole m))
+  lastHole  (RevMap m) = Last (fmap RHole <$> getFirst (firstHole m))
+
+instance TrieKey k => Searchable (TrieMap (Rev k)) (Rev k) where
+  search (Rev k) (RevMap m) = mapHole RHole $ search k m
+  singleZip (Rev k) = RHole (singleZip k)
+  singleton (Rev k) a = RevMap (singleton k a)
+  lookup (Rev k) (RevMap m) = lookup k m
+  insertWith f (Rev k) a (RevMap m) = RevMap (insertWith f k a m)
+  alter f (Rev k) (RevMap m) = RevMap (alter f k m)
+
+instance Splittable (TrieMap k) => Splittable (TrieMap (Rev k)) where
+  before (RHole hole) = RevMap (after hole)
+  beforeWith a (RHole hole) = RevMap (afterWith a hole)
+  after (RHole hole) = RevMap (before hole)
+  afterWith a (RHole hole) = RevMap (beforeWith a hole)
+
+instance (TrieKey k, Indexable (TrieMap k)) => Indexable (TrieMap (Rev k)) where
+  index i (RevMap m) = case index (revIndex i m) m of
+    (# i', a, hole #) -> (# revIndex i' a, a, RHole hole #)
+    where revIndex :: Sized a => Int# -> a -> Int#
+	  revIndex i# a = getSize# a -# 1# -# i#
+
 -- | @'TrieMap' ('Rev' k) a@ is a wrapper around a @'TrieMap' k a@ that reverses the order of the operations.
 instance TrieKey k => TrieKey (Rev k) where
-	newtype TrieMap (Rev k) a = RevMap (TrieMap k a)
-	newtype Hole (Rev k) a = RHole (Hole k a)
-
-	emptyM = RevMap emptyM
-	singletonM (Rev k) a = RevMap (singletonM k a)
-	lookupMC (Rev k) (RevMap m) = lookupMC k m
-	sizeM (RevMap m) = sizeM m
-	getSimpleM (RevMap m) = getSimpleM m
-	
-	singleHoleM (Rev k) = RHole (singleHoleM k)
-	beforeM (RHole hole) = RevMap (afterM hole)
-	beforeWithM a (RHole hole) = RevMap (afterWithM a hole)
-	afterM (RHole hole) = RevMap (beforeM hole)
-	afterWithM a (RHole hole) = RevMap (beforeWithM a hole)
-	searchMC (Rev k) (RevMap m) = mapSearch RHole (searchMC k m)
-	indexM (RevMap m) i = case indexM m (revIndex i m) of
-	  (# i', a, hole #) -> (# revIndex i' a, a, RHole hole #)
-	  where	revIndex :: Sized a => Int# -> a -> Int#
-		revIndex i a = getSize# a -# 1# -# i
-	
-	extractHoleM (RevMap m) = fmap RHole <$> runDualPlus (extractHoleM m)
-	firstHoleM (RevMap m) = First (fmap RHole <$> getLast (lastHoleM m))
-	lastHoleM (RevMap m) = Last (fmap RHole <$> getFirst (firstHoleM m))
-	
-	assignM v (RHole m) = RevMap (assignM v m)
-	clearM (RHole m) = RevMap (clearM m)
-	
-	insertWithM f (Rev k) a (RevMap m) = RevMap (insertWithM f k a m)
-	
-	unifierM (Rev k') (Rev k) a = RHole <$> unifierM k' k a
+  sizeM (RevMap m) = sizeM m
+  getSimpleM (RevMap m) = getSimpleM m
+  unifierM (Rev k') (Rev k) a = RHole <$> unifierM k' k a
+  unifyM (Rev k1) a1 (Rev k2) a2 = RevMap <$> unifyM k1 a1 k2 a2
 
 {-# INLINE reverseFold #-}
 reverseFold :: FromList z k a -> FromList (RevFold z k) k a

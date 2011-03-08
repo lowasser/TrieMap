@@ -6,10 +6,8 @@ module Data.TrieMap.Representation.Instances.ByteString () where
 import Control.Monad.Primitive
 
 import Data.TrieMap.Representation.Class
--- import Data.TrieMap.Representation.Instances.Prim ()
 
--- import Data.Vector.Fusion.Stream
-import Data.Vector.Fusion.Stream.Monadic (Stream(..), Step(..), trans, generateM)
+import Data.Vector.Fusion.Stream.Monadic (Stream(..), Step(..), trans)
 import Data.Vector.Fusion.Stream.Size
 
 import Data.Word
@@ -47,7 +45,7 @@ streamBS :: Ptr Word8 -> Int -> Stream IO Word
 streamBS !src !n = Stream step Start{iIn = 0} (Exact n')
   where	!ratio = bitSize (0 :: Word) `quoPow` wSize
 	!wSize = bitSize (0 :: Word8)
-	!n' = 2 + ((ratio - 1 + n) `quoPow` ratio)
+	!n' = (ratio - 1 + n) `quoPow` ratio
 
 	step Stop = return Done
 	step Start{iIn}
