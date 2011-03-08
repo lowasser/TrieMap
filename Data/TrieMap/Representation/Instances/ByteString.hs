@@ -29,7 +29,7 @@ instance Repr ByteString where
   toRep !str = inlinePerformIO $ withByteString str $ \ ptr len -> do
 --     primToIO $ toRepStreamM (trans primToPrim $ generateM len (peekElemOff ptr))
       !xs <- unstreamM $ trans primToPrim $ streamBS ptr len
-      return (unsafeInit xs, unsafeLast xs)
+      return (xs, fromIntegral len)
   type RepStream ByteString = DRepStream ByteString
   toRepStreamM = dToRepStreamM
 
@@ -41,30 +41,27 @@ data State = Normal {iIn :: !Int,
 		iBlock :: !Int, tmp :: !Word}
 	      | Start {iIn :: !Int}
 	      | Ending {iIn :: !Int, tmp :: !Word}
-	      | Last !Int
-	      | End
+	      | Stop
 
 streamBS :: Ptr Word8 -> Int -> Stream IO Word
 streamBS !src !n = Stream step Start{iIn = 0} (Exact n')
   where	!ratio = bitSize (0 :: Word) `quoPow` wSize
 	!wSize = bitSize (0 :: Word8)
-	
-	!n' = 1 + ((ratio - 1 + n) `quoPow` ratio)
-	
-	step End = return Done
-	step (Last i) = return (Yield (fromIntegral i) End)
+	!n' = 2 + ((ratio - 1 + n) `quoPow` ratio)
+
+	step Stop = return Done
 	step Start{iIn}
-	  | iIn < n - ratio	= return (Skip Normal{iIn, iBlock = 0, tmp = 0})
+	  | iIn < 1 - ratio + n	= return (Skip Normal{iIn, iBlock = 0, tmp = 0})
+	  | n `remPow` ratio == 0
+	  			= return Done
 	  | otherwise		= return (Skip Ending{iIn, tmp = 0})
-	step Ending{iIn, tmp}
-	  | iIn < n	= do
-	      w <- peekElemOff src iIn
-	      return (Skip Ending{iIn = iIn + 1, tmp = (tmp .<<. wSize) .|. fromIntegral w})
-	  | otherwise	= do
-	      let !i = iIn `remPow` ratio
-	      return (Yield (tmp .<<. (i * wSize)) (Last i))
 	step Normal{iIn, iBlock, tmp}
 	  | iBlock < ratio	= do
-	      w <- peekElemOff src iIn
-	      return (Skip Normal{iIn = iIn + 1, iBlock = iBlock + 1, tmp = (tmp .<<. wSize) .|. fromIntegral w})
-	  | otherwise	= return (Yield tmp Start{iIn})
+	      ww <- peekElemOff src iIn
+	      return $ Skip Normal{iIn = iIn + 1, iBlock = iBlock + 1, tmp = (tmp .<<. wSize) .|. fromIntegral ww}
+	  | otherwise		= return $ Yield tmp Start{iIn}
+	step Ending{iIn, tmp}
+	  | iIn < n	= do
+	      ww <- peekElemOff src iIn
+	      return $ Skip Ending{iIn = iIn + 1, tmp = (tmp .<<. wSize) .|. fromIntegral ww}
+	  | otherwise	= return $ Yield (tmp .<<. (wSize * (ratio - (n `remPow` ratio)))) Stop
