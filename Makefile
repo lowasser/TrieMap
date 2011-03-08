@@ -21,6 +21,10 @@ RTS_OPTS := -H256M -A32M -s -M1G
 PROGRESSION_PREFIXES := ""
 PROGRESSION_GROUP := normal-bench
 
+bs :
+	rm $(OPTIMIZED_DIR)/Data/TrieMap/Representation/Instances/*.o
+	$(GHC_BIN) $(OPTIMIZED_GHC_OPTS) Data.TrieMap.Representation.Instances.ByteString -keep-tmp-files -v
+
 fast :
 	$(GHC_BIN) $(FAST_GHC_OPTS) Data.TrieMap Data.TrieSet
 debug:
