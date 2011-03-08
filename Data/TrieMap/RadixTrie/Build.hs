@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP, FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses, BangPatterns, RecordWildCards, TypeFamilies #-}
+{-# OPTIONS -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.RadixTrie.Build () where
 
 import Data.TrieMap.RadixTrie.Base

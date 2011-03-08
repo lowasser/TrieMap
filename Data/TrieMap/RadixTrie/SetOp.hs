@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP, BangPatterns, ViewPatterns, FlexibleInstances #-}
-
+{-# OPTIONS -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.RadixTrie.SetOp () where
 
 import Control.Monad.Option

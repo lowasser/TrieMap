@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns, FlexibleInstances #-}
+{-# OPTIONS -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.WordMap.Splittable () where
 
 import Data.TrieMap.TrieKey

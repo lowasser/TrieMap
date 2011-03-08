@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns, FlexibleInstances #-}
+{-# OPTIONS -O -fspec-constr -fliberate-case -fstatic-argument-transformation #-}
 module Data.TrieMap.WordMap.Alternatable () where
 
 import Data.TrieMap.TrieKey
